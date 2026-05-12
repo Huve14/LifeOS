@@ -1,0 +1,134 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+  --sand: #F5EFE0;
+  --terracotta: #C4714A;
+  --teal: #2A6E6B;
+  --gold: #D4A853;
+  --cream: #FAF7F2;
+  --dark: #1E1E1E;
+  --muted: #7A7168;
+  --white: #FFFFFF;
+  --line: #ECE4D2;
+  --shadow: 0 6px 18px -8px rgba(143, 102, 64, 0.18), 0 2px 6px rgba(143, 102, 64, 0.06);
+  --shadow-lg: 0 24px 48px -16px rgba(143, 102, 64, 0.28), 0 8px 16px rgba(143, 102, 64, 0.08);
+  --accent: var(--terracotta);
+  --radius: 20px;
+  --radius-sm: 12px;
+  --pad: 16px;
+}
+
+[data-dark="true"] {
+  --sand: #2C2620;
+  --cream: #1A1714;
+  --white: #25201B;
+  --dark: #F5EFE0;
+  --muted: #A89F92;
+  --line: #3A3128;
+  --shadow: 0 6px 18px rgba(0,0,0,0.4);
+  --shadow-lg: 0 24px 48px rgba(0,0,0,0.5);
+}
+
+[data-density="compact"] {
+  --pad: 12px;
+  --radius: 16px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: 'Inter', system-ui, sans-serif;
+  background: #E8DEC9;
+  color: var(--dark);
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background-image:
+    radial-gradient(at 10% 0%, rgba(212, 168, 83, 0.18) 0%, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(196, 113, 74, 0.15) 0%, transparent 50%),
+    radial-gradient(at 50% 50%, rgba(42, 110, 107, 0.06) 0%, transparent 60%);
+}
+
+h1, h2, h3, h4, h5 {
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 0;
+  color: var(--dark);
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  background: none;
+  padding: 0;
+  color: inherit;
+}
+
+input, textarea {
+  font-family: inherit;
+  color: inherit;
+}
+
+/* App-level transitions */
+.app * {
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Scrollbar tame */
+.app ::-webkit-scrollbar { width: 0; height: 0; }
+
+/* Confetti / celebration */
+@keyframes fall {
+  0% { transform: translateY(-40px) rotate(0deg); opacity: 0; }
+  10% { opacity: 1; }
+  100% { transform: translateY(900px) rotate(720deg); opacity: 0; }
+}
+
+@keyframes pop {
+  0% { transform: scale(0.4); opacity: 0; }
+  60% { transform: scale(1.08); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200px 0; }
+  100% { background-position: 200px 0; }
+}
+
+@keyframes pulse-ring {
+  0% { box-shadow: 0 0 0 0 rgba(196, 113, 74, 0.5); }
+  100% { box-shadow: 0 0 0 18px rgba(196, 113, 74, 0); }
+}
+
+@keyframes slide-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.fade-in { animation: fade-in 0.3s ease both; }
+.slide-up { animation: slide-up 0.3s cubic-bezier(0.2, 0.9, 0.3, 1) both; }
+.pop-in { animation: pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+
+/* Underline tab indicator */
+.tab-indicator {
+  height: 3px;
+  border-radius: 2px;
+  background: var(--gold);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Glow/pulse for AI button */
+.ai-pulse {
+  animation: pulse-ring 2s infinite;
+}

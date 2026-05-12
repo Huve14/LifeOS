@@ -1,0 +1,338 @@
+// components.jsx — Shared UI primitives for Suveda
+
+const STATUS = {
+  packed:   { bg: 'var(--teal)',       fg: '#fff', label: 'Packed'  },
+  toBuy:    { bg: 'var(--gold)',       fg: 'var(--dark)', label: 'To Buy' },
+  missing:  { bg: 'var(--terracotta)', fg: '#fff', label: 'Missing' },
+  done:     { bg: 'var(--teal)',       fg: '#fff', label: 'Done'    },
+  pending:  { bg: 'var(--gold)',       fg: 'var(--dark)', label: 'Pending' },
+  inProgress: { bg: 'var(--terracotta)', fg: '#fff', label: 'In progress' },
+};
+
+function Badge({ status, children, size = 'md' }) {
+  const s = STATUS[status] || { bg: 'var(--sand)', fg: 'var(--dark)', label: children };
+  const fontSize = size === 'sm' ? 11 : 12;
+  const pad = size === 'sm' ? '3px 8px' : '5px 11px';
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 4,
+      background: s.bg, color: s.fg,
+      padding: pad, borderRadius: 999,
+      fontSize, fontWeight: 600, letterSpacing: '0.01em',
+      whiteSpace: 'nowrap',
+    }}>
+      {children || s.label}
+    </span>
+  );
+}
+
+function Button({ variant = 'primary', children, onClick, full, icon, size = 'md', disabled }) {
+  const variants = {
+    primary: { bg: 'var(--terracotta)', fg: '#fff', border: 'transparent' },
+    teal:    { bg: 'var(--teal)',       fg: '#fff', border: 'transparent' },
+    gold:    { bg: 'var(--gold)',       fg: 'var(--dark)', border: 'transparent' },
+    ghost:   { bg: 'transparent',       fg: 'var(--dark)', border: 'var(--line)' },
+    soft:    { bg: 'var(--sand)',       fg: 'var(--dark)', border: 'transparent' },
+  };
+  const v = variants[variant];
+  const sizes = {
+    sm: { p: '8px 14px', fs: 13 },
+    md: { p: '12px 22px', fs: 14 },
+    lg: { p: '16px 28px', fs: 15 },
+  };
+  const sz = sizes[size];
+  return (
+    <button
+      onClick={disabled ? undefined : onClick}
+      style={{
+        background: v.bg, color: v.fg,
+        border: `1px solid ${v.border}`,
+        padding: sz.p, borderRadius: 999,
+        fontSize: sz.fs, fontWeight: 600,
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+        width: full ? '100%' : 'auto',
+        opacity: disabled ? 0.5 : 1,
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        boxShadow: variant === 'primary' || variant === 'teal' ? '0 4px 12px -4px rgba(143,102,64,0.4)' : 'none',
+      }}
+    >
+      {icon && <span style={{ fontSize: sz.fs + 2 }}>{icon}</span>}
+      {children}
+    </button>
+  );
+}
+
+function Card({ children, padding, style = {}, onClick, accent }) {
+  const p = padding ?? 'var(--pad)';
+  return (
+    <div
+      onClick={onClick}
+      style={{
+        background: 'var(--white)',
+        borderRadius: 'var(--radius)',
+        padding: p,
+        boxShadow: 'var(--shadow)',
+        border: '1px solid var(--line)',
+        cursor: onClick ? 'pointer' : 'default',
+        position: 'relative',
+        overflow: 'hidden',
+        ...style,
+      }}
+    >
+      {accent && (
+        <div style={{
+          position: 'absolute', top: 0, left: 0, right: 0,
+          height: 3, background: accent,
+        }} />
+      )}
+      {children}
+    </div>
+  );
+}
+
+function ProgressBar({ value, total, style = 'bar', color, height = 8, showLabel = false }) {
+  const pct = total === 0 ? 0 : Math.round((value / total) * 100);
+  const fillColor = color || 'var(--gold)';
+
+  if (style === 'circle') {
+    const r = 36, c = 2 * Math.PI * r;
+    const offset = c - (pct / 100) * c;
+    return (
+      <div style={{ position: 'relative', width: 88, height: 88 }}>
+        <svg width="88" height="88" viewBox="0 0 88 88">
+          <circle cx="44" cy="44" r={r} fill="none" stroke="var(--sand)" strokeWidth="8" />
+          <circle
+            cx="44" cy="44" r={r} fill="none"
+            stroke={fillColor} strokeWidth="8" strokeLinecap="round"
+            strokeDasharray={c} strokeDashoffset={offset}
+            transform="rotate(-90 44 44)"
+            style={{ transition: 'stroke-dashoffset 0.6s cubic-bezier(0.4, 0, 0.2, 1)' }}
+          />
+        </svg>
+        <div style={{
+          position: 'absolute', inset: 0,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          flexDirection: 'column',
+        }}>
+          <div style={{ fontFamily: 'DM Sans', fontWeight: 700, fontSize: 22, color: 'var(--dark)' }}>{pct}%</div>
+          <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: -2 }}>{value}/{total}</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (style === 'segmented') {
+    const segs = Math.max(total, 1);
+    return (
+      <div style={{ display: 'flex', gap: 3 }}>
+        {Array.from({ length: segs }).map((_, i) => (
+          <div key={i} style={{
+            flex: 1, height,
+            background: i < value ? fillColor : 'var(--sand)',
+            borderRadius: 2,
+          }} />
+        ))}
+      </div>
+    );
+  }
+
+  // Default bar
+  return (
+    <div>
+      <div style={{
+        height, background: 'var(--sand)',
+        borderRadius: 999, overflow: 'hidden', position: 'relative',
+      }}>
+        <div style={{
+          height: '100%', width: `${pct}%`,
+          background: fillColor,
+          borderRadius: 999,
+          transition: 'width 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
+        }} />
+      </div>
+      {showLabel && (
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 11, color: 'var(--muted)' }}>
+          <span>{value} of {total}</span>
+          <span style={{ fontWeight: 600, color: 'var(--dark)' }}>{pct}%</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Checkbox({ checked, onChange, color }) {
+  const c = color || 'var(--teal)';
+  return (
+    <button
+      onClick={(e) => { e.stopPropagation(); onChange?.(!checked); }}
+      style={{
+        width: 24, height: 24, borderRadius: 8,
+        background: checked ? c : 'transparent',
+        border: `2px solid ${checked ? c : 'var(--line)'}`,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        flexShrink: 0,
+        color: '#fff', fontSize: 14, fontWeight: 700,
+      }}
+    >
+      {checked && '✓'}
+    </button>
+  );
+}
+
+function SectionHeader({ title, action, icon }) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      marginBottom: 10, marginTop: 6,
+    }}>
+      <h3 style={{ fontSize: 15, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
+        {icon && <span style={{ fontSize: 16 }}>{icon}</span>}
+        {title}
+      </h3>
+      {action}
+    </div>
+  );
+}
+
+function EmptyState({ emoji, title, body, action }) {
+  return (
+    <div style={{
+      textAlign: 'center', padding: '36px 20px',
+      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
+    }}>
+      <div style={{ fontSize: 56, marginBottom: 6 }}>{emoji}</div>
+      <h3 style={{ fontSize: 18 }}>{title}</h3>
+      <div style={{ fontSize: 13, color: 'var(--muted)', maxWidth: 260, lineHeight: 1.5 }}>{body}</div>
+      {action && <div style={{ marginTop: 12 }}>{action}</div>}
+    </div>
+  );
+}
+
+function Pill({ children, active, onClick, color }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        padding: '7px 14px',
+        borderRadius: 999,
+        background: active ? (color || 'var(--terracotta)') : 'transparent',
+        color: active ? '#fff' : 'var(--muted)',
+        border: `1px solid ${active ? 'transparent' : 'var(--line)'}`,
+        fontSize: 13, fontWeight: 600,
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+// Tab bar with terracotta active text + gold underline
+function TabBar({ tabs, active, onChange, scrollable = false }) {
+  return (
+    <div style={{
+      display: 'flex', gap: 4,
+      overflowX: scrollable ? 'auto' : 'visible',
+      borderBottom: '1px solid var(--line)',
+      padding: '0 4px',
+    }}>
+      {tabs.map(t => (
+        <button
+          key={t.id}
+          onClick={() => onChange(t.id)}
+          style={{
+            position: 'relative',
+            padding: '12px 14px',
+            color: active === t.id ? 'var(--terracotta)' : 'var(--muted)',
+            fontWeight: active === t.id ? 700 : 500,
+            fontSize: 14,
+            whiteSpace: 'nowrap',
+            display: 'flex', alignItems: 'center', gap: 6,
+          }}
+        >
+          {t.icon && <span style={{ fontSize: 15 }}>{t.icon}</span>}
+          {t.label}
+          {active === t.id && (
+            <div style={{
+              position: 'absolute', bottom: -1, left: 8, right: 8,
+              height: 3, background: 'var(--gold)',
+              borderRadius: 2,
+            }} />
+          )}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function Sheet({ open, onClose, title, children, height }) {
+  if (!open) return null;
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'absolute', inset: 0, zIndex: 100,
+        background: 'rgba(30, 30, 30, 0.4)',
+        backdropFilter: 'blur(6px)',
+        display: 'flex', alignItems: 'flex-end',
+        animation: 'fade-in 0.2s ease',
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        className="slide-up"
+        style={{
+          width: '100%',
+          background: 'var(--cream)',
+          borderTopLeftRadius: 28, borderTopRightRadius: 28,
+          padding: '14px 18px 24px',
+          maxHeight: height || '80%',
+          overflowY: 'auto',
+          display: 'flex', flexDirection: 'column',
+        }}
+      >
+        <div style={{
+          width: 36, height: 4, background: 'var(--line)',
+          borderRadius: 2, margin: '0 auto 14px',
+        }} />
+        {title && <h2 style={{ fontSize: 22, marginBottom: 14 }}>{title}</h2>}
+        <div style={{ flex: 1 }}>{children}</div>
+      </div>
+    </div>
+  );
+}
+
+// Confetti for celebrations
+function Confetti({ active }) {
+  if (!active) return null;
+  const colors = ['#C4714A', '#2A6E6B', '#D4A853', '#F5EFE0'];
+  return (
+    <div style={{
+      position: 'absolute', inset: 0, pointerEvents: 'none',
+      overflow: 'hidden', zIndex: 200,
+    }}>
+      {Array.from({ length: 50 }).map((_, i) => {
+        const left = Math.random() * 100;
+        const delay = Math.random() * 0.6;
+        const dur = 2 + Math.random() * 1.5;
+        const size = 6 + Math.random() * 8;
+        const color = colors[i % colors.length];
+        const round = Math.random() > 0.5;
+        return (
+          <div key={i} style={{
+            position: 'absolute', top: -20, left: `${left}%`,
+            width: size, height: size * (round ? 1 : 0.4),
+            background: color,
+            borderRadius: round ? '50%' : 2,
+            animation: `fall ${dur}s ${delay}s ease-out forwards`,
+          }} />
+        );
+      })}
+    </div>
+  );
+}
+
+Object.assign(window, {
+  Badge, Button, Card, ProgressBar, Checkbox, SectionHeader,
+  EmptyState, Pill, TabBar, Sheet, Confetti, STATUS,
+});
