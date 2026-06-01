@@ -271,11 +271,12 @@ function Sheet({ open, onClose, title, children, height }) {
     <div
       onClick={onClose}
       style={{
-        position: 'absolute', inset: 0, zIndex: 100,
+        position: 'fixed', inset: 0, zIndex: 100,
         background: 'rgba(30, 30, 30, 0.4)',
         backdropFilter: 'blur(6px)',
         display: 'flex', alignItems: 'flex-end',
         animation: 'fade-in 0.2s ease',
+        padding: '0 0 env(safe-area-inset-bottom)',
       }}
     >
       <div
@@ -286,9 +287,11 @@ function Sheet({ open, onClose, title, children, height }) {
           background: 'var(--cream)',
           borderTopLeftRadius: 28, borderTopRightRadius: 28,
           padding: '14px 18px 24px',
-          maxHeight: height || '80%',
+          height: height || 'min(86dvh, 760px)',
+          maxHeight: 'calc(100dvh - 16px)',
           overflowY: 'auto',
           display: 'flex', flexDirection: 'column',
+          boxShadow: '0 -24px 48px rgba(0,0,0,0.18)',
         }}
       >
         <div style={{
@@ -296,7 +299,7 @@ function Sheet({ open, onClose, title, children, height }) {
           borderRadius: 2, margin: '0 auto 14px',
         }} />
         {title && <h2 style={{ fontSize: 22, marginBottom: 14 }}>{title}</h2>}
-        <div style={{ flex: 1 }}>{children}</div>
+        <div style={{ flex: 1, minHeight: 0 }}>{children}</div>
       </div>
     </div>
   );

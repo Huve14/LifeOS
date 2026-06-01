@@ -302,7 +302,7 @@ function ModuleCard({ module, progress, onClick, progressStyle, layout }) {
 }
 
 // ---------- Dashboard ----------
-function Dashboard({ state, onModule, onAsk, layout = 'classic', progressStyle = 'bar' }) {
+function Dashboard({ state, onModule, onAsk, layout = 'classic', progressStyle = 'bar', syncStatus = '' }) {
   const progress = moduleProgress(state);
   const overall = overallProgress(state);
   const moneyProgress = state.budget.categories.reduce((a, c) => a + c.spent, 0);
@@ -320,6 +320,9 @@ function Dashboard({ state, onModule, onAsk, layout = 'classic', progressStyle =
         <div>
           <div style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>{new Date().toLocaleDateString('en-US', { weekday: 'long' })}</div>
           <h1 style={{ fontSize: 26, marginTop: 2 }}>Hi Suveda 👋</h1>
+          {syncStatus && (
+            <div style={{ marginTop: 6, fontSize: 11, fontWeight: 600, color: 'var(--muted)' }}>{syncStatus}</div>
+          )}
         </div>
         <div style={{
           width: 44, height: 44, borderRadius: '50%',
@@ -395,17 +398,47 @@ function AskHuveSheet({ open, onClose, initialPrompt, context = '' }) {
   const [messages, setMessages] = React.useState([]);
   const [input, setInput] = React.useState('');
   const [loading, setLoading] = React.useState(false);
+  const [queuedPrompt, setQueuedPrompt] = React.useState('');
+  const [hydrated, setHydrated] = React.useState(false);
   const scrollRef = React.useRef(null);
+  const store = window.__suvedaStore;
+
+  React.useEffect(() => {
+    let cancelled = false;
+
+    async function hydrateMessages() {
+      if (!open || hydrated) return;
+      try {
+        const savedMessages = await store?.loadChatMessages?.('main');
+        if (!cancelled && Array.isArray(savedMessages) && savedMessages.length > 0) {
+          setMessages(savedMessages);
+        }
+      } finally {
+        if (!cancelled) setHydrated(true);
+      }
+    }
+
+    hydrateMessages();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, hydrated, store]);
 
   React.useEffect(() => {
     if (open && initialPrompt) {
       setInput(initialPrompt);
-      setTimeout(() => send(initialPrompt), 250);
-    }
-    if (!open) {
-      setTimeout(() => { setMessages([]); setInput(''); }, 300);
+      setQueuedPrompt(initialPrompt);
     }
   }, [open, initialPrompt]);
+
+  React.useEffect(() => {
+    if (!open || !queuedPrompt) return;
+    const timer = setTimeout(() => {
+      send(queuedPrompt);
+      setQueuedPrompt('');
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [open, queuedPrompt]);
 
   React.useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -414,16 +447,29 @@ function AskHuveSheet({ open, onClose, initialPrompt, context = '' }) {
   async function send(textArg) {
     const text = (textArg ?? input).trim();
     if (!text || loading) return;
-    setMessages(m => [...m, { role: 'user', text }]);
+    const userMessage = { role: 'user', text };
+    setMessages(m => [...m, userMessage]);
     setInput('');
     setLoading(true);
-    const reply = await askHuve(text, context);
-    setMessages(m => [...m, { role: 'ai', text: reply }]);
-    setLoading(false);
+    await store?.appendChatMessage?.(userMessage, 'main');
+    try {
+      const reply = await askHuve(text, context);
+      const aiMessage = { role: 'ai', text: reply };
+      setMessages(m => [...m, aiMessage]);
+      await store?.appendChatMessage?.(aiMessage, 'main');
+    } catch (e) {
+      const aiMessage = { role: 'ai', text: "I'm having trouble right now. Try again in a moment. 🌵" };
+      setMessages(m => [...m, aiMessage]);
+      await store?.appendChatMessage?.(aiMessage, 'main');
+    } finally {
+      setLoading(false);
+    }
   }
 
+  const isMobile = typeof window !== 'undefined' && window.innerWidth <= 540;
+
   return (
-    <Sheet open={open} onClose={onClose} height="86%">
+    <Sheet open={open} onClose={onClose} height={isMobile ? '100dvh' : '86dvh'}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
         <div style={{
           width: 44, height: 44, borderRadius: '50%',
@@ -438,7 +484,10 @@ function AskHuveSheet({ open, onClose, initialPrompt, context = '' }) {
 
       <div ref={scrollRef} style={{
         background: 'var(--sand)', borderRadius: 18, padding: 14,
-        minHeight: 320, maxHeight: 380, overflowY: 'auto',
+        minHeight: isMobile ? 0 : 320,
+        flex: 1,
+        maxHeight: isMobile ? 'none' : 380,
+        overflowY: 'auto',
         display: 'flex', flexDirection: 'column', gap: 10,
       }}>
         {messages.length === 0 && !loading && (
@@ -475,6 +524,33 @@ function AskHuveSheet({ open, onClose, initialPrompt, context = '' }) {
             ))}
           </div>
         )}
+      </div>
+
+      <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+        {[
+          'What should I pack first?',
+          'Things I always forget',
+          'Tips for my first week in Abu Dhabi',
+        ].map((suggestion) => (
+          <button
+            key={suggestion}
+            onClick={() => {
+              setInput(suggestion);
+              send(suggestion);
+            }}
+            style={{
+              padding: '8px 12px',
+              borderRadius: 999,
+              border: '1px solid var(--line)',
+              background: 'var(--white)',
+              color: 'var(--dark)',
+              fontSize: 12,
+              fontWeight: 600,
+            }}
+          >
+            {suggestion}
+          </button>
+        ))}
       </div>
 
       <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>

@@ -13,6 +13,28 @@ function sendJson(res, code, obj) {
   res.end(s);
 }
 
+function buildFallbackResponse(lastMsg = '') {
+  const prompt = String(lastMsg).toLowerCase();
+
+  if (prompt.includes('pack')) {
+    return 'Start with your passport, visa/entry permit paperwork, chargers, daily meds, and one carry-on set of essentials. Then add climate-safe clothes, toiletries, and one small comfort item so arrival day feels easier. 🌵';
+  }
+
+  if (prompt.includes('visa') || prompt.includes('documents')) {
+    return 'Put passport validity, employment visa steps, attestation, and medical fitment at the top of the list. Keep scans of everything in one folder and check official UAE sources for the latest requirements. 📑';
+  }
+
+  if (prompt.includes('week') || prompt.includes('arrival') || prompt.includes('day one')) {
+    return 'For week one, focus on SIM, transport, essentials for the apartment, and a simple grocery list. Don\'t try to finish everything on day one; settle in, then tackle the rest in order. 🛬';
+  }
+
+  if (prompt.includes('housing')) {
+    return 'Prioritize commute, daylight, noise, and whether utilities are included before rent alone. If two places feel close, choose the one that makes daily life easier, not just cheaper. 🏠';
+  }
+
+  return 'I\'m here. Tell me what you\'re deciding, and I\'ll break it into the next concrete step. 🌵';
+}
+
 async function forwardToDeepseek(body) {
   const payload = JSON.stringify(body);
   const url = new URL('/chat/completions', BASE_URL);
@@ -34,12 +56,11 @@ async function forwardToDeepseek(body) {
     return r.json();
   } catch (e) {
     console.error('Deepseek API unavailable, using fallback:', e.message);
-    // Fallback response for development/testing
     const lastMsg = body.messages[body.messages.length - 1]?.content || 'travel';
     return {
       choices: [{
         message: {
-          content: `[Huve's Travel Insights] Based on your question about "${lastMsg}":\n\n📋 **Essential Preparations:**\n• Check visa requirements for UAE\n• Secure comprehensive travel insurance\n• Arrange accommodation in advance\n• Book domestic transportation\n\n🧳 **Smart Packing Tips:**\n• Ultra-light, breathable clothing\n• Strong SPF sunscreen (SPF 50+)\n• Wide-brimmed hat and sunglasses\n• Comfortable walking shoes\n• Reusable water bottle (stay hydrated!)\n\n💰 **Budget Guidance:**\n• Budget 50-80 AED/day for food (street food to mid-range)\n• Activities range from free (beaches) to 100+ AED\n• Accommodation costs vary by location\n• Consider a weekly pass for public transport\n\n🎒 **Pro Tips:**\n• Best time to visit: October-April (cooler)\n• Download offline maps ahead of time\n• Learn basic Arabic phrases\n• Respect local customs and dress codes\n\nHave an amazing journey! 🌵✈️`
+          content: buildFallbackResponse(lastMsg)
         }
       }]
     };

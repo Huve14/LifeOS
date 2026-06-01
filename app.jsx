@@ -2,6 +2,22 @@
 
 const { useState, useEffect, useMemo, useRef } = React;
 
+function createSeedState(tweaks) {
+  return {
+    moveDate: tweaks.moveDate,
+    ...applyProgress(SEED, tweaks.progressLevel),
+  };
+}
+
+function pickStoredState(candidate) {
+  if (!candidate || typeof candidate !== 'object') return null;
+  const saved = candidate;
+  if (!saved.packing || !saved.documents || !saved.tasks || !saved.budget || !saved.shopping || !saved.housing) {
+    return null;
+  }
+  return saved;
+}
+
 // Default tweaks (host-persisted between EDITMODE markers in HTML)
 const DEFAULT_TWEAKS = window.__suvedaDefaults || {
   moveDate: window.DEFAULT_MOVE_DATE,
@@ -16,18 +32,47 @@ const DEFAULT_TWEAKS = window.__suvedaDefaults || {
 
 function App() {
   const [tweaks, setTweak] = useTweaks(DEFAULT_TWEAKS);
+  const store = window.__suvedaStore;
+  const [storageReady, setStorageReady] = useState(false);
 
   // App state
   const [view, setView] = useState('onboarding'); // onboarding | home | packing | docs | tasks | budget | shopping | housing
-  const [state, setState] = useState(() => ({
-    moveDate: tweaks.moveDate,
-    ...applyProgress(SEED, tweaks.progressLevel),
-  }));
+  const [state, setState] = useState(() => createSeedState(tweaks));
   const [aiOpen, setAiOpen] = useState(false);
   const [aiPrompt, setAiPrompt] = useState('');
   const [aiContext, setAiContext] = useState('');
   const [celebrate, setCelebrate] = useState(false);
   const lastPctRef = useRef(0);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function hydrate() {
+      try {
+        const saved = await store?.loadAppState?.();
+        if (cancelled) return;
+        const restored = pickStoredState(saved);
+        if (restored) {
+          setState(restored);
+        }
+      } finally {
+        if (!cancelled) setStorageReady(true);
+      }
+    }
+
+    hydrate();
+    return () => {
+      cancelled = true;
+    };
+  }, [store]);
+
+  useEffect(() => {
+    if (!storageReady || !store?.saveAppState) return;
+    const timer = setTimeout(() => {
+      store.saveAppState(state);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [state, storageReady, store]);
 
   // When tweak progressLevel changes, regenerate seed
   useEffect(() => {
@@ -82,7 +127,8 @@ function App() {
     const screens = {
       home:    <Dashboard state={state} onAsk={openAi}
                 onModule={id => setView(id)}
-                layout={tweaks.layout} progressStyle={tweaks.progressStyle} />,
+                layout={tweaks.layout} progressStyle={tweaks.progressStyle}
+                syncStatus={storageReady ? (store?.hasConfig ? 'Synced to Supabase' : 'Local draft') : 'Connecting…'} />,
       packing: <PackingScreen state={state} setState={setState} onBack={() => setView('home')} onAsk={openAi} />,
       docs:    <DocumentsScreen state={state} setState={setState} onBack={() => setView('home')} onAsk={openAi} />,
       tasks:   <TasksScreen state={state} setState={setState} onBack={() => setView('home')} />,
@@ -278,13 +324,32 @@ function SuvedaTweaks({ tweaks, setTweak, setView }) {
 
 // ---------- Mount ----------
 function Root() {
+  const [isMobile, setIsMobile] = React.useState(
+    typeof window !== 'undefined' && window.innerWidth <= 540
+  );
+
+  React.useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 540);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   return (
-    <div data-screen-label="Suveda Move App">
-      <IOSDevice width={402} height={874} dark={false}>
+    <div data-screen-label="Suveda Move App" style={{ width: '100%', height: '100%' }}>
+      {isMobile ? (
         <App />
-      </IOSDevice>
+      ) : (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
+          <IOSDevice width={402} height={874} dark={false}>
+            <App />
+          </IOSDevice>
+        </div>
+      )}
     </div>
   );
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(<Root />);
+// Expose Root on window for legacy-entry to mount
+Object.assign(window, { Root });

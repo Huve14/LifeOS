@@ -1,68 +1,12 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<title>Suveda · Moving to Abu Dhabi</title>
-<link rel="stylesheet" href="styles.css" />
-<style>
-  /* Stage layout: phone frame on desktop, full-bleed on mobile */
-  .stage {
-    width: 100%;
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .stage-frame {
-    transform-origin: center center;
-  }
-  /* Below ~480px viewport, drop the phone frame and fill */
-  @media (max-width: 540px) {
-    body {
-      padding: 0 !important;
-      align-items: stretch !important;
-      background: var(--cream) !important;
-      background-image: none !important;
-    }
-    .stage-frame .ios-bezel {
-      width: 100vw !important;
-      height: 100vh !important;
-      border-radius: 0 !important;
-      box-shadow: none !important;
-    }
-    .stage-frame .ios-bezel > div:first-child { display: none !important; } /* hide dynamic island on mobile */
-  }
-</style>
-</head>
-<body>
-  <div id="root" class="stage"></div>
-
-  <script>
-    // Persisted tweak defaults (host rewrites between EDITMODE markers).
-    window.__suvedaDefaults = /*EDITMODE-BEGIN*/{
-      "moveDate": "2026-08-10",
-      "progressLevel": "empty",
-      "initialTab": "home",
-      "accent": "terracotta",
-      "density": "cozy",
-      "layout": "classic",
-      "progressStyle": "bar",
-      "dark": false
-    }/*EDITMODE-END*/;
-  </script>
-
-  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
-  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
-  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
-
-  <script type="text/babel" src="ios-frame.jsx"></script>
-  <script type="text/babel" src="tweaks-panel.jsx"></script>
-  <script type="text/babel" src="components.jsx"></script>
-  <script type="text/babel" src="loading-globe.jsx"></script>
-  <script type="text/babel" src="data.jsx"></script>
-  <script type="text/babel" src="screens-home.jsx"></script>
-  <script type="text/babel" src="screens-modules.jsx"></script>
-  <script type="text/babel" src="app.jsx"></script>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Suveda · Moving to Abu Dhabi</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
 </html>
