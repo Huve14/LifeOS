@@ -1,6 +1,6 @@
 const BASE_URL = 'https://integrate.api.nvidia.com/v1/';
 const API_KEY = process.env.DEEPSEEK_API_KEY;
-const DEFAULT_MODEL = process.env.DEEPSEEK_MODEL || 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning';
+const DEFAULT_MODEL = process.env.DEEPSEEK_MODEL || 'mistralai/mistral-nemotron';
 
 function sendJson(res, code, obj) {
   const s = JSON.stringify(obj);
@@ -43,7 +43,7 @@ export default async function handler(req, res) {
       messages,
       temperature: temperature ?? 0.6,
       top_p: top_p ?? 0.95,
-      max_tokens: max_tokens ?? 65536,
+      max_tokens: max_tokens ?? 4096,
     };
 
     const response = await fetch(BASE_URL + 'chat/completions', {
@@ -53,7 +53,7 @@ export default async function handler(req, res) {
         Authorization: `Bearer ${API_KEY}`,
       },
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(28000),
+      signal: AbortSignal.timeout(8500),
     });
 
     if (!response.ok) {
