@@ -153,7 +153,7 @@ function App() {
           'radial-gradient(at 100% 100%, rgba(196, 113, 74, 0.08) 0%, transparent 50%)',
         color: 'var(--dark)',
         position: 'relative',
-        paddingTop: 50,
+        paddingTop: 24,
       }}
     >
       {renderContent()}
@@ -324,29 +324,9 @@ function SuvedaTweaks({ tweaks, setTweak, setView }) {
 
 // ---------- Mount ----------
 function Root() {
-  const [isMobile, setIsMobile] = React.useState(
-    typeof window !== 'undefined' && window.innerWidth <= 540
-  );
-
-  React.useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth <= 540);
-    };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
   return (
     <div data-screen-label="Suveda Move App" style={{ width: '100%', height: '100%' }}>
-      {isMobile ? (
-        <App />
-      ) : (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
-          <IOSDevice width={402} height={874} dark={false}>
-            <App />
-          </IOSDevice>
-        </div>
-      )}
+      <App />
     </div>
   );
 }
