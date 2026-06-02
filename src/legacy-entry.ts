@@ -20,6 +20,7 @@ declare global {
       dark: boolean;
     };
     __suvedaStore?: SuvedaStore;
+    __suvedaApiUrl?: string;
   }
 }
 
@@ -27,6 +28,7 @@ window.React = React;
 window.ReactDOM = { createRoot };
 window.__SUVEDA_MOUNTED = false;
 window.__suvedaStore = createSuvedaStore();
+window.__suvedaApiUrl = import.meta.env.VITE_API_URL || '/api/deepseek';
 
 if (!window.__suvedaDefaults) {
   window.__suvedaDefaults = {

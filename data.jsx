@@ -169,8 +169,9 @@ async function askHuve(prompt, context = '') {
   const user = context ? `Context: ${context}\n\nQuestion: ${prompt}` : prompt;
 
   // If a local proxy is available, call it; otherwise fall back to the browser-based Claude hook if present.
+  const apiUrl = window.__suvedaApiUrl || '/api/deepseek';
   try {
-    const res = await fetch('/api/deepseek', {
+    const res = await fetch(apiUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
