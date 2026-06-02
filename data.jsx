@@ -175,9 +175,9 @@ async function askHuve(prompt, context = '') {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         messages: [ { role: 'user', content: `${sys}\n\n${user}` } ],
-        temperature: 1,
+        temperature: 0.6,
         top_p: 0.95,
-        max_tokens: 2048,
+        max_tokens: 65536,
       }),
     });
 

@@ -3,9 +3,9 @@ const http = require('http');
 const { URL } = require('url');
 
 const PORT = process.env.PORT || 3001;
-const BASE_URL = process.env.DEEPSEEK_BASE_URL || 'https://integrate.api.nvidia.com/v1';
-const API_KEY = process.env.DEEPSEEK_API_KEY || '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';
-const DEFAULT_MODEL = process.env.DEEPSEEK_MODEL || 'z-ai/glm4.7';
+const BASE_URL = (process.env.DEEPSEEK_BASE_URL || 'https://integrate.api.nvidia.com/v1').replace(/\/?$/, '/');
+const API_KEY = process.env.DEEPSEEK_API_KEY || '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';
+const DEFAULT_MODEL = process.env.DEEPSEEK_MODEL || 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning';
 
 function sendJson(res, code, obj) {
   const s = JSON.stringify(obj);
@@ -37,10 +37,10 @@ function buildFallbackResponse(lastMsg = '') {
 
 async function forwardToDeepseek(body) {
   const payload = JSON.stringify(body);
-  const url = new URL('/chat/completions', BASE_URL);
+  const url = new URL('chat/completions', BASE_URL);
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 30000); // 30s timeout
+    const timeout = setTimeout(() => controller.abort(), 120000); // 120s timeout (reasoning model)
     const r = await fetch(url.toString(), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${API_KEY}` },
@@ -80,10 +80,12 @@ const server = http.createServer(async (req, res) => {
       const body = {
         model: data.model || DEFAULT_MODEL,
         messages: data.messages,
-        temperature: data.temperature ?? 1,
-        top_p: data.top_p ?? 1,
-        max_tokens: data.max_tokens ?? 16384,
-        chat_template_kwargs: { enable_thinking: true, clear_thinking: false },
+        temperature: data.temperature ?? 0.6,
+        top_p: data.top_p ?? 0.95,
+        max_tokens: data.max_tokens ?? 65536,
+        chat_template_kwargs: { enable_thinking: true },
+        reasoning_budget: 16384,
+        stream: false,
         ...(data.extra_body || {}),
       };
 
@@ -94,6 +96,7 @@ const server = http.createServer(async (req, res) => {
       if (json.choices && Array.isArray(json.choices)) {
         for (const c of json.choices) {
           if (c.message && c.message.content) out += c.message.content;
+          else if (c.message && c.message.reasoning_content) out += c.message.reasoning_content;
           else if (c.delta && c.delta.content) out += c.delta.content;
         }
       } else if (typeof json.output === 'string') out = json.output;
