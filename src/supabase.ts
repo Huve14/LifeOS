@@ -1,4 +1,4 @@
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient, type User } from '@supabase/supabase-js';
 
 type AppSnapshot = Record<string, unknown>;
 
@@ -19,8 +19,6 @@ type SuvedaStore = {
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL?.trim() ?? '';
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim() ?? '';
 const hasConfig = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
-const APP_STATE_ID = 'suveda-main';
-const THREAD_ID = 'main';
 const LOCAL_STATE_KEY = 'suveda:app-state';
 const LOCAL_CHAT_KEY = 'suveda:chat-main';
 
@@ -43,6 +41,20 @@ function safeLocalWrite(key: string, value: unknown) {
   }
 }
 
+function getStoreId(): string {
+  if (typeof window !== 'undefined' && window.__suvedaUser?.id) {
+    return window.__suvedaUser.id;
+  }
+  return 'suveda-main';
+}
+
+function getThreadId(): string {
+  if (typeof window !== 'undefined' && window.__suvedaUser?.id) {
+    return window.__suvedaUser.id;
+  }
+  return 'main';
+}
+
 function createFallbackStore(): SuvedaStore {
   return {
     hasConfig: false,
@@ -53,10 +65,10 @@ function createFallbackStore(): SuvedaStore {
     async saveAppState(payload: AppSnapshot) {
       safeLocalWrite(LOCAL_STATE_KEY, payload);
     },
-    async loadChatMessages(threadId = THREAD_ID) {
+    async loadChatMessages(threadId = 'main') {
       return safeLocalRead<ChatMessage[]>(`${LOCAL_CHAT_KEY}:${threadId}`, []);
     },
-    async appendChatMessage(message: ChatMessage, threadId = THREAD_ID) {
+    async appendChatMessage(message: ChatMessage, threadId = 'main') {
       const existing = safeLocalRead<ChatMessage[]>(`${LOCAL_CHAT_KEY}:${threadId}`, []);
       safeLocalWrite(`${LOCAL_CHAT_KEY}:${threadId}`, [...existing, message]);
     },
@@ -71,7 +83,7 @@ function createRemoteStore(client: SupabaseClient): SuvedaStore {
       const { data, error } = await client
         .from('suveda_app_state')
         .select('payload')
-        .eq('id', APP_STATE_ID)
+        .eq('id', getStoreId())
         .maybeSingle();
 
       if (error || !data?.payload || typeof data.payload !== 'object') {
@@ -82,16 +94,16 @@ function createRemoteStore(client: SupabaseClient): SuvedaStore {
     },
     async saveAppState(payload: AppSnapshot) {
       await client.from('suveda_app_state').upsert({
-        id: APP_STATE_ID,
+        id: getStoreId(),
         payload,
         updated_at: new Date().toISOString(),
       });
     },
-    async loadChatMessages(threadId = THREAD_ID) {
+    async loadChatMessages(_threadId = 'main') {
       const { data, error } = await client
         .from('suveda_chat_messages')
         .select('role, text, created_at')
-        .eq('thread_id', threadId)
+        .eq('thread_id', getThreadId())
         .order('created_at', { ascending: true });
 
       if (error || !data) {
@@ -100,9 +112,9 @@ function createRemoteStore(client: SupabaseClient): SuvedaStore {
 
       return data.map((row) => ({ role: row.role as ChatMessage['role'], text: row.text }));
     },
-    async appendChatMessage(message: ChatMessage, threadId = THREAD_ID) {
+    async appendChatMessage(message: ChatMessage, _threadId = 'main') {
       await client.from('suveda_chat_messages').insert({
-        thread_id: threadId,
+        thread_id: getThreadId(),
         role: message.role,
         text: message.text,
       });
@@ -110,19 +122,195 @@ function createRemoteStore(client: SupabaseClient): SuvedaStore {
   };
 }
 
+// ---------- Auth ----------
+
+let authClient: SupabaseClient | null = null;
+let authInitialized = false;
+
+const authListeners: Array<(user: User | null) => void> = [];
+
+function getAuthClient(): SupabaseClient {
+  if (!authClient) {
+    authClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+      },
+    });
+  }
+  return authClient;
+}
+
+function notifyAuthListeners(user: User | null) {
+  window.__suvedaUser = user;
+  authListeners.forEach((fn) => fn(user));
+}
+
+export async function initAuth(): Promise<User | null> {
+  if (authInitialized) return window.__suvedaUser ?? null;
+  authInitialized = true;
+
+  if (!hasConfig) {
+    notifyAuthListeners(null);
+    return null;
+  }
+
+  const client = getAuthClient();
+
+  const { data: { session } } = await client.auth.getSession();
+  const user = session?.user ?? null;
+  notifyAuthListeners(user);
+
+  client.auth.onAuthStateChange((_event, session) => {
+    notifyAuthListeners(session?.user ?? null);
+  });
+
+  return user;
+}
+
+export function getCurrentUser(): User | null {
+  return window.__suvedaUser ?? null;
+}
+
+export function onAuthChange(fn: (user: User | null) => void) {
+  // If auth already initialized, immediately call with current state.
+  if (authInitialized) {
+    try { fn(window.__suvedaUser ?? null); } catch { /* safe */ }
+  }
+  authListeners.push(fn);
+  return () => {
+    const idx = authListeners.indexOf(fn);
+    if (idx !== -1) authListeners.splice(idx, 1);
+  };
+}
+
+export async function signUp(email: string, password: string, name: string) {
+  const client = getAuthClient();
+  return client.auth.signUp({
+    email,
+    password,
+    options: {
+      data: { name },
+    },
+  });
+}
+
+export async function signIn(email: string, password: string) {
+  const client = getAuthClient();
+  return client.auth.signInWithPassword({ email, password });
+}
+
+export async function signOut() {
+  const client = getAuthClient();
+  await client.auth.signOut();
+  window.__suvedaUser = null;
+  notifyAuthListeners(null);
+}
+
+// ---------- Shared shopping list ----------
+
+type ShoppingItem = {
+  id: string;
+  category: string;
+  item: string;
+  quantity: string;
+  price: number;
+  supplied_by: string;
+  note: string;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+};
+
+let publicClient: SupabaseClient | null = null;
+
+function getPublicClient(): SupabaseClient {
+  if (!publicClient) {
+    publicClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  }
+  return publicClient;
+}
+
+export async function loadShoppingItems(): Promise<ShoppingItem[]> {
+  if (!hasConfig) return [];
+  const { data, error } = await getPublicClient()
+    .from('suveda_shopping_items')
+    .select('*')
+    .order('sort_order', { ascending: true });
+
+  if (error || !data) return [];
+  return data as ShoppingItem[];
+}
+
+export async function claimShoppingItem(itemId: string, name: string): Promise<void> {
+  if (!hasConfig) return;
+  await getPublicClient()
+    .from('suveda_shopping_items')
+    .update({ supplied_by: name, updated_at: new Date().toISOString() })
+    .eq('id', itemId);
+}
+
+export async function unclaimShoppingItem(itemId: string): Promise<void> {
+  if (!hasConfig) return;
+  await getPublicClient()
+    .from('suveda_shopping_items')
+    .update({ supplied_by: '', updated_at: new Date().toISOString() })
+    .eq('id', itemId);
+}
+
+export function subscribeShoppingItems(
+  onChange: (items: ShoppingItem[]) => void,
+): () => void {
+  const channel = getPublicClient()
+    .channel('shopping-list-changes')
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'suveda_shopping_items' },
+      async () => {
+        const items = await loadShoppingItems();
+        onChange(items);
+      },
+    )
+    .subscribe();
+
+  return () => {
+    getPublicClient().removeChannel(channel);
+  };
+}
+
+export async function generateShareToken(label: string): Promise<string | null> {
+  if (!hasConfig) return null;
+  const { data, error } = await getPublicClient()
+    .from('suveda_share_tokens')
+    .insert({ label, active: true })
+    .select('token')
+    .single();
+
+  if (error || !data) return null;
+  return data.token;
+}
+
+export async function validateShareToken(token: string): Promise<boolean> {
+  if (!hasConfig) return false;
+  const { data, error } = await getPublicClient()
+    .from('suveda_share_tokens')
+    .select('id')
+    .eq('token', token)
+    .eq('active', true)
+    .maybeSingle();
+
+  return !error && !!data;
+}
+
+// ---------- Store factory ----------
+
 export function createSuvedaStore() {
   if (!hasConfig) {
     return createFallbackStore();
   }
 
-  const client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-    },
-  });
-
+  const client = getAuthClient();
   return createRemoteStore(client);
 }
 
-export type { AppSnapshot, ChatMessage, SuvedaStore };
+export type { AppSnapshot, ChatMessage, SuvedaStore, ShoppingItem };

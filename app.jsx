@@ -1,6 +1,6 @@
 // app.jsx — Main Suveda shell
 
-const { useState, useEffect, useMemo, useRef } = React;
+const { useState, useEffect, useMemo, useRef, useCallback } = React;
 
 function createSeedState(tweaks) {
   return {
@@ -31,12 +31,30 @@ const DEFAULT_TWEAKS = window.__suvedaDefaults || {
 };
 
 function App() {
+  // Shared shopping list route (no auth required)
+  const hash = window.location.hash;
+  if (hash.startsWith('#shared/')) {
+    return <SharedList token={hash.replace('#shared/', '')} />;
+  }
+
   const [tweaks, setTweak] = useTweaks(DEFAULT_TWEAKS);
   const store = window.__suvedaStore;
   const [storageReady, setStorageReady] = useState(false);
 
+  // Auth state
+  const [user, setUser] = useState(window.__suvedaUser ?? null);
+  const [authReady, setAuthReady] = useState(!!window.__suvedaUser);
+
+  useEffect(() => {
+    const unsub = window.__suvedaAuth?.onAuthChange((u) => {
+      setUser(u);
+      setAuthReady(true);
+    });
+    return unsub;
+  }, []);
+
   // App state
-  const [view, setView] = useState('onboarding'); // onboarding | home | packing | docs | tasks | budget | shopping | housing
+  const [view, setView] = useState(null); // null=loading | onboarding | home | packing | docs | tasks | budget | shopping | housing
   const [state, setState] = useState(() => createSeedState(tweaks));
   const [aiOpen, setAiOpen] = useState(false);
   const [aiPrompt, setAiPrompt] = useState('');
@@ -54,6 +72,9 @@ function App() {
         const restored = pickStoredState(saved);
         if (restored) {
           setState(restored);
+          setView(restored.onboardingDone ? 'home' : 'onboarding');
+        } else {
+          setView('onboarding');
         }
       } finally {
         if (!cancelled) setStorageReady(true);
@@ -118,25 +139,54 @@ function App() {
 
   function renderContent() {
     if (view === 'onboarding') {
-      return <Onboarding initialDate={tweaks.moveDate} onDone={({ moveDate }) => {
+      return <Onboarding user={user} initialDate={tweaks.moveDate} onDone={({ moveDate }) => {
         setTweak('moveDate', moveDate);
+        setState(s => ({ ...s, moveDate, onboardingDone: true }));
         setView('home');
       }} />;
     }
 
     const screens = {
-      home:    <Dashboard state={state} onAsk={openAi}
+      home:    <Dashboard state={state} setState={setState} onAsk={openAi}
                 onModule={id => setView(id)}
                 layout={tweaks.layout} progressStyle={tweaks.progressStyle}
-                syncStatus={storageReady ? (store?.hasConfig ? 'Synced to Supabase' : 'Local draft') : 'Connecting…'} />,
+                syncStatus={storageReady ? (store?.hasConfig ? 'Synced to Supabase' : 'Local draft') : 'Connecting…'}
+                userName={displayName} />,
       packing: <PackingScreen state={state} setState={setState} onBack={() => setView('home')} onAsk={openAi} />,
       docs:    <DocumentsScreen state={state} setState={setState} onBack={() => setView('home')} onAsk={openAi} />,
       tasks:   <TasksScreen state={state} setState={setState} onBack={() => setView('home')} />,
       budget:  <BudgetScreen state={state} setState={setState} onBack={() => setView('home')} />,
       shopping:<ShoppingScreen state={state} setState={setState} onBack={() => setView('home')} onAsk={openAi} />,
       housing: <HousingScreen state={state} setState={setState} onBack={() => setView('home')} onAsk={openAi} />,
+      memory:  <MemoryScreen state={state} setState={setState} onBack={() => setView('home')} />,
+      people:  <ContactsScreen state={state} setState={setState} onBack={() => setView('home')} />,
     };
     return screens[view] || screens.home;
+  }
+
+  // Derive user info for display
+  const displayName = user?.user_metadata?.name || user?.email?.split('@')[0] || 'User';
+
+  if (!authReady || !storageReady) {
+    return (
+      <div style={{
+        minHeight: '100%', width: '100%',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: 'var(--cream)', color: 'var(--muted)',
+        fontSize: 14, fontWeight: 500,
+      }}>
+        Loading…
+      </div>
+    );
+  }
+
+  // If not logged in, show onboarding (which has the auth form embedded in step 0)
+  if (!user && view !== null) {
+    return <Onboarding user={null} initialDate={tweaks.moveDate} onDone={({ moveDate }) => {
+      setTweak('moveDate', moveDate);
+      setState(s => ({ ...s, moveDate, onboardingDone: true }));
+      setView('home');
+    }} />;
   }
 
   return (
@@ -164,16 +214,21 @@ function App() {
           onClick={() => openAi()}
           className="ai-pulse"
           style={{
-            position: 'absolute',
-            right: 18, bottom: 30,
+            position: 'fixed',
+            right: 18, bottom: 84,
             width: 56, height: 56, borderRadius: '50%',
             background: 'linear-gradient(135deg, var(--terracotta) 0%, var(--gold) 100%)',
             color: '#fff', fontSize: 26,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             boxShadow: '0 8px 24px -6px rgba(196, 113, 74, 0.55), 0 4px 10px rgba(0,0,0,0.1)',
-            zIndex: 50,
+            zIndex: 50, border: 'none', cursor: 'pointer',
           }}
         >🌵</button>
+      )}
+
+      {/* Bottom navigation (hidden during onboarding) */}
+      {view !== 'onboarding' && (
+        <BottomNav current={view} onNavigate={setView} />
       )}
 
       {/* AI sheet */}
@@ -319,6 +374,64 @@ function SuvedaTweaks({ tweaks, setTweak, setView }) {
         </div>
       </TweakSection>
     </TweaksPanel>
+  );
+}
+
+// ---------- Bottom navigation ----------
+const NAV_ITEMS = [
+  { id: 'home',     label: 'Home',     emoji: '🏡' },
+  { id: 'packing',  label: 'Packing',   emoji: '📦' },
+  { id: 'docs',     label: 'Documents', emoji: '📑' },
+  { id: 'tasks',    label: 'Timeline',  emoji: '🗓️' },
+  { id: 'budget',   label: 'Budget',    emoji: '💰' },
+  { id: 'shopping', label: 'Shopping',  emoji: '🛍️' },
+  { id: 'housing',  label: 'Housing',   emoji: '🏠' },
+  { id: 'memory',   label: 'Memory',    emoji: '💭' },
+  { id: 'people',   label: 'People',    emoji: '👥' },
+];
+
+function BottomNav({ current, onNavigate }) {
+  return (
+    <div style={{
+      position: 'fixed', bottom: 0, left: 0, right: 0,
+      height: 68, zIndex: 100,
+      background: 'rgba(255,255,255,0.88)',
+      backdropFilter: 'blur(12px)',
+      WebkitBackdropFilter: 'blur(12px)',
+      borderTop: '1px solid var(--line)',
+      display: 'flex', alignItems: 'center', justifyContent: 'space-around',
+      padding: '0 4px', paddingBottom: 'env(safe-area-inset-bottom, 0)',
+    }}>
+      {NAV_ITEMS.map(item => {
+        const active = current === item.id;
+        return (
+          <button
+            key={item.id}
+            onClick={() => onNavigate(item.id)}
+            style={{
+              display: 'flex', flexDirection: 'column', alignItems: 'center',
+              gap: 2, padding: '6px 4px', minWidth: 44,
+              border: 'none', background: 'none', cursor: 'pointer',
+              fontFamily: 'inherit',
+              opacity: active ? 1 : 0.45,
+              transition: 'opacity 0.15s',
+            }}
+          >
+            <span style={{ fontSize: 22, lineHeight: 1 }}>{item.emoji}</span>
+            <span style={{
+              fontSize: 9, fontWeight: 600, color: active ? 'var(--terracotta)' : 'var(--muted)',
+              letterSpacing: '0.02em',
+            }}>{item.label}</span>
+            {active && (
+              <div style={{
+                width: 4, height: 4, borderRadius: '50%',
+                background: 'var(--terracotta)', marginTop: 1,
+              }} />
+            )}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 

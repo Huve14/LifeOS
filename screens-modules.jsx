@@ -29,13 +29,13 @@ function ModulePage({ title, subtitle, emoji, onBack, children, action }) {
   );
 }
 
-// ---------- PACKING ----------
+// ---------- PACKING (inspired by Things 3) ----------
 function PackingScreen({ state, setState, onBack, onAsk }) {
   const [room, setRoom] = React.useState(state.packing.rooms[0].id);
   const cur = state.packing.rooms.find(r => r.id === room);
-
   const totalItems = state.packing.rooms.flatMap(r => r.items).length;
   const packed = state.packing.rooms.flatMap(r => r.items).filter(i => i.status === 'packed').length;
+  const pct = totalItems > 0 ? Math.round((packed / totalItems) * 100) : 0;
 
   function setItemStatus(itemId, status) {
     setState(s => ({
@@ -50,112 +50,130 @@ function PackingScreen({ state, setState, onBack, onAsk }) {
     }));
   }
 
+  function cycleStatus(cur) {
+    const order = ['pending', 'packed', 'toBuy', 'missing'];
+    return order[(order.indexOf(cur || 'pending') + 1) % order.length];
+  }
+
   return (
     <ModulePage
       title="Packing"
-      subtitle={`${packed} of ${totalItems} items packed`}
+      subtitle={`${packed} of ${totalItems} · ${pct}%`}
       emoji="📦"
       onBack={onBack}
-      action={<Button size="sm" variant="ghost" icon="✨" onClick={() => onAsk(`What might I be forgetting in my ${cur.label.toLowerCase()}?`, `Suveda's ${cur.label} packing list: ${cur.items.map(i => i.name).join(', ')}`)}>AI</Button>}
+      action={<Button size="sm" variant="ghost" icon="✨" onClick={() => onAsk(`What might I be forgetting in my ${cur?.label.toLowerCase()}?`, `Suveda's ${cur?.label} packing list: ${cur?.items.map(i => i.name).join(', ')}`)}>AI</Button>}
     >
       {/* Room tabs */}
       <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 12, marginBottom: 4 }}>
         {state.packing.rooms.map(r => {
           const active = r.id === room;
-          const total = r.items.length;
           const done = r.items.filter(i => i.status === 'packed').length;
+          const total = r.items.length;
+          const rpct = Math.round((done / total) * 100);
           return (
             <button
               key={r.id}
               onClick={() => setRoom(r.id)}
               style={{
-                flexShrink: 0,
-                padding: '10px 14px',
-                borderRadius: 16,
+                flexShrink: 0, padding: '10px 14px', borderRadius: 16,
                 background: active ? 'var(--terracotta)' : 'var(--white)',
                 color: active ? '#fff' : 'var(--dark)',
                 border: `1px solid ${active ? 'transparent' : 'var(--line)'}`,
                 display: 'flex', alignItems: 'center', gap: 8,
-                fontSize: 13, fontWeight: 600,
-                boxShadow: active ? 'none' : 'var(--shadow)',
+                fontSize: 13, fontWeight: 600, fontFamily: 'inherit',
+                boxShadow: active ? '0 4px 12px rgba(196,113,74,0.3)' : 'var(--shadow)',
+                transition: 'all 0.15s',
               }}
             >
               <span style={{ fontSize: 16 }}>{r.emoji}</span>
               {r.label}
               <span style={{
-                fontSize: 11, opacity: 0.85,
+                fontSize: 11, fontWeight: 700,
                 background: active ? 'rgba(255,255,255,0.25)' : 'var(--sand)',
                 padding: '2px 7px', borderRadius: 999,
-              }}>{done}/{total}</span>
+              }}>{rpct > 0 ? `${rpct}%` : `${done}/${total}`}</span>
             </button>
           );
         })}
       </div>
 
       {/* Item list */}
-      <Card padding="6px">
-        {cur.items.map((item, i) => (
-          <div key={item.id} style={{
-            display: 'flex', alignItems: 'center', gap: 12,
-            padding: '12px 12px',
-            borderBottom: i < cur.items.length - 1 ? '1px solid var(--line)' : 'none',
-          }}>
-            <Checkbox
-              checked={item.status === 'packed'}
-              onChange={(c) => setItemStatus(item.id, c ? 'packed' : 'pending')}
-            />
-            <div style={{ flex: 1, fontSize: 14, fontWeight: 500,
-              textDecoration: item.status === 'packed' ? 'line-through' : 'none',
-              color: item.status === 'packed' ? 'var(--muted)' : 'var(--dark)',
+      <Card padding="4px">
+        {cur?.items.map((item, i) => {
+          const isPacked = item.status === 'packed';
+          const statusColors = { packed: '#66bb6a', toBuy: 'var(--gold)', missing: 'var(--terracotta)', pending: 'var(--muted)' };
+          const statusLabels = { packed: '✓ Packed', toBuy: '🛒 Buy', missing: '❓ Missing', pending: '○ Pending' };
+          const bg = isPacked ? '#f0faf0' : 'transparent';
+          return (
+            <div key={item.id} style={{
+              display: 'flex', alignItems: 'center', gap: 10,
+              padding: '10px 12px', margin: '2px 0',
+              borderRadius: 10, background: bg,
+              transition: 'background 0.15s',
             }}>
-              {item.name}
+              <button
+                onClick={() => setItemStatus(item.id, isPacked ? 'pending' : 'packed')}
+                style={{
+                  width: 26, height: 26, borderRadius: '50%', flexShrink: 0,
+                  background: isPacked ? '#66bb6a' : 'var(--cream)',
+                  border: isPacked ? 'none' : '1.5px solid var(--line)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                }}
+              >{isPacked ? '✓' : ''}</button>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{
+                  fontSize: 14, fontWeight: 500,
+                  textDecoration: isPacked ? 'line-through' : 'none',
+                  color: isPacked ? 'var(--muted)' : 'var(--dark)',
+                }}>{item.name}</div>
+              </div>
+              <button
+                onClick={() => setItemStatus(item.id, cycleStatus(item.status))}
+                style={{
+                  fontSize: 11, fontWeight: 600, padding: '4px 10px',
+                  borderRadius: 999, border: 'none', fontFamily: 'inherit', cursor: 'pointer',
+                  background: `${statusColors[item.status || 'pending']}18`,
+                  color: statusColors[item.status || 'pending'],
+                }}
+              >{statusLabels[item.status || 'pending']}</button>
             </div>
-            <select
-              value={item.status}
-              onChange={e => setItemStatus(item.id, e.target.value)}
-              style={{
-                border: 'none', background: 'transparent',
-                fontSize: 0, width: 0, position: 'absolute', opacity: 0, pointerEvents: 'none',
-              }}
-            />
-            <StatusPicker status={item.status} onChange={(st) => setItemStatus(item.id, st)} />
-          </div>
-        ))}
+          );
+        })}
       </Card>
 
-      <div style={{ marginTop: 14 }}>
-        <Button full variant="soft" icon="＋">Add item to {cur.label}</Button>
+      {/* Overall room progress bar */}
+      <div style={{ marginTop: 14, padding: '12px 16px', background: 'var(--white)', borderRadius: 14, boxShadow: 'var(--shadow)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 6 }}>
+          <span style={{ fontWeight: 600 }}>{cur?.label}</span>
+          <span style={{ color: 'var(--muted)' }}>{cur?.items.filter(i => i.status === 'packed').length} / {cur?.items.length} done</span>
+        </div>
+        <ProgressBar value={cur?.items.filter(i => i.status === 'packed').length || 0} total={cur?.items.length || 1} color="var(--terracotta)" height={6} />
+      </div>
+
+      <div style={{ marginTop: 12 }}>
+        <Button full variant="soft" icon="＋">Add item</Button>
       </div>
     </ModulePage>
   );
 }
 
-function StatusPicker({ status, onChange }) {
-  const opts = ['packed', 'toBuy', 'missing', 'pending'];
-  const next = (cur) => {
-    const i = opts.indexOf(cur);
-    return opts[(i + 1) % opts.length];
-  };
-  if (status === 'pending' || !status) {
-    return (
-      <button
-        onClick={() => onChange(next(status || 'pending'))}
-        style={{
-          fontSize: 11, color: 'var(--muted)', fontWeight: 600,
-          padding: '4px 8px', border: '1px dashed var(--line)', borderRadius: 999,
-        }}
-      >set</button>
-    );
-  }
-  return (
-    <button onClick={() => onChange(next(status))}>
-      <Badge status={status} size="sm" />
-    </button>
-  );
-}
+// ---------- DOCUMENTS (inspired by Notion) ----------
+const DOC_PHASES = [
+  { id: 'predeparture', label: 'Before you fly', color: 'var(--gold)' },
+  { id: 'arrival', label: 'First 30 days', color: 'var(--teal)' },
+  { id: 'settle', label: 'Settle in', color: 'var(--terracotta)' },
+];
 
-// ---------- DOCUMENTS ----------
+const DOC_PHASE_MAP = {
+  passport: 'predeparture', evisa: 'predeparture', attest: 'predeparture',
+  health: 'predeparture', pet: 'predeparture',
+  medical: 'arrival', eid: 'arrival', marriage: 'arrival',
+  license: 'arrival',
+};
+
 function DocumentsScreen({ state, setState, onBack, onAsk }) {
+  const [filter, setFilter] = React.useState('all');
   const done = state.documents.filter(d => d.status === 'done').length;
 
   function toggle(id) {
@@ -165,44 +183,120 @@ function DocumentsScreen({ state, setState, onBack, onAsk }) {
     }));
   }
 
+  const grouped = DOC_PHASES.map(phase => ({
+    ...phase,
+    items: state.documents.filter(d => (DOC_PHASE_MAP[d.id] || 'predeparture') === phase.id),
+  }));
+
+  const filtered = filter === 'all'
+    ? grouped
+    : grouped.map(g => ({ ...g, items: g.items.filter(d => d.status === filter) }));
+
   return (
     <ModulePage
       title="Documents"
       subtitle={`${done} of ${state.documents.length} sorted`}
       emoji="📑"
       onBack={onBack}
-      action={<Button size="sm" variant="ghost" icon="✨" onClick={() => onAsk('What documents do I need to enter UAE on an employment visa?', 'Suveda is moving from her home country to Abu Dhabi on a UAE employment visa.')}>AI</Button>}
+      action={<Button size="sm" variant="ghost" icon="✨" onClick={() => onAsk('What documents do I need to enter UAE on an employment visa?')}>AI</Button>}
     >
-      <ProgressBar value={done} total={state.documents.length} color="var(--teal)" height={8} showLabel />
+      {/* Progress header */}
+      <Card padding="18px" style={{ background: 'linear-gradient(135deg, var(--teal) 0%, #1e524f 100%)', color: '#fff', border: 'none', marginBottom: 16 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <div style={{ fontSize: 12, opacity: 0.85, fontWeight: 600 }}>Document readiness</div>
+            <div style={{ fontFamily: 'DM Sans', fontSize: 28, fontWeight: 800, marginTop: 2 }}>{Math.round((done / state.documents.length) * 100)}%</div>
+          </div>
+          <div style={{ textAlign: 'right', fontSize: 12, opacity: 0.8 }}>
+            <div>{done} done</div>
+            <div>{state.documents.length - done} remaining</div>
+          </div>
+        </div>
+        <div style={{ marginTop: 10 }}>
+          <ProgressBar value={done} total={state.documents.length} color="var(--gold)" height={8} />
+        </div>
+      </Card>
 
-      <div style={{ marginTop: 18, display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {state.documents.map(doc => (
-          <Card key={doc.id} padding="14px 16px" onClick={() => toggle(doc.id)}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-              <div style={{
-                width: 44, height: 44, borderRadius: 14,
-                background: doc.status === 'done' ? 'var(--teal)' : 'var(--sand)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 22, flexShrink: 0,
-                filter: doc.status === 'done' ? 'grayscale(0.3) brightness(1.4)' : 'none',
-              }}>{doc.emoji}</div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontFamily: 'DM Sans', fontSize: 14, fontWeight: 700,
-                  textDecoration: doc.status === 'done' ? 'line-through' : 'none',
-                  color: doc.status === 'done' ? 'var(--muted)' : 'var(--dark)',
-                }}>{doc.name}</div>
-                <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{doc.note}</div>
-              </div>
-              <Badge status={doc.status} size="sm" />
-            </div>
-          </Card>
+      {/* Phase filter pills */}
+      <div style={{ display: 'flex', gap: 6, marginBottom: 14, overflowX: 'auto', paddingBottom: 4 }}>
+        {[
+          { id: 'all', label: `All ${state.documents.length}`, color: 'var(--dark)' },
+          { id: 'pending', label: 'To do', color: 'var(--muted)' },
+          { id: 'done', label: 'Done', color: '#66bb6a' },
+        ].map(f => (
+          <button
+            key={f.id}
+            onClick={() => setFilter(f.id)}
+            style={{
+              padding: '8px 14px', borderRadius: 999, border: 'none',
+              fontFamily: 'inherit', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+              background: filter === f.id ? f.color : 'var(--white)',
+              color: filter === f.id ? '#fff' : 'var(--dark)',
+              boxShadow: filter === f.id ? 'none' : 'var(--shadow)',
+              transition: 'all 0.15s',
+            }}
+          >{f.label}</button>
         ))}
       </div>
+
+      {/* Phase groups */}
+      {filtered.map(phase => {
+        if (phase.items.length === 0) return null;
+        return (
+          <div key={phase.id} style={{ marginBottom: 20 }}>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              marginBottom: 10, paddingLeft: 4,
+            }}>
+              <div style={{ width: 3, height: 18, borderRadius: 2, background: phase.color }} />
+              <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{phase.label}</span>
+              <span style={{ fontSize: 11, color: 'var(--muted)' }}>· {phase.items.filter(d => d.status === 'done').length}/{phase.items.length}</span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {phase.items.map(doc => {
+                const isDone = doc.status === 'done';
+                const hasNote = !!doc.note;
+                return (
+                  <Card key={doc.id} padding="12px 14px" onClick={() => toggle(doc.id)}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <div style={{
+                        width: 40, height: 40, borderRadius: 12,
+                        background: isDone ? 'var(--teal)' : 'var(--sand)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: 20, flexShrink: 0,
+                        filter: isDone ? 'grayscale(0.2) brightness(1.3)' : 'none',
+                        transition: 'all 0.15s',
+                      }}>{doc.emoji}</div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{
+                          fontFamily: 'DM Sans', fontSize: 14, fontWeight: 700,
+                          textDecoration: isDone ? 'line-through' : 'none',
+                          color: isDone ? 'var(--muted)' : 'var(--dark)',
+                        }}>{doc.name}</div>
+                        {hasNote && !isDone && (
+                          <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{doc.note}</div>
+                        )}
+                      </div>
+                      <div style={{
+                        width: 24, height: 24, borderRadius: '50%', flexShrink: 0,
+                        background: isDone ? '#66bb6a' : 'var(--cream)',
+                        border: isDone ? 'none' : '1.5px solid var(--line)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        color: '#fff', fontSize: 11, fontWeight: 700,
+                      }}>{isDone ? '✓' : ''}</div>
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
     </ModulePage>
   );
 }
 
-// ---------- TASKS / TIMELINE ----------
+// ---------- TASKS / TIMELINE (inspired by Linear) ----------
 function TasksScreen({ state, setState, onBack }) {
   const groups = ['90+ days', '60 days', '30 days', '14 days', '7 days', 'Move day', 'After'];
   const grouped = groups.map(g => ({
@@ -210,6 +304,7 @@ function TasksScreen({ state, setState, onBack }) {
     items: state.tasks.filter(t => t.when === g),
   }));
   const days = daysUntil(state.moveDate);
+  const allDone = state.tasks.filter(t => t.status === 'done').length;
 
   function toggle(id) {
     setState(s => ({
@@ -221,45 +316,111 @@ function TasksScreen({ state, setState, onBack }) {
   return (
     <ModulePage
       title="Timeline"
-      subtitle={`${days} days to wheels up`}
+      subtitle={`${days} days · ${allDone} of ${state.tasks.length} done`}
       emoji="🗓️"
       onBack={onBack}
     >
-      {/* Spine timeline */}
+      {/* Countdown hero */}
+      <Card padding="18px" style={{
+        background: 'linear-gradient(135deg, var(--gold) 0%, #c49a3a 100%)', color: '#fff', border: 'none', marginBottom: 18,
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <div style={{ fontSize: 12, opacity: 0.85, fontWeight: 600 }}>Countdown</div>
+            <div style={{ fontFamily: 'DM Sans', fontSize: 36, fontWeight: 800, marginTop: 2 }}>
+              {days}<span style={{ fontSize: 16, fontWeight: 600, opacity: 0.85, marginLeft: 4 }}>days</span>
+            </div>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontFamily: 'DM Sans', fontSize: 22, fontWeight: 700 }}>{allDone}</div>
+            <div style={{ fontSize: 12, opacity: 0.85 }}>tasks done</div>
+          </div>
+        </div>
+        <div style={{ marginTop: 10 }}>
+          <ProgressBar value={allDone} total={state.tasks.length} color="#fff" height={6} />
+        </div>
+      </Card>
+
+      {/* Timeline spine */}
       <div style={{ position: 'relative', paddingLeft: 28 }}>
         <div style={{
           position: 'absolute', left: 13, top: 8, bottom: 8,
           width: 2, background: 'var(--line)',
         }} />
         {grouped.map((group, gi) => {
-          const allDone = group.items.length > 0 && group.items.every(t => t.status === 'done');
-          const anyDone = group.items.some(t => t.status === 'done');
+          if (group.items.length === 0) return null;
+          const groupDone = group.items.filter(t => t.status === 'done').length;
+          const allGroupDone = groupDone === group.items.length;
+          const anyDone = groupDone > 0;
+          const daysNum = parseInt(group.when);
+          const urgency = !isNaN(daysNum) && daysNum <= days ? 'overdue' : (anyDone ? 'progress' : 'pending');
           return (
             <div key={group.when} style={{ marginBottom: 18, position: 'relative' }}>
+              {/* Spine dot */}
               <div style={{
                 position: 'absolute', left: -22, top: 4,
                 width: 16, height: 16, borderRadius: '50%',
-                background: allDone ? 'var(--teal)' : (anyDone ? 'var(--gold)' : 'var(--white)'),
-                border: `3px solid ${allDone ? 'var(--teal)' : (anyDone ? 'var(--gold)' : 'var(--line)')}`,
+                background: allGroupDone ? '#66bb6a' : (anyDone ? 'var(--gold)' : 'var(--white)'),
+                border: `3px solid ${allGroupDone ? '#66bb6a' : (anyDone ? 'var(--gold)' : 'var(--line)')}`,
                 boxShadow: '0 0 0 4px var(--cream)',
+                zIndex: 1,
               }} />
+              {/* Phase header */}
               <div style={{
-                fontFamily: 'DM Sans', fontSize: 13, fontWeight: 700,
-                color: 'var(--terracotta)', marginBottom: 8,
-                textTransform: 'uppercase', letterSpacing: '0.06em',
-              }}>{group.when}</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {group.items.map(t => (
-                  <Card key={t.id} padding="12px 14px" onClick={() => toggle(t.id)}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <Checkbox checked={t.status === 'done'} onChange={() => toggle(t.id)} />
-                      <div style={{ flex: 1, fontSize: 14, fontWeight: 500,
-                        textDecoration: t.status === 'done' ? 'line-through' : 'none',
-                        color: t.status === 'done' ? 'var(--muted)' : 'var(--dark)',
+                display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8,
+              }}>
+                <span style={{
+                  fontFamily: 'DM Sans', fontSize: 13, fontWeight: 700,
+                  color: allGroupDone ? '#66bb6a' : 'var(--terracotta)',
+                  textTransform: 'uppercase', letterSpacing: '0.06em',
+                  display: 'flex', alignItems: 'center', gap: 6,
+                }}>
+                  {group.when}
+                  {allGroupDone && <span style={{ fontSize: 11, color: '#66bb6a' }}>✓ All done</span>}
+                </span>
+                {urgency === 'overdue' && (
+                  <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--terracotta)', background: 'var(--terracotta)15', padding: '2px 8px', borderRadius: 999 }}>OVERDUE</span>
+                )}
+                {allGroupDone && <span style={{ fontSize: 14 }}>🎯</span>}
+              </div>
+              {/* Task cards */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {group.items.map(t => {
+                  const isDone = t.status === 'done';
+                  return (
+                    <div
+                      key={t.id}
+                      onClick={() => toggle(t.id)}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 10,
+                        padding: '10px 12px', borderRadius: 10,
+                        background: isDone ? '#f0faf0' : 'var(--white)',
+                        border: `1px solid ${isDone ? '#d4edd4' : 'var(--line)'}`,
+                        cursor: 'pointer', transition: 'all 0.15s',
+                      }}
+                    >
+                      <div style={{
+                        width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
+                        background: isDone ? '#66bb6a' : 'var(--cream)',
+                        border: isDone ? 'none' : '1.5px solid var(--line)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        color: '#fff', fontSize: 10, fontWeight: 700,
+                      }}>{isDone ? '✓' : ''}</div>
+                      <div style={{
+                        flex: 1, fontSize: 13, fontWeight: 500,
+                        textDecoration: isDone ? 'line-through' : 'none',
+                        color: isDone ? 'var(--muted)' : 'var(--dark)',
                       }}>{t.text}</div>
+                      {!isDone && (
+                        <div style={{
+                          width: 4, height: 4, borderRadius: '50%',
+                          background: urgency === 'overdue' ? 'var(--terracotta)' : 'var(--muted)',
+                          flexShrink: 0, opacity: 0.4,
+                        }} />
+                      )}
                     </div>
-                  </Card>
-                ))}
+                  );
+                })}
               </div>
             </div>
           );
@@ -269,13 +430,37 @@ function TasksScreen({ state, setState, onBack }) {
   );
 }
 
-// ---------- BUDGET ----------
+// ---------- BUDGET (inspired by YNAB / Monzo / Copilot) ----------
+const MONTHLY_BUDGET = window.MONTHLY_BUDGET;
+
 function BudgetScreen({ state, setState, onBack }) {
+  const [tab, setTab] = React.useState('monthly');
+  const monthly = state.budget.monthly || MONTHLY_BUDGET;
+  const income = state.budget.monthlyIncome || 8800;
+  const totalFixed = monthly.filter(c => c.fixed).reduce((a, c) => a + (c.planned || 0), 0);
+  const totalSpentMonthly = monthly.reduce((a, c) => a + (c.spent || 0), 0);
+  const totalPlannedMonthly = monthly.reduce((a, c) => a + (c.planned || 0), 0);
+  const remainingMonthly = income - totalSpentMonthly;
+  const savingsPct = Math.round(((monthly.find(c => c.id === 'savings')?.planned || 1500) / income) * 100);
+
+  const [showZAR, setShowZAR] = React.useState(false);
+  const FX = 4.5;
+  const cur = showZAR ? 'ZAR' : 'AED';
+  const conv = (v) => showZAR ? Math.round(v * FX) : v;
   const totalPlanned = state.budget.categories.reduce((a, c) => a + c.planned, 0);
-  const totalSpent   = state.budget.categories.reduce((a, c) => a + c.spent, 0);
+  const totalSpent = state.budget.categories.reduce((a, c) => a + c.spent, 0);
   const fx = state.budget.fxToUSD;
 
-  function tweak(catId, delta) {
+  function tweakMonthly(catId, delta) {
+    setState(s => {
+      const cats = (s.budget.monthly || MONTHLY_BUDGET).map(c =>
+        c.id === catId ? { ...c, spent: Math.max(0, Math.min(c.planned || Infinity, (c.spent || 0) + delta)) } : c
+      );
+      return { ...s, budget: { ...s.budget, monthly: cats } };
+    });
+  }
+
+  function tweakMove(catId, delta) {
     setState(s => ({
       ...s,
       budget: {
@@ -287,68 +472,170 @@ function BudgetScreen({ state, setState, onBack }) {
     }));
   }
 
+  const ringSvg = (pct, color) => {
+    const r = 40, circ = 2 * Math.PI * r;
+    const dash = (pct / 100) * circ;
+    return (
+      <svg width="100" height="100" viewBox="0 0 100 100">
+        <circle cx="50" cy="50" r={r} fill="none" stroke="var(--cream)" strokeWidth="8" />
+        <circle cx="50" cy="50" r={r} fill="none" stroke={color} strokeWidth="8"
+          strokeDasharray={`${dash} ${circ - dash}`}
+          strokeLinecap="round" transform="rotate(-90 50 50)"
+          style={{ transition: 'stroke-dasharray 0.5s ease' }}
+        />
+      </svg>
+    );
+  };
+
+  const catRow = (c, tweakFn) => {
+    const pct = c.planned > 0 ? Math.round(((c.spent || 0) / c.planned) * 100) : 0;
+    const over = c.spent >= c.planned;
+    const remaining = (c.planned || 0) - (c.spent || 0);
+    return (
+      <div key={c.id} style={{
+        background: 'var(--white)', borderRadius: 16, padding: '14px 16px',
+        boxShadow: 'var(--shadow)', marginBottom: 10,
+        border: over ? '1px solid #fecaca' : '1px solid var(--line)',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{
+            width: 40, height: 40, borderRadius: 12,
+            background: 'var(--sand)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 20, flexShrink: 0,
+          }}>{c.emoji}</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+              <div style={{ fontFamily: 'DM Sans', fontSize: 14, fontWeight: 700 }}>{c.label}</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: over ? 'var(--terracotta)' : 'var(--dark)' }}>
+                {conv(c.spent || 0).toLocaleString()}
+                <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 500 }}> / {conv(c.planned).toLocaleString()}</span>
+              </div>
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
+              {remaining > 0 ? `${conv(remaining).toLocaleString()} ${cur} left` : 'Fully spent'}
+              {c.fixed && ' · Fixed'}
+            </div>
+            <div style={{ marginTop: 6 }}>
+              <ProgressBar value={c.spent || 0} total={c.planned || 1} color={over ? 'var(--terracotta)' : 'var(--gold)'} height={6} />
+            </div>
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 6, marginTop: 10, justifyContent: 'flex-end' }}>
+          <button onClick={() => tweakFn(c.id, -100)} style={{
+            width: 28, height: 28, borderRadius: 8, border: 'none',
+            background: 'var(--sand)', fontSize: 16, fontWeight: 700, color: 'var(--muted)',
+            cursor: 'pointer', fontFamily: 'inherit',
+          }}>−</button>
+          <button onClick={() => tweakFn(c.id, 100)} style={{
+            width: 28, height: 28, borderRadius: 8, border: 'none',
+            background: 'var(--terracotta)', color: '#fff', fontSize: 16, fontWeight: 700,
+            cursor: 'pointer', fontFamily: 'inherit',
+          }}>＋</button>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <ModulePage
       title="Budget"
-      subtitle="AED · ~USD"
+      subtitle={tab === 'monthly' ? `${conv(income).toLocaleString()} ${cur} / mo` : `One-time · ${conv(totalPlanned).toLocaleString()} ${cur}`}
       emoji="💰"
       onBack={onBack}
     >
-      {/* Total card */}
-      <Card padding="20px" style={{ background: 'linear-gradient(135deg, var(--teal) 0%, #1e524f 100%)', color: '#fff', border: 'none' }}>
-        <div style={{ fontSize: 12, opacity: 0.85, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Spent so far</div>
-        <div style={{ fontFamily: 'DM Sans', fontWeight: 800, fontSize: 36, lineHeight: 1, marginTop: 4 }}>
-          {totalSpent.toLocaleString()}
-          <span style={{ fontSize: 16, opacity: 0.7, marginLeft: 6, fontWeight: 600 }}>AED</span>
-        </div>
-        <div style={{ fontSize: 12, opacity: 0.8, marginTop: 4 }}>
-          of {totalPlanned.toLocaleString()} AED · ~${Math.round(totalPlanned * fx).toLocaleString()} USD
-        </div>
-        <div style={{ marginTop: 14 }}>
-          <ProgressBar value={totalSpent} total={totalPlanned} color="var(--gold)" height={8} />
-        </div>
-      </Card>
-
-      {/* Categories */}
-      <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {state.budget.categories.map(c => {
-          const pct = Math.round((c.spent / c.planned) * 100);
-          const over = c.spent >= c.planned;
-          return (
-            <Card key={c.id} padding="14px 16px">
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{
-                  width: 38, height: 38, borderRadius: 12,
-                  background: 'var(--sand)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 20, flexShrink: 0,
-                }}>{c.emoji}</div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                    <div style={{ fontFamily: 'DM Sans', fontSize: 14, fontWeight: 700 }}>{c.label}</div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: over ? 'var(--terracotta)' : 'var(--dark)' }}>
-                      {c.spent.toLocaleString()}<span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 500 }}> / {c.planned.toLocaleString()}</span>
-                    </div>
-                  </div>
-                  <div style={{ marginTop: 7 }}>
-                    <ProgressBar value={c.spent} total={c.planned} color={over ? 'var(--terracotta)' : 'var(--gold)'} height={6} />
-                  </div>
-                </div>
-              </div>
-              <div style={{ display: 'flex', gap: 6, marginTop: 10, justifyContent: 'flex-end' }}>
-                <button onClick={() => tweak(c.id, -100)} style={{
-                  width: 28, height: 28, borderRadius: 8,
-                  background: 'var(--sand)', fontSize: 16, fontWeight: 700, color: 'var(--muted)',
-                }}>−</button>
-                <button onClick={() => tweak(c.id, 100)} style={{
-                  width: 28, height: 28, borderRadius: 8,
-                  background: 'var(--terracotta)', color: '#fff', fontSize: 16, fontWeight: 700,
-                }}>＋</button>
-              </div>
-            </Card>
-          );
-        })}
+      {/* Tab toggle */}
+      <div style={{ display: 'flex', gap: 4, background: 'var(--sand)', borderRadius: 12, padding: 3, marginBottom: 8 }}>
+        {[
+          { id: 'monthly', label: `📆 Monthly · ${conv(income).toLocaleString()} ${cur}` },
+          { id: 'move', label: `✈️ Move · ${conv(totalPlanned).toLocaleString()} ${cur}` },
+        ].map(t => (
+          <button
+            key={t.id}
+            onClick={() => setTab(t.id)}
+            style={{
+              flex: 1, padding: '10px 0', borderRadius: 10, border: 'none',
+              fontFamily: 'inherit', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+              background: tab === t.id ? 'var(--white)' : 'transparent',
+              color: tab === t.id ? 'var(--dark)' : 'var(--muted)',
+              boxShadow: tab === t.id ? 'var(--shadow)' : 'none',
+              transition: 'all 0.15s',
+            }}
+          >{t.label}</button>
+        ))}
       </div>
+
+      {/* Currency toggle */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+        <button onClick={() => setShowZAR(v => !v)} style={{
+          padding: '6px 14px', borderRadius: 8, border: '1px solid var(--line)',
+          background: 'var(--white)', fontFamily: 'inherit', fontSize: 11, fontWeight: 700,
+          cursor: 'pointer', color: showZAR ? 'var(--terracotta)' : 'var(--teal)',
+        }}>
+          {showZAR ? '🇿🇦 ZAR' : '🇦🇪 AED'} · tap to swap
+        </button>
+      </div>
+
+      {tab === 'monthly' ? (
+        <>
+          {/* Income ring + summary */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 18, marginBottom: 18 }}>
+            <div style={{ position: 'relative', flexShrink: 0 }}>
+              {ringSvg(Math.round((totalSpentMonthly / income) * 100), 'var(--teal)')}
+              <div style={{
+                position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+                textAlign: 'center',
+              }}>
+                <div style={{ fontFamily: 'DM Sans', fontSize: 18, fontWeight: 800, color: 'var(--dark)' }}>{conv(income).toLocaleString()}</div>
+                <div style={{ fontSize: 9, color: 'var(--muted)', fontWeight: 600 }}>{cur}</div>
+              </div>
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>Monthly income</div>
+              <div style={{ fontFamily: 'DM Sans', fontSize: 22, fontWeight: 800, color: 'var(--teal)', marginTop: 2 }}>{conv(income).toLocaleString()} {cur}</div>
+              {!showZAR && <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
+                ≈ {(income * 4.5).toLocaleString()} ZAR · {(income * 0.27).toLocaleString()} USD
+              </div>}
+              {showZAR && <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
+                ≈ {Math.round(income).toLocaleString()} AED · {(income * 0.27).toLocaleString()} USD
+              </div>}
+              <div style={{ display: 'flex', gap: 16, marginTop: 8, fontSize: 12 }}>
+                <div><span style={{ fontWeight: 700 }}>Fixed:</span> {conv(totalFixed).toLocaleString()} {cur}</div>
+                <div><span style={{ fontWeight: 700 }}>Left:</span> <span style={{ color: remainingMonthly > 0 ? '#66bb6a' : 'var(--terracotta)' }}>{conv(remainingMonthly).toLocaleString()} {cur}</span></div>
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 3 }}>Savings target: {savingsPct}% · {conv(monthly.find(c => c.id === 'savings')?.planned || 1500).toLocaleString()} {cur}</div>
+              <div style={{ marginTop: 6, padding: '8px 12px', background: 'var(--sand)', borderRadius: 12, fontSize: 12, color: 'var(--muted)', lineHeight: 1.5 }}>
+                {!showZAR && <span>☕ <strong style={{ color: 'var(--terracotta)' }}>Back home</strong> this would be ~{(income * 4.5).toLocaleString()} ZAR<br /></span>}
+                {showZAR && <span>☕ <strong style={{ color: 'var(--terracotta)' }}>In Dubai</strong> this is ~{Math.round(income).toLocaleString()} AED<br /></span>}
+                <span style={{ fontSize: 11 }}>Remember to budget a small <strong>treat yourself</strong> line for those first-week cappuccinos 🇿🇦</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Monthly categories */}
+          {monthly.map(c => catRow(c, tweakMonthly))}
+        </>
+      ) : (
+        <>
+          {/* Move budget — total card */}
+          <Card padding="20px" style={{ background: 'linear-gradient(135deg, var(--teal) 0%, #1e524f 100%)', color: '#fff', border: 'none', marginBottom: 16 }}>
+            <div style={{ fontSize: 12, opacity: 0.85, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>One-time move costs</div>
+            <div style={{ fontFamily: 'DM Sans', fontWeight: 800, fontSize: 36, lineHeight: 1, marginTop: 4 }}>
+              {conv(totalSpent).toLocaleString()}
+              <span style={{ fontSize: 16, opacity: 0.7, marginLeft: 6, fontWeight: 600 }}>{cur}</span>
+            </div>
+            <div style={{ fontSize: 12, opacity: 0.8, marginTop: 4 }}>
+              of {conv(totalPlanned).toLocaleString()} {cur} · ~${Math.round(totalPlanned * fx).toLocaleString()} USD
+            </div>
+            <div style={{ marginTop: 14 }}>
+              <ProgressBar value={totalSpent} total={totalPlanned} color="var(--gold)" height={8} />
+            </div>
+          </Card>
+
+          {/* Move categories */}
+          {state.budget.categories.map(c => catRow(c, tweakMove))}
+        </>
+      )}
     </ModulePage>
   );
 }
@@ -356,6 +643,8 @@ function BudgetScreen({ state, setState, onBack }) {
 // ---------- SHOPPING / TO BUY ----------
 function ShoppingScreen({ state, setState, onBack, onAsk }) {
   const [filter, setFilter] = React.useState('all');
+  const [shareLink, setShareLink] = React.useState('');
+  const [linkCopied, setLinkCopied] = React.useState(false);
   const cats = ['all', ...new Set(state.shopping.map(s => s.cat))];
   const list = filter === 'all' ? state.shopping : state.shopping.filter(s => s.cat === filter);
   const total = state.shopping.reduce((a, s) => a + (s.price || 0), 0);
@@ -367,14 +656,46 @@ function ShoppingScreen({ state, setState, onBack, onAsk }) {
     }));
   }
 
+  async function handleShare() {
+    const token = await window.__suvedaShopping.generateShareToken('Family Share');
+    if (token) {
+      const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+      const url = isLocal
+        ? `${window.location.origin}/shared.html#${token}`
+        : `${window.location.origin}/s/${token}`;
+      setShareLink(url);
+      try {
+        await navigator.clipboard.writeText(url);
+        setLinkCopied(true);
+        setTimeout(() => setLinkCopied(false), 2000);
+      } catch {}
+    }
+  }
+
   return (
     <ModulePage
       title="To buy"
-      subtitle={`${state.shopping.length} items · ~${total} AED`}
+      subtitle={`${state.shopping.length} items · ~${total} ZAR`}
       emoji="🛍️"
       onBack={onBack}
-      action={<Button size="sm" variant="ghost" icon="✨" onClick={() => onAsk('What are 5 small things to buy in Abu Dhabi for my new apartment?', 'Suveda is setting up a studio in Al Khalifa City.')}>AI</Button>}
+      action={<div style={{ display: 'flex', gap: 6 }}>
+        <Button size="sm" variant="ghost" icon="🔗" onClick={handleShare}>
+          {linkCopied ? 'Copied!' : 'Share'}
+        </Button>
+        <Button size="sm" variant="ghost" icon="✨" onClick={() => onAsk('What are 5 small things to buy in Abu Dhabi for my new apartment?', 'Suveda is setting up a studio in Al Khalifa City.')}>AI</Button>
+      </div>}
     >
+      {shareLink && (
+        <div style={{
+          padding: '10px 14px', borderRadius: 12, marginBottom: 14,
+          background: 'var(--sand)', fontSize: 12, color: 'var(--muted)',
+          wordBreak: 'break-all', border: '1px solid var(--line)',
+        }}>
+          <div style={{ fontWeight: 600, color: 'var(--dark)', marginBottom: 4 }}>🔗 Shared link</div>
+          {shareLink}
+        </div>
+      )}
+
       <div style={{ display: 'flex', gap: 6, marginBottom: 14, overflowX: 'auto', paddingBottom: 4 }}>
         {cats.map(c => (
           <Pill key={c} active={filter === c} onClick={() => setFilter(c)}>
@@ -395,7 +716,7 @@ function ShoppingScreen({ state, setState, onBack, onAsk }) {
                 }}>{item.name}</div>
                 <div style={{ display: 'flex', gap: 8, fontSize: 11, color: 'var(--muted)', marginTop: 3 }}>
                   <span>{item.cat}</span>
-                  {item.price && <><span>·</span><span>{item.price} AED</span></>}
+                  {item.price && <><span>·</span><span>{item.price} ZAR</span></>}
                 </div>
               </div>
               {item.status !== 'packed' && <Badge status={item.status} size="sm" />}
@@ -497,6 +818,190 @@ function HousingScreen({ state, setState, onBack, onAsk }) {
   );
 }
 
+// ---------- MEMORY LANE (Goodbye module) ----------
+function MemoryScreen({ state, setState, onBack }) {
+  const lastTimes = state.memories?.lastTimes || [];
+  const goodbyes = state.memories?.goodbyes || [];
+  const ltDone = lastTimes.filter(m => m.done).length;
+  const gbDone = goodbyes.filter(g => g.done).length;
+
+  function toggle(id, field) {
+    setState(s => ({
+      ...s,
+      memories: {
+        ...s.memories,
+        [field]: (s.memories?.[field] || []).map(m =>
+          m.id === id ? { ...m, done: !m.done } : m
+        ),
+      },
+    }));
+  }
+
+  return (
+    <ModulePage
+      title="Memory Lane"
+      subtitle="Before you go"
+      emoji="💭"
+      onBack={onBack}
+    >
+      <div style={{ marginBottom: 20, padding: '18px 20px', background: 'linear-gradient(135deg, var(--gold)20, var(--terracotta)15)', borderRadius: 20, border: '1px solid var(--line)' }}>
+        <div style={{ fontSize: 24, marginBottom: 8 }}>🌅</div>
+        <div style={{ fontFamily: 'DM Sans', fontSize: 16, fontWeight: 700, marginBottom: 4 }}>One last time</div>
+        <div style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.5 }}>
+          Leaving a place is also about honouring what you're saying goodbye to. Tick these off before you fly.
+        </div>
+      </div>
+
+      <SectionHeader title={`Last times  · ${ltDone}/${lastTimes.length}`} />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 20 }}>
+        {lastTimes.map(m => {
+          const done = m.done;
+          return (
+            <div key={m.id} onClick={() => toggle(m.id, 'lastTimes')} style={{
+              display: 'flex', alignItems: 'center', gap: 10,
+              padding: '10px 12px', borderRadius: 12,
+              background: done ? '#f0faf0' : 'var(--white)',
+              border: `1px solid ${done ? '#d4edd4' : 'var(--line)'}`,
+              cursor: 'pointer', transition: 'all 0.15s',
+            }}>
+              <div style={{
+                width: 24, height: 24, borderRadius: '50%', flexShrink: 0,
+                background: done ? '#66bb6a' : 'var(--cream)',
+                border: done ? 'none' : '1.5px solid var(--line)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: '#fff', fontSize: 11, fontWeight: 700,
+              }}>{done ? '✓' : ''}</div>
+              <div style={{
+                flex: 1, fontSize: 14, fontWeight: 500,
+                textDecoration: done ? 'line-through' : 'none',
+                color: done ? 'var(--muted)' : 'var(--dark)',
+              }}>{m.text}</div>
+              <span style={{ fontSize: 18, opacity: done ? 0.3 : 0.5 }}>💛</span>
+            </div>
+          );
+        })}
+      </div>
+
+      <SectionHeader title={`Goodbyes  · ${gbDone}/${goodbyes.length}`} />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {goodbyes.map(g => {
+          const done = g.done;
+          return (
+            <Card key={g.id} padding="12px 14px" onClick={() => toggle(g.id, 'goodbyes')}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{
+                  width: 40, height: 40, borderRadius: '50%', flexShrink: 0,
+                  background: done ? '#66bb6a' : 'var(--sand)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 20,
+                }}>{done ? '💚' : '👋'}</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{
+                    fontSize: 14, fontWeight: 600,
+                    textDecoration: done ? 'line-through' : 'none',
+                    color: done ? 'var(--muted)' : 'var(--dark)',
+                  }}>{g.name}</div>
+                  {g.note && <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{g.note}</div>}
+                </div>
+                <div style={{
+                  width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
+                  background: done ? '#66bb6a' : 'var(--cream)',
+                  border: done ? 'none' : '1.5px solid var(--line)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: '#fff', fontSize: 10, fontWeight: 700,
+                }}>{done ? '✓' : ''}</div>
+              </div>
+            </Card>
+          );
+        })}
+      </div>
+
+      <div style={{ marginTop: 20, padding: '16px 18px', background: 'var(--sand)', borderRadius: 16, textAlign: 'center' }}>
+        <div style={{ fontSize: 28, marginBottom: 6 }}>📸</div>
+        <div style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.5 }}>
+          Take a photo of your favourite spots before you go. The chai shop. Ammachi's kitchen. The park bench.<br />
+          <span style={{ fontWeight: 600, color: 'var(--terracotta)' }}>Abu Dhabi will be home soon — but this place made you.</span>
+        </div>
+      </div>
+    </ModulePage>
+  );
+}
+
+// ---------- PEOPLE & CONTACTS ----------
+function ContactsScreen({ state, setState, onBack }) {
+  const contacts = state.contacts || [];
+
+  function update(id, field, value) {
+    setState(s => ({
+      ...s,
+      contacts: (s.contacts || []).map(c => c.id === id ? { ...c, [field]: value } : c),
+    }));
+  }
+
+  return (
+    <ModulePage
+      title="People"
+      subtitle={`${contacts.length} contacts`}
+      emoji="👥"
+      onBack={onBack}
+    >
+      <div style={{ marginBottom: 18, padding: '16px 18px', background: 'var(--white)', borderRadius: 16, boxShadow: 'var(--shadow)', textAlign: 'center' }}>
+        <div style={{ fontSize: 14, color: 'var(--muted)', lineHeight: 1.5 }}>
+          🤝 Moving is better with people in your corner.<br />
+          <span style={{ fontWeight: 600, color: 'var(--dark)' }}>Here's who matters in this move.</span>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {contacts.map(c => (
+          <Card key={c.id} padding="16px">
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+              <div style={{
+                width: 44, height: 44, borderRadius: '50%', flexShrink: 0,
+                background: 'linear-gradient(135deg, var(--teal), var(--gold))',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: '#fff', fontSize: 18, fontWeight: 700, fontFamily: 'DM Sans',
+              }}>{c.name.charAt(0)}</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontFamily: 'DM Sans', fontSize: 15, fontWeight: 700 }}>{c.name}</div>
+                <div style={{ fontSize: 12, color: 'var(--terracotta)', fontWeight: 600, marginTop: 1 }}>{c.role}</div>
+                <input
+                  value={c.phone || ''}
+                  onChange={e => update(c.id, 'phone', e.target.value)}
+                  placeholder="Phone"
+                  style={{
+                    marginTop: 6, width: '100%', padding: '8px 10px',
+                    border: '1px solid var(--line)', borderRadius: 8,
+                    fontSize: 13, fontFamily: 'inherit', background: 'var(--cream)',
+                    color: 'var(--dark)', outline: 'none',
+                  }}
+                />
+                <input
+                  value={c.email || ''}
+                  onChange={e => update(c.id, 'email', e.target.value)}
+                  placeholder="Email"
+                  style={{
+                    marginTop: 4, width: '100%', padding: '8px 10px',
+                    border: '1px solid var(--line)', borderRadius: 8,
+                    fontSize: 13, fontFamily: 'inherit', background: 'var(--cream)',
+                    color: 'var(--dark)', outline: 'none',
+                  }}
+                />
+                {c.note && <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4, fontStyle: 'italic' }}>💡 {c.note}</div>}
+              </div>
+            </div>
+          </Card>
+        ))}
+      </div>
+
+      <div style={{ marginTop: 14 }}>
+        <Button full variant="soft" icon="＋">Add contact</Button>
+      </div>
+    </ModulePage>
+  );
+}
+
 Object.assign(window, {
   PackingScreen, DocumentsScreen, TasksScreen, BudgetScreen, ShoppingScreen, HousingScreen,
+  MemoryScreen, ContactsScreen,
 });

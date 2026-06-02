@@ -6,5 +6,9 @@
     "api/deepseek.js": {
       "maxDuration": 60
     }
-  }
+  },
+  "rewrites": [
+    { "source": "/s/:token", "destination": "/shared.html" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
 }

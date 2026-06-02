@@ -8,6 +8,16 @@ const DEFAULT_MOVE_DATE = (() => {
 })();
 
 // Demo content tuned to the move (UAE-specific docs, kitchen for studio, etc.)
+const MONTHLY_BUDGET = [
+  { id: 'rent',     label: 'Rent',        emoji: '🏠', planned: 4200, spent: 0, fixed: true },
+  { id: 'utilities', label: 'Utilities + Internet', emoji: '⚡', planned: 500, spent: 0, fixed: true },
+  { id: 'groceries', label: 'Food & Groceries',    emoji: '🍽️', planned: 1200, spent: 0, fixed: false },
+  { id: 'transport', label: 'Transport',   emoji: '🚗', planned: 400, spent: 0, fixed: false },
+  { id: 'insurance', label: 'Health Insurance',    emoji: '🏥', planned: 300, spent: 0, fixed: true },
+  { id: 'fun',       label: 'Life & Fun',  emoji: '🎮', planned: 700, spent: 0, fixed: false },
+  { id: 'savings',   label: 'Savings',     emoji: '💰', planned: 1500, spent: 0, fixed: false },
+];
+
 const SEED = {
   packing: {
     rooms: [
@@ -86,6 +96,8 @@ const SEED = {
   budget: {
     currency: 'AED',
     fxToUSD: 0.272,
+    monthlyIncome: 8800,
+    monthly: [...MONTHLY_BUDGET.map(c => ({...c}))],
     total: 32000,
     categories: [
       { id: 'flights',  label: 'Flights',         emoji: '✈️', planned: 4500,  spent: 0 },
@@ -122,6 +134,34 @@ const SEED = {
       status: 'considering', area: 'MBZ City', size: '46 sqm',
     },
   ],
+  memories: {
+    lastTimes: [
+      { id: 'lt1', text: 'Chai at the corner shop', done: false },
+      { id: 'lt2', text: 'Visit ammachi one last time', done: false },
+      { id: 'lt3', text: 'Sunset at your favourite spot', done: false },
+      { id: 'lt4', text: 'Walk through the neighbourhood park', done: false },
+      { id: 'lt5', text: 'That one biryani place', done: false },
+    ],
+    goodbyes: [
+      { id: 'gb1', name: 'Ammachi', note: 'Grandmother — take her photo', done: false },
+      { id: 'gb2', name: 'Parents', note: 'Help them set up video calls', done: false },
+      { id: 'gb3', name: 'Siblings', note: 'Promise weekly catch-ups', done: false },
+      { id: 'gb4', name: 'Close friends', note: 'Goodbye dinner (t9)', done: false },
+    ],
+  },
+  contacts: [
+    { id: 'c1', name: 'SABIS HR', role: 'Sponsor / Visa', phone: '', email: '', note: 'They initiate the entry permit' },
+    { id: 'c2', name: 'Current landlord', role: 'Housing notice', phone: '', email: '', note: '2-month notice required (t3)' },
+    { id: 'c3', name: 'Friend in AUH', role: 'On-ground support', phone: '', email: '', note: 'Can help with apartment viewing' },
+  ],
+  whyNote: `I'm doing this to make sure you still feel loved and appreciated, always seen and always heard, wherever life takes us just know I'll always be right there to help you through it... I love you my baby. 🌍`,
+  first48: {
+    simCard: { provider: 'Etisalat / du', where: 'Airport or Al Wahda Mall', note: 'Tourist eSIM works day 1' },
+    groceries: { store: 'Lulu Hypermarket', location: 'Al Khalifa City', tip: 'Walkable from most studios' },
+    mosque: { name: 'Sheikh Khalifa Mosque', location: 'Al Khalifa City', note: 'Walking distance from the studio' },
+    firstMeal: { place: 'Al Fanar Restaurant', location: 'Al Raha Mall', dish: 'Machboos — traditional Emirati' },
+    transport: { app: 'Careem', note: 'Works like Uber, also delivers food' },
+  },
 };
 
 function applyProgress(seed, level) {
@@ -150,6 +190,12 @@ function applyProgress(seed, level) {
   });
 
   // budget — spend roughly proportional
+  if (data.budget.monthly) {
+    data.budget.monthly.forEach(c => {
+      c.spent = Math.round(c.planned * ratio * (0.5 + Math.random() * 0.8));
+      if (c.spent > c.planned) c.spent = c.planned;
+    });
+  }
   data.budget.categories.forEach(c => {
     c.spent = Math.round(c.planned * ratio * (0.7 + Math.random() * 0.6));
     if (c.spent > c.planned) c.spent = c.planned;
@@ -160,16 +206,22 @@ function applyProgress(seed, level) {
     if (Math.random() < ratio) s.status = 'packed';
   });
 
+  // memories
+  if (data.memories) {
+    data.memories.lastTimes.forEach(m => { if (Math.random() < ratio * 0.3) m.done = true; });
+    data.memories.goodbyes.forEach(g => { if (Math.random() < ratio * 0.3) g.done = true; });
+  }
+
   return data;
 }
 
-// AI helper using window.claude.complete
+// AI helper — calls the Huve AI proxy (Cloudflare Worker → NVIDIA API)
 async function askHuve(prompt, context = '') {
   const sys = `You are Huve, a warm, playful, slightly adventurous AI helper inside Suveda's "moving abroad" app. Suveda is moving from her home country to Al Khalifa City, Abu Dhabi, UAE. Be brief (2-4 sentences max), friendly, practical, and encouraging. Use the occasional emoji. Never give legal/medical advice — suggest official sources (e.g. ICP, GDRFA, MoHRE) when relevant. Speak like a thoughtful friend, not a chatbot.`;
   const user = context ? `Context: ${context}\n\nQuestion: ${prompt}` : prompt;
 
-  // If a local proxy is available, call it; otherwise fall back to the browser-based Claude hook if present.
-  const apiUrl = window.__suvedaApiUrl || '/api/deepseek';
+  // If a local proxy is available, call it; otherwise fall back.
+  const apiUrl = (window.__suvedaApiUrl || '/api/huve').trim();
   try {
     const res = await fetch(apiUrl, {
       method: 'POST',
@@ -187,9 +239,9 @@ async function askHuve(prompt, context = '') {
       return j.text || (j.raw ? JSON.stringify(j.raw) : '...');
     }
     const err = await res.text();
-    console.warn('Deepseek proxy error', err);
+    console.warn('Huve proxy error', err);
   } catch (e) {
-    console.warn('Deepseek proxy failed', e);
+    console.warn('Huve proxy failed', e);
   }
 
   // Fallback to any existing window.claude.complete if present (older bundle)
@@ -205,4 +257,4 @@ async function askHuve(prompt, context = '') {
   return "AI not available (proxy missing).";
 }
 
-Object.assign(window, { SEED, DEFAULT_MOVE_DATE, applyProgress, askHuve });
+Object.assign(window, { SEED, DEFAULT_MOVE_DATE, MONTHLY_BUDGET, applyProgress, askHuve });
