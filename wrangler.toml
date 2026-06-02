@@ -1,0 +1,6 @@
+name = "suveda-proxy"
+main = "index.js"
+compatibility_date = "2025-01-01"
+
+# Set your API key as a secret:
+#   npx wrangler secret put NVIDIA_API_KEY
