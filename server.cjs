@@ -4,8 +4,8 @@ const { URL } = require('url');
 
 const PORT = process.env.PORT || 3001;
 const BASE_URL = (process.env.DEEPSEEK_BASE_URL || 'https://integrate.api.nvidia.com/v1').replace(/\/?$/, '/');
-const API_KEY = process.env.DEEPSEEK_API_KEY || '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';
-const DEFAULT_MODEL = process.env.DEEPSEEK_MODEL || 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning';
+const API_KEY = process.env.NVIDIA_API_KEY || process.env.DEEPSEEK_API_KEY || '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';
+const DEFAULT_MODEL = process.env.NVIDIA_MODEL || process.env.DEEPSEEK_MODEL || 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning';
 
 function sendJson(res, code, obj) {
   const s = JSON.stringify(obj);

@@ -1,6 +1,6 @@
 const BASE_URL = 'https://integrate.api.nvidia.com/v1/';
-const API_KEY = process.env.DEEPSEEK_API_KEY;
-const DEFAULT_MODEL = process.env.DEEPSEEK_MODEL || 'mistralai/mistral-nemotron';
+const API_KEY = process.env.NVIDIA_API_KEY;
+const DEFAULT_MODEL = 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning';
 
 function sendJson(res, code, obj) {
   const s = JSON.stringify(obj);
@@ -28,7 +28,7 @@ export default async function handler(req, res) {
 
   if (!API_KEY) {
     return sendJson(res, 200, {
-      text: 'AI is not configured yet. Set the DEEPSEEK_API_KEY environment variable.',
+      text: 'AI is not configured yet. Set NVIDIA_API_KEY in your Vercel environment variables.',
     });
   }
 
@@ -43,7 +43,10 @@ export default async function handler(req, res) {
       messages,
       temperature: temperature ?? 0.6,
       top_p: top_p ?? 0.95,
-      max_tokens: max_tokens ?? 4096,
+      max_tokens: max_tokens ?? 65536,
+      chat_template_kwargs: { enable_thinking: true },
+      reasoning_budget: 16384,
+      stream: false,
     };
 
     const response = await fetch(BASE_URL + 'chat/completions', {
@@ -53,7 +56,7 @@ export default async function handler(req, res) {
         Authorization: `Bearer ${API_KEY}`,
       },
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(8500),
+      signal: AbortSignal.timeout(9000),
     });
 
     if (!response.ok) {
