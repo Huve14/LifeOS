@@ -1174,7 +1174,7 @@ function MemoryScreen({ state, setState, onBack }) {
                 background: 'none', border: 'none', cursor: 'pointer',
                 fontFamily: 'inherit', padding: '4px 12px',
               }}
-            >{showPhotos ? 'Show grid ↓' : 'Show grid ↓'}</button>
+            >{showPhotos ? 'Collapse ↑' : 'Animate grid ↓'}</button>
           </div>
           {showPhotos ? (
             <MemoryPhotoGrid images={photos.map(p => p.url)} />
