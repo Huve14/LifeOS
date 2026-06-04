@@ -32,7 +32,7 @@ const SEED = {
         ] },
       { id: 'kitchen', label: 'Kitchen', emoji: '🍳',
         items: [
-          { id: 'k1', name: 'Spice tin (ammachi\'s)', status: 'pending' },
+          { id: 'k1', name: 'Spice tin (favourites)', status: 'pending' },
           { id: 'k2', name: 'Pressure cooker', status: 'pending' },
           { id: 'k3', name: 'Tea kettle', status: 'pending' },
           { id: 'k4', name: 'Knife set', status: 'pending' },
@@ -65,14 +65,10 @@ const SEED = {
   },
   documents: [
     { id: 'passport', name: 'Passport (6+ months valid)', status: 'pending', emoji: '📕', note: 'Check expiry — must be valid through Aug 2027' },
-    { id: 'evisa',    name: 'UAE Employment Visa', status: 'pending', emoji: '🛂', note: 'Sponsor will initiate — track entry permit' },
     { id: 'eid',      name: 'Emirates ID prep docs', status: 'pending', emoji: '🪪', note: 'Photo + biometrics on arrival' },
     { id: 'medical',  name: 'Medical fitness test', status: 'pending', emoji: '🩺', note: 'Within 30 days of arrival' },
     { id: 'attest',   name: 'Degree attestation', status: 'pending', emoji: '🎓', note: 'MEA → UAE Embassy' },
-    { id: 'marriage', name: 'Marriage cert (attested)', status: 'pending', emoji: '💍', note: 'If sponsoring family later' },
     { id: 'license',  name: 'Driver\'s license docs', status: 'pending', emoji: '🚗', note: 'For UAE conversion' },
-    { id: 'health',   name: 'International health insurance', status: 'pending', emoji: '🏥', note: '90-day bridge cover' },
-    { id: 'pet',      name: 'Pet import paperwork', status: 'pending', emoji: '🐾', note: 'Skip if no pet' },
   ],
   tasks: [
     { id: 't1', when: '90+ days', text: 'Sign offer letter & accept', status: 'pending' },
@@ -100,12 +96,10 @@ const SEED = {
     monthly: [...MONTHLY_BUDGET.map(c => ({...c}))],
     total: 32000,
     categories: [
-      { id: 'flights',  label: 'Flights',         emoji: '✈️', planned: 4500,  spent: 0 },
       { id: 'shipping', label: 'Shipping & boxes', emoji: '📦', planned: 3500,  spent: 0 },
       { id: 'visa',     label: 'Visa & docs',      emoji: '📑', planned: 2200,  spent: 0 },
       { id: 'deposit',  label: 'Housing deposit',  emoji: '🏠', planned: 12000, spent: 0 },
-      { id: 'furniture', label: 'Furniture & home', emoji: '🛋️', planned: 6000, spent: 0 },
-      { id: 'buffer',   label: 'First-month buffer', emoji: '🌙', planned: 3800, spent: 0 },
+      { id: 'buffer',   label: 'First-month buffer', emoji: '🌙', planned: 2500, spent: 0 },
     ],
   },
   shopping: [
@@ -117,33 +111,23 @@ const SEED = {
     { id: 's6', name: 'Steam iron + board', cat: 'Apartment', status: 'missing' },
     { id: 's7', name: 'Reusable water bottle', cat: 'Apartment', status: 'toBuy', price: 75 },
   ],
-  housing: [
-    { id: 'h1', name: 'Studio · Al Khalifa City A', rent: 4200,
-      pros: ['Walking distance to mosque', 'Quiet street', 'New build'],
-      cons: ['No balcony', 'Far from metro'],
-      status: 'shortlisted', area: 'Al Khalifa City A', size: '52 sqm',
-    },
-    { id: 'h2', name: '1BR · Khalifa Park side', rent: 5800,
-      pros: ['Big balcony', 'Pool + gym', 'Closer to airport'],
-      cons: ['Above budget', 'Noisier'],
-      status: 'viewing', area: 'Khalifa City', size: '78 sqm',
-    },
-    { id: 'h3', name: 'Studio · Mohammed Bin Zayed', rent: 3600,
-      pros: ['Cheapest', 'Family compound'],
-      cons: ['Far from work', 'Older building'],
-      status: 'considering', area: 'MBZ City', size: '46 sqm',
-    },
-  ],
+  housing: { rooms: [
+    { id: 'living', label: 'Living Room', emoji: '🛋️', photos: [], tips: '' },
+    { id: 'bedroom', label: 'Bedroom', emoji: '🛏️', photos: [], tips: '' },
+    { id: 'kitchen', label: 'Kitchen', emoji: '🍳', photos: [], tips: '' },
+    { id: 'bathroom', label: 'Bathroom', emoji: '🚿', photos: [], tips: '' },
+    { id: 'balcony', label: 'Balcony / Entry', emoji: '🌿', photos: [], tips: '' },
+  ]},
   memories: {
     lastTimes: [
       { id: 'lt1', text: 'Chai at the corner shop', done: false },
-      { id: 'lt2', text: 'Visit ammachi one last time', done: false },
+      { id: 'lt2', text: 'Walk through the old neighbourhood', done: false },
       { id: 'lt3', text: 'Sunset at your favourite spot', done: false },
       { id: 'lt4', text: 'Walk through the neighbourhood park', done: false },
       { id: 'lt5', text: 'That one biryani place', done: false },
     ],
     goodbyes: [
-      { id: 'gb1', name: 'Ammachi', note: 'Grandmother — take her photo', done: false },
+      { id: 'gb1', name: 'Grandparents', note: 'Take a photo together', done: false },
       { id: 'gb2', name: 'Parents', note: 'Help them set up video calls', done: false },
       { id: 'gb3', name: 'Siblings', note: 'Promise weekly catch-ups', done: false },
       { id: 'gb4', name: 'Close friends', note: 'Goodbye dinner (t9)', done: false },
@@ -226,7 +210,7 @@ function applyProgress(seed, level) {
 
 // AI helper — calls the Huve AI proxy (Cloudflare Worker → NVIDIA API)
 async function askHuve(prompt, context = '') {
-  const sys = `You are Huve, a warm, playful, slightly adventurous AI helper inside Suveda's "moving abroad" app. Suveda is moving from her home country to Al Khalifa City, Abu Dhabi, UAE. Be brief (2-4 sentences max), friendly, practical, and encouraging. Use the occasional emoji. Never give legal/medical advice — suggest official sources (e.g. ICP, GDRFA, MoHRE) when relevant. Speak like a thoughtful friend, not a chatbot.`;
+  const sys = `You are Huve, a practical, knowledgeable AI assistant inside Suveda's moving abroad app. Suveda is moving to Al Khalifa City, Abu Dhabi, UAE. Respond in 2-4 concise sentences. Be direct and factual. No emojis, no fluff, no platitudes. Never give legal/medical advice — cite official sources (ICP, GDRFA, MoHRE) when relevant. If a file or photo URL is provided in context, use its content to inform your answer.`;
   const user = context ? `Context: ${context}\n\nQuestion: ${prompt}` : prompt;
 
   // If a local proxy is available, call it; otherwise fall back.
@@ -259,7 +243,7 @@ async function askHuve(prompt, context = '') {
       const resp = await window.claude.complete({ messages: [ { role: 'user', content: `${sys}\n\n${user}` } ] });
       return typeof resp === 'string' ? resp : (resp.text || resp.content || '...');
     } catch (e) {
-      return "I'm having a hiccup right now — try again in a sec! 🌵";
+      return "I'm having trouble connecting. Please try again in a moment.";
     }
   }
 

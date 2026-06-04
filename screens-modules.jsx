@@ -241,14 +241,20 @@ const DOC_PHASES = [
 ];
 
 const DOC_PHASE_MAP = {
-  passport: 'predeparture', evisa: 'predeparture', attest: 'predeparture',
-  health: 'predeparture', pet: 'predeparture',
-  medical: 'arrival', eid: 'arrival', marriage: 'arrival',
+  passport: 'predeparture', attest: 'predeparture',
+  medical: 'arrival', eid: 'arrival',
   license: 'arrival',
 };
 
 function DocumentsScreen({ state, setState, onBack, onAsk }) {
   const [filter, setFilter] = React.useState('all');
+  const [showAdd, setShowAdd] = React.useState(false);
+  const [newName, setNewName] = React.useState('');
+  const [newNote, setNewNote] = React.useState('');
+  const [uploading, setUploading] = React.useState(false);
+  const [newFileUrl, setNewFileUrl] = React.useState('');
+  const [newFileName, setNewFileName] = React.useState('');
+  const fileRef = React.useRef(null);
   const done = state.documents.filter(d => d.status === 'done').length;
 
   function toggle(id) {
@@ -257,6 +263,37 @@ function DocumentsScreen({ state, setState, onBack, onAsk }) {
       documents: s.documents.map(d => d.id === id ? { ...d, status: d.status === 'done' ? 'pending' : 'done' } : d),
     }));
   }
+
+  function deleteDoc(id) {
+    setState(s => ({ ...s, documents: s.documents.filter(d => d.id !== id) }));
+  }
+
+  async function onFileChange(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const url = await window.__suvedaPhotos?.upload(file);
+      if (url) { setNewFileUrl(url); setNewFileName(file.name); }
+    } catch (err) { console.warn('Upload failed:', err); }
+    setUploading(false);
+  }
+
+  function addDoc() {
+    if (!newName.trim()) return;
+    const id = `custom-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    setState(s => ({
+      ...s,
+      documents: [...s.documents, { id, name: newName.trim(), status: 'pending', emoji: '📄', note: newNote.trim() || '', fileUrl: newFileUrl, fileName: newFileName }],
+    }));
+    setNewName(''); setNewNote(''); setNewFileUrl(''); setNewFileName(''); setShowAdd(false);
+  }
+
+  const inputStyle = {
+    width: '100%', padding: '10px 12px', border: '1px solid var(--line)',
+    borderRadius: 10, fontSize: 14, fontFamily: 'inherit',
+    background: 'var(--white)', color: 'var(--dark)', boxSizing: 'border-box',
+  };
 
   const grouped = DOC_PHASES.map(phase => ({
     ...phase,
@@ -273,9 +310,12 @@ function DocumentsScreen({ state, setState, onBack, onAsk }) {
       subtitle={`${done} of ${state.documents.length} sorted`}
       icon="FileText"
       onBack={onBack}
-      action={<Button size="sm" variant="ghost" icon="✨" onClick={() => onAsk('What documents do I need to enter UAE on an employment visa?')}>AI</Button>}
+      action={
+        <div style={{ display: 'flex', gap: 4 }}>
+          <Button size="sm" variant="ghost" icon="✨" onClick={() => onAsk('What documents do I need to enter UAE on an employment visa?')}>AI</Button>
+        </div>
+      }
     >
-      {/* Progress header */}
       <Card padding="18px" style={{ background: 'linear-gradient(135deg, var(--teal) 0%, #1e524f 100%)', color: '#fff', border: 'none', marginBottom: 16 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
@@ -292,37 +332,28 @@ function DocumentsScreen({ state, setState, onBack, onAsk }) {
         </div>
       </Card>
 
-      {/* Phase filter pills */}
       <div style={{ display: 'flex', gap: 6, marginBottom: 14, overflowX: 'auto', paddingBottom: 4 }}>
         {[
           { id: 'all', label: `All ${state.documents.length}`, color: 'var(--dark)' },
           { id: 'pending', label: 'To do', color: 'var(--muted)' },
           { id: 'done', label: 'Done', color: '#66bb6a' },
         ].map(f => (
-          <button
-            key={f.id}
-            onClick={() => setFilter(f.id)}
-            style={{
-              padding: '8px 14px', borderRadius: 999, border: 'none',
-              fontFamily: 'inherit', fontSize: 13, fontWeight: 600, cursor: 'pointer',
-              background: filter === f.id ? f.color : 'var(--white)',
-              color: filter === f.id ? '#fff' : 'var(--dark)',
-              boxShadow: filter === f.id ? 'none' : 'var(--shadow)',
-              transition: 'all 0.15s',
-            }}
-          >{f.label}</button>
+          <button key={f.id} onClick={() => setFilter(f.id)} style={{
+            padding: '8px 14px', borderRadius: 999, border: 'none',
+            fontFamily: 'inherit', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+            background: filter === f.id ? f.color : 'var(--white)',
+            color: filter === f.id ? '#fff' : 'var(--dark)',
+            boxShadow: filter === f.id ? 'none' : 'var(--shadow)',
+            transition: 'all 0.15s',
+          }}>{f.label}</button>
         ))}
       </div>
 
-      {/* Phase groups */}
       {filtered.map(phase => {
         if (phase.items.length === 0) return null;
         return (
           <div key={phase.id} style={{ marginBottom: 20 }}>
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 8,
-              marginBottom: 10, paddingLeft: 4,
-            }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, paddingLeft: 4 }}>
               <div style={{ width: 3, height: 18, borderRadius: 2, background: phase.color }} />
               <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{phase.label}</span>
               <span style={{ fontSize: 11, color: 'var(--muted)' }}>· {phase.items.filter(d => d.status === 'done').length}/{phase.items.length}</span>
@@ -331,6 +362,7 @@ function DocumentsScreen({ state, setState, onBack, onAsk }) {
               {phase.items.map(doc => {
                 const isDone = doc.status === 'done';
                 const hasNote = !!doc.note;
+                const isCustom = doc.id.startsWith('custom-');
                 return (
                   <Card key={doc.id} padding="12px 14px" onClick={() => toggle(doc.id)}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -348,9 +380,8 @@ function DocumentsScreen({ state, setState, onBack, onAsk }) {
                           textDecoration: isDone ? 'line-through' : 'none',
                           color: isDone ? 'var(--muted)' : 'var(--dark)',
                         }}>{doc.name}</div>
-                        {hasNote && !isDone && (
-                          <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{doc.note}</div>
-                        )}
+                        {hasNote && !isDone && <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{doc.note}</div>}
+                        {doc.fileUrl && !isDone && <div style={{ fontSize: 11, color: 'var(--terracotta)', marginTop: 2 }}>📎 {doc.fileName || 'Attached'}</div>}
                       </div>
                       <div style={{
                         width: 24, height: 24, borderRadius: '50%', flexShrink: 0,
@@ -359,6 +390,14 @@ function DocumentsScreen({ state, setState, onBack, onAsk }) {
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         color: '#fff', fontSize: 11, fontWeight: 700,
                       }}>{isDone ? '✓' : ''}</div>
+                      {isCustom && !isDone && (
+                        <button onClick={e => { e.stopPropagation(); deleteDoc(doc.id); }} style={{
+                          width: 28, height: 28, borderRadius: 8, border: 'none',
+                          background: 'var(--cream)', color: 'var(--muted)',
+                          fontSize: 14, cursor: 'pointer', display: 'flex',
+                          alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                        }}>✕</button>
+                      )}
                     </div>
                   </Card>
                 );
@@ -367,6 +406,35 @@ function DocumentsScreen({ state, setState, onBack, onAsk }) {
           </div>
         );
       })}
+
+      <button onClick={() => setShowAdd(true)} style={{
+        width: '100%', padding: 14, marginTop: 8,
+        borderRadius: 16, border: '2px dashed var(--line)',
+        background: 'none', cursor: 'pointer',
+        fontFamily: 'inherit', fontSize: 13, fontWeight: 600,
+        color: 'var(--muted)', display: 'flex', alignItems: 'center',
+        justifyContent: 'center', gap: 6,
+      }}>＋ Add document</button>
+
+      {showAdd && (
+        <Modal visible onClose={() => { setShowAdd(false); setNewFileUrl(''); setUploading(false); }}>
+          <div style={{ padding: 20 }}>
+            <h2 style={{ fontSize: 18, marginBottom: 16 }}>Add document</h2>
+            <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Name</label>
+            <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="e.g. Marriage certificate" style={inputStyle} />
+            <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', display: 'block', marginTop: 14, marginBottom: 4 }}>Note (optional)</label>
+            <textarea value={newNote} onChange={e => setNewNote(e.target.value)} placeholder="Any details…" rows={2} style={{ ...inputStyle, resize: 'vertical', fontFamily: 'inherit' }} />
+            <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', display: 'block', marginTop: 14, marginBottom: 4 }}>File (optional — PDF or image)</label>
+            <input ref={fileRef} type="file" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.webp" onChange={onFileChange} style={{ fontSize: 12, color: 'var(--muted)', width: '100%' }} />
+            {uploading && <div style={{ fontSize: 12, color: 'var(--terracotta)', marginTop: 6 }}>Uploading…</div>}
+            {newFileUrl && <div style={{ fontSize: 12, color: '#66bb6a', marginTop: 6 }}>✓ File attached</div>}
+            <div style={{ display: 'flex', gap: 8, marginTop: 18 }}>
+              <Button full variant="ghost" onClick={() => { setShowAdd(false); setNewFileUrl(''); setUploading(false); }}>Cancel</Button>
+              <Button full onClick={addDoc} disabled={!newName.trim()}>Add</Button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </ModulePage>
   );
 }
@@ -746,23 +814,68 @@ function BudgetScreen({ state, setState, onBack }) {
         </>
       ) : (
         <>
-          {/* Move budget — total card */}
+          {/* Move checklist — total card */}
           <Card padding="20px" style={{ background: 'linear-gradient(135deg, var(--teal) 0%, #1e524f 100%)', color: '#fff', border: 'none', marginBottom: 16 }}>
-            <div style={{ fontSize: 12, opacity: 0.85, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>One-time move costs</div>
+            <div style={{ fontSize: 12, opacity: 0.85, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Move checklist</div>
             <div style={{ fontFamily: 'DM Sans', fontWeight: 800, fontSize: 36, lineHeight: 1, marginTop: 4 }}>
-              {conv(totalSpent).toLocaleString()}
-              <span style={{ fontSize: 16, opacity: 0.7, marginLeft: 6, fontWeight: 600 }}>{cur}</span>
+              ${Math.round(totalSpent * fx).toLocaleString()}
+              <span style={{ fontSize: 16, opacity: 0.7, marginLeft: 6, fontWeight: 600 }}>spent</span>
             </div>
             <div style={{ fontSize: 12, opacity: 0.8, marginTop: 4 }}>
-              of {conv(totalPlanned).toLocaleString()} {cur} · ~${Math.round(totalPlanned * fx).toLocaleString()} USD
+              ${Math.round(totalPlanned * fx).toLocaleString()} planned budget
             </div>
             <div style={{ marginTop: 14 }}>
               <ProgressBar value={totalSpent} total={totalPlanned} color="var(--gold)" height={8} />
             </div>
           </Card>
 
-          {/* Move categories */}
-          {state.budget.categories.map(c => catRow(c, tweakMove))}
+          {/* Move checklist items */}
+          {state.budget.categories.map(c => {
+            const isSABIS = ['visa', 'deposit'].includes(c.id);
+            const claims = state.shopping.filter(s => s.cat === 'Move' && s.name.toLowerCase().includes(c.id)) || [];
+            const claimedBy = claims.filter(s => s.claimedBy).map(s => s.claimedBy);
+            return (
+              <div key={c.id} style={{
+                background: 'var(--white)', borderRadius: 16, padding: '14px 16px',
+                boxShadow: 'var(--shadow)', marginBottom: 10,
+                border: isSABIS ? '1px solid var(--teal)' : '1px solid var(--line)',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div style={{
+                    width: 40, height: 40, borderRadius: 12,
+                    background: isSABIS ? 'var(--teal)' : 'var(--sand)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 20, flexShrink: 0,
+                  }}>
+                    {isSABIS ? '✅' : c.emoji}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                      <div>
+                        <span style={{ fontFamily: 'DM Sans', fontSize: 14, fontWeight: 700 }}>{c.label}</span>
+                        {isSABIS && (
+                          <span style={{
+                            marginLeft: 8, fontSize: 10, fontWeight: 700, padding: '2px 8px',
+                            borderRadius: 999, background: 'var(--teal)', color: '#fff',
+                          }}>SABIS</span>
+                        )}
+                      </div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: isSABIS ? 'var(--teal)' : 'var(--dark)' }}>
+                        {conv(c.planned).toLocaleString()} {cur}
+                      </div>
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
+                      {isSABIS ? 'Covered by SABIS' : `${conv(c.spent).toLocaleString()} ${cur} spent`}
+                      {claimedBy.length > 0 && ` · Claimed by ${claimedBy.join(', ')}`}
+                    </div>
+                    <div style={{ marginTop: 6 }}>
+                      <ProgressBar value={isSABIS ? c.planned : (c.spent || 0)} total={c.planned || 1} color={isSABIS ? 'var(--teal)' : 'var(--gold)'} height={6} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </>
       )}
     </ModulePage>
@@ -928,149 +1041,214 @@ function ShoppingScreen({ state, setState, onBack, onAsk }) {
   );
 }
 
-// ---------- HOUSING ----------
+// ---------- APARTMENT DECORATION (was Housing) ----------
 function HousingScreen({ state, setState, onBack, onAsk }) {
-  const statusColors = {
-    shortlisted: 'var(--teal)',
-    viewing:     'var(--gold)',
-    considering: 'var(--muted)',
-  };
-  const blankForm = { name: '', rent: '', area: '', size: '', pros: '', cons: '', status: 'shortlisted' };
-  const [showForm, setShowForm] = React.useState(false);
-  const [form, setForm] = React.useState({...blankForm});
+  const rooms = state.housing?.rooms || [
+    { id: 'living', label: 'Living Room', emoji: '🛋️', photos: [], tips: '' },
+    { id: 'bedroom', label: 'Bedroom', emoji: '🛏️', photos: [], tips: '' },
+    { id: 'kitchen', label: 'Kitchen', emoji: '🍳', photos: [], tips: '' },
+    { id: 'bathroom', label: 'Bathroom', emoji: '🚿', photos: [], tips: '' },
+    { id: 'balcony', label: 'Balcony / Entry', emoji: '🌿', photos: [], tips: '' },
+  ];
+  const [activeRoom, setActiveRoom] = React.useState(null);
+  const [uploading, setUploading] = React.useState(false);
+  const [aiTips, setAiTips] = React.useState({});
+  const [loadingTips, setLoadingTips] = React.useState({});
+  const fileRef = React.useRef(null);
 
-  function addListing() {
-    if (!form.name.trim()) return;
-    setState(s => ({
-      ...s,
-      housing: [...s.housing, {
-        id: uid(),
-        name: form.name.trim(),
-        rent: parseInt(form.rent) || 0,
-        area: form.area || 'Al Khalifa City',
-        size: form.size || 'Studio',
-        pros: form.pros.split(',').map(s => s.trim()).filter(Boolean),
-        cons: form.cons.split(',').map(s => s.trim()).filter(Boolean),
-        status: form.status,
-      }],
-    }));
-    setForm({...blankForm});
-    setShowForm(false);
+  function getRooms() {
+    return state.housing?.rooms || rooms;
   }
 
-  function removeHousing(id) {
-    setState(s => ({
-      ...s,
-      housing: s.housing.filter(h => h.id !== id),
-    }));
+  function setRooms(newRooms) {
+    setState(s => ({ ...s, housing: { ...(s.housing || {}), rooms: newRooms } }));
+  }
+
+  async function handleRoomUpload(roomId, files) {
+    if (!files || !files.length) return;
+    setUploading(true);
+    const urls = [];
+    for (const file of files) {
+      try {
+        const url = await window.__suvedaPhotos?.upload(file);
+        if (url) urls.push(url);
+      } catch {}
+    }
+    if (urls.length > 0) {
+      setRooms(getRooms().map(r =>
+        r.id === roomId ? { ...r, photos: [...r.photos, ...urls] } : r
+      ));
+    }
+    setUploading(false);
+  }
+
+  function removeRoomPhoto(roomId, photoUrl) {
+    setRooms(getRooms().map(r =>
+      r.id === roomId ? { ...r, photos: r.photos.filter(p => p !== photoUrl) } : r
+    ));
+  }
+
+  async function getDecorationTips(room) {
+    setLoadingTips(t => ({ ...t, [room.id]: true }));
+    const photoContext = room.photos.length > 0 ? `Photos of the ${room.label}: ${room.photos.join(', ')}` : '';
+    const prompt = `I'm setting up my ${room.label} in Al Khalifa City, Abu Dhabi. Give me 3 practical decoration tips for a ${room.photos.length > 0 ? 'room (see attached photos)' : 'studio apartment'}. Focus on affordable, easy-to-find items in UAE (IKEA, Dragon Mart, online). Keep each tip to 1 sentence.`;
+    try {
+      const tips = await askHuve(prompt, photoContext);
+      setRooms(getRooms().map(r =>
+        r.id === room.id ? { ...r, tips } : r
+      ));
+      setAiTips(t => ({ ...t, [room.id]: tips }));
+    } catch {}
+    setLoadingTips(t => ({ ...t, [room.id]: false }));
   }
 
   return (
     <ModulePage
-      title="Housing"
-      subtitle={`Al Khalifa City · ${state.housing?.length || 0} saved`}
+      title="Apartment Decor"
+      subtitle="SABIS provides housing — make it yours"
       icon="Building2"
       onBack={onBack}
-      action={
-        <div style={{ display: 'flex', gap: 6 }}>
-          <Button size="sm" variant="ghost" icon="✨" onClick={() => onAsk('What should I look for when renting in Al Khalifa City, Abu Dhabi?')}>AI</Button>
-        </div>
-      }
     >
-      {/* Search criteria */}
-      <Card padding="16px" style={{ background: 'var(--sand)', border: 'none' }}>
-        <div style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Looking for</div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
-          {['Studio – 1BR', 'Al Khalifa City', '< 5,500 AED', 'Furnished ok', 'Near mosque'].map(t => (
-            <span key={t} style={{
-              background: 'var(--white)', padding: '5px 11px',
-              borderRadius: 999, fontSize: 12, fontWeight: 500, color: 'var(--dark)',
-              border: '1px solid var(--line)',
-            }}>{t}</span>
-          ))}
+      {/* SABIS info card */}
+      <Card padding="16px" style={{ background: 'var(--teal)', color: '#fff', border: 'none', marginBottom: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ fontSize: 32 }}>✅</div>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 2 }}>Housing covered by SABIS</div>
+            <div style={{ fontSize: 12, opacity: 0.9, lineHeight: 1.4 }}>
+              Your employer provides accommodation in Al Khalifa City. Use this space to plan how you'll decorate and personalise it.
+            </div>
+          </div>
         </div>
       </Card>
 
-      <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {state.housing.map(h => (
-          <Card key={h.id} padding="0" style={{ overflow: 'hidden', position: 'relative' }}>
-            {/* Photo placeholder */}
-            <div style={{
-              height: 110,
-              background: `linear-gradient(135deg, var(--sand) 0%, ${statusColors[h.status]}22 100%)`,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
+      {/* Room grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
+        {getRooms().map(room => (
+          <button
+            key={room.id}
+            onClick={() => setActiveRoom(room)}
+            style={{
+              padding: '20px 12px', borderRadius: 16, border: '2px solid var(--line)',
+              background: activeRoom?.id === room.id ? 'var(--sand)' : 'var(--white)',
+              cursor: 'pointer', fontFamily: 'inherit', textAlign: 'center',
+              transition: 'all 0.15s',
               position: 'relative',
-            }}>
-              <div style={{ fontSize: 48, opacity: 0.4 }}>🏢</div>
-              <div style={{ position: 'absolute', top: 10, right: 10 }}>
-                <span style={{
-                  background: statusColors[h.status], color: '#fff',
-                  fontSize: 11, fontWeight: 600, padding: '4px 10px',
-                  borderRadius: 999, textTransform: 'capitalize',
-                }}>{h.status}</span>
-              </div>
-              <div style={{ position: 'absolute', bottom: 10, left: 12, color: 'var(--dark)' }}>
-                <div style={{ fontSize: 10, fontWeight: 600, opacity: 0.7 }}>{h.area} · {h.size}</div>
-              </div>
-            </div>
-            <div style={{ padding: 16 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
-                <h3 style={{ fontSize: 15, lineHeight: 1.3 }}>{h.name}</h3>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <div style={{ fontFamily: 'DM Sans', fontWeight: 700, fontSize: 16, color: 'var(--terracotta)', whiteSpace: 'nowrap' }}>
-                    {h.rent.toLocaleString()}<span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 500 }}> /mo</span>
-                  </div>
-                  <button
-                    onClick={e => { e.stopPropagation(); removeHousing(h.id); }}
-                    style={{
-                      fontSize: 14, padding: '2px', border: 'none',
-                      background: 'none', cursor: 'pointer', color: 'var(--muted)',
-                      fontFamily: 'inherit', opacity: 0.4,
-                    }}
-                  >✕</button>
-                </div>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 12 }}>
-                <div>
-                  <div style={{ fontSize: 11, color: 'var(--teal)', fontWeight: 700, marginBottom: 4 }}>👍 Pros</div>
-                  {h.pros.map(p => (
-                    <div key={p} style={{ fontSize: 12, color: 'var(--dark)', lineHeight: 1.5 }}>• {p}</div>
-                  ))}
-                </div>
-                <div>
-                  <div style={{ fontSize: 11, color: 'var(--terracotta)', fontWeight: 700, marginBottom: 4 }}>👎 Cons</div>
-                  {h.cons.map(p => (
-                    <div key={p} style={{ fontSize: 12, color: 'var(--dark)', lineHeight: 1.5 }}>• {p}</div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </Card>
+            }}
+          >
+            <div style={{ fontSize: 32, marginBottom: 6 }}>{room.emoji}</div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--dark)' }}>{room.label}</div>
+            {room.photos.length > 0 && (
+              <div style={{
+                position: 'absolute', top: 8, right: 8,
+                background: 'var(--terracotta)', color: '#fff',
+                fontSize: 10, fontWeight: 700, padding: '2px 6px',
+                borderRadius: 999,
+              }}>{room.photos.length}</div>
+            )}
+          </button>
         ))}
       </div>
 
-      <Modal open={showForm} onClose={() => setShowForm(false)} title="Add listing">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <input value={form.name} onChange={e => setForm(f => ({...f, name: e.target.value}))} placeholder="Property name" style={inputStyle} />
-          <div style={{ display: 'flex', gap: 8 }}>
-            <input value={form.rent} onChange={e => setForm(f => ({...f, rent: e.target.value}))} placeholder="Rent (AED)" type="number" style={{...inputStyle, flex: 1}} />
-            <input value={form.size} onChange={e => setForm(f => ({...f, size: e.target.value}))} placeholder="Studio / 1BR" style={{...inputStyle, flex: 1}} />
+      {/* Active room detail */}
+      {activeRoom && (
+        <div style={{ marginTop: 4 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+            <div>
+              <SectionHeader title={`${activeRoom.emoji} ${activeRoom.label}`} />
+            </div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <Button size="sm" variant="ghost" icon="📸" onClick={() => fileRef.current?.click()}>
+                {uploading ? '...' : 'Add photo'}
+              </Button>
+              <Button size="sm" variant="teal" icon="✨" onClick={() => getDecorationTips(activeRoom)} disabled={loadingTips[activeRoom.id]}>
+                {loadingTips[activeRoom.id] ? '...' : 'AI tips'}
+              </Button>
+            </div>
           </div>
-          <input value={form.area} onChange={e => setForm(f => ({...f, area: e.target.value}))} placeholder="Area" style={inputStyle} />
-          <input value={form.pros} onChange={e => setForm(f => ({...f, pros: e.target.value}))} placeholder="Pros (comma separated)" style={inputStyle} />
-          <input value={form.cons} onChange={e => setForm(f => ({...f, cons: e.target.value}))} placeholder="Cons (comma separated)" style={inputStyle} />
-          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-            {['shortlisted', 'viewing', 'considering'].map(s => (
-              <Pill key={s} active={form.status === s} onClick={() => setForm(f => ({...f, status: s}))}>{s}</Pill>
-            ))}
-          </div>
-          <Button full onClick={addListing}>Save listing</Button>
-        </div>
-      </Modal>
 
-      <div style={{ marginTop: 14 }}>
-        <Button full variant="soft" icon="＋" onClick={() => setShowForm(true)}>Save another listing</Button>
-      </div>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            multiple
+            style={{ display: 'none' }}
+            onChange={e => { handleRoomUpload(activeRoom.id, e.target.files); e.target.value = ''; }}
+          />
+
+          {/* Room photos */}
+          {activeRoom.photos.length > 0 ? (
+            <div style={{
+              display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6,
+              marginBottom: 14,
+            }}>
+              {activeRoom.photos.map((url, i) => (
+                <div key={i} style={{
+                  position: 'relative', aspectRatio: '1',
+                  borderRadius: 12, overflow: 'hidden',
+                  background: 'var(--sand)',
+                }}>
+                  <img src={url} alt={`${activeRoom.label} ${i}`} style={{
+                    width: '100%', height: '100%', objectFit: 'cover',
+                  }} />
+                  <button
+                    onClick={() => removeRoomPhoto(activeRoom.id, url)}
+                    style={{
+                      position: 'absolute', top: 4, right: 4, width: 20, height: 20,
+                      borderRadius: '50%', border: 'none', background: 'rgba(0,0,0,0.5)',
+                      color: '#fff', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}
+                  >✕</button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div
+              onClick={() => fileRef.current?.click()}
+              style={{
+                padding: '24px', borderRadius: 16, border: '2px dashed var(--line)',
+                textAlign: 'center', cursor: 'pointer', marginBottom: 14,
+                background: 'var(--cream)',
+              }}
+            >
+              <div style={{ fontSize: 24, color: 'var(--muted)' }}>📸</div>
+              <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>Tap to add photos of this room</div>
+            </div>
+          )}
+
+          {/* AI decoration tips */}
+          {(aiTips[activeRoom.id] || loadingTips[activeRoom.id]) && (
+            <Card padding="14px" style={{ background: 'var(--sand)', border: 'none' }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--teal)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 8 }}>
+                {loadingTips[activeRoom.id] ? 'Getting tips...' : `${activeRoom.emoji} Decoration tips`}
+              </div>
+              {loadingTips[activeRoom.id] ? (
+                <div style={{ display: 'flex', gap: 4, padding: '12px 0' }}>
+                  {[0,1,2].map(i => (
+                    <div key={i} style={{
+                      width: 7, height: 7, borderRadius: '50%', background: 'var(--muted)',
+                      animation: `pop 0.6s ${i * 0.15}s infinite alternate`,
+                    }} />
+                  ))}
+                </div>
+              ) : (
+                <div style={{ fontSize: 13, lineHeight: 1.6, whiteSpace: 'pre-wrap', color: 'var(--dark)' }}>
+                  {aiTips[activeRoom.id]}
+                </div>
+              )}
+            </Card>
+          )}
+        </div>
+      )}
+
+      {!activeRoom && (
+        <div style={{
+          padding: '24px', textAlign: 'center', color: 'var(--muted)', fontSize: 13,
+        }}>
+          Tap a room above to add photos and get AI decoration tips
+        </div>
+      )}
     </ModulePage>
   );
 }
@@ -1234,7 +1412,7 @@ function MemoryScreen({ state, setState, onBack }) {
             Upload your memories
           </div>
           <div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.5 }}>
-            Photos of your favourite spots, the chai shop, Ammachi's kitchen, the park bench.<br />
+            Photos of your favourite spots, the chai shop, the park bench, your neighbourhood.<br />
             <span style={{ fontWeight: 600, color: 'var(--terracotta)' }}>Tap to add photos</span>
           </div>
         </div>

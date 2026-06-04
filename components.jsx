@@ -33,6 +33,7 @@ function Button({ variant = 'primary', children, onClick, full, icon, size = 'md
     gold:    { bg: 'var(--gold)',       fg: 'var(--dark)', border: 'transparent' },
     ghost:   { bg: 'transparent',       fg: 'var(--dark)', border: 'var(--line)' },
     soft:    { bg: 'var(--sand)',       fg: 'var(--dark)', border: 'transparent' },
+    glass:   { bg: 'rgba(255,255,255,0.15)', fg: '#fff', border: 'rgba(255,255,255,0.3)' },
   };
   const v = variants[variant];
   const sizes = {
@@ -41,6 +42,7 @@ function Button({ variant = 'primary', children, onClick, full, icon, size = 'md
     lg: { p: '16px 28px', fs: 15 },
   };
   const sz = sizes[size];
+  const isGlass = variant === 'glass';
   return (
     <button
       onClick={disabled ? undefined : onClick}
@@ -53,7 +55,9 @@ function Button({ variant = 'primary', children, onClick, full, icon, size = 'md
         width: full ? '100%' : 'auto',
         opacity: disabled ? 0.5 : 1,
         cursor: disabled ? 'not-allowed' : 'pointer',
-        boxShadow: variant === 'primary' || variant === 'teal' ? '0 4px 12px -4px rgba(143,102,64,0.4)' : 'none',
+        boxShadow: isGlass ? '0 8px 32px rgba(0,0,0,0.12)' : (variant === 'primary' || variant === 'teal' ? '0 4px 12px -4px rgba(143,102,64,0.4)' : 'none'),
+        backdropFilter: isGlass ? 'blur(12px)' : 'none',
+        WebkitBackdropFilter: isGlass ? 'blur(12px)' : 'none',
       }}
     >
       {icon && <span style={{ fontSize: sz.fs + 2 }}>{icon}</span>}

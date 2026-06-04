@@ -26,7 +26,8 @@ function moduleProgress(state) {
   const tasks = state.tasks || [];
   const shop = state.shopping || [];
   const cats = state.budget?.categories || [];
-  const house = state.housing || [];
+  const houseRooms = state.housing?.rooms || [];
+  const housePhotos = houseRooms.reduce((a, r) => a + (r.photos?.length || 0), 0);
   const packItems = pack.rooms.flatMap(r => r.items || []);
   const packDone = packItems.filter(i => i.status === 'packed').length;
   const docDone = docs.filter(d => d.status === 'done').length;
@@ -34,7 +35,6 @@ function moduleProgress(state) {
   const shopDone = shop.filter(s => s.status === 'packed').length;
   const budgetSpent = cats.reduce((a, c) => a + (c.spent || 0), 0);
   const budgetTotal = cats.reduce((a, c) => a + (c.planned || 0), 0);
-  const housingShortlisted = house.filter(h => h.status === 'shortlisted' || h.status === 'viewing').length;
     const ltDone = (state.memories?.lastTimes || []).filter(m => m.done).length;
     const ltTotal = (state.memories?.lastTimes || []).length;
     const gbDone = (state.memories?.goodbyes || []).filter(g => g.done).length;
@@ -48,7 +48,7 @@ function moduleProgress(state) {
     tasks:    { done: taskDone, total: Math.max(tasks.length, 1) },
     budget:   { done: Math.max(budgetSpent, 1), total: Math.max(budgetTotal, 1), isMoney: true },
     shopping: { done: shopDone, total: Math.max(shop.length, 1) },
-    housing:  { done: housingShortlisted, total: Math.max(house.length, 1) },
+    housing:  { done: housePhotos, total: Math.max(houseRooms.length, 1) },
     memory:   { done: ltDone + gbDone, total: Math.max(ltTotal + gbTotal, 1) },
     people:   { done: (state.contacts || []).filter(c => c.phone || c.email).length, total: Math.max((state.contacts || []).length, 1) },
     habits:   { done: habitsDone, total: Math.max(habitsTotal, 1) },
@@ -836,7 +836,10 @@ function AskHuveSheet({ open, onClose, initialPrompt, context = '' }) {
   const [loading, setLoading] = React.useState(false);
   const [queuedPrompt, setQueuedPrompt] = React.useState('');
   const [hydrated, setHydrated] = React.useState(false);
+  const [uploadedFiles, setUploadedFiles] = React.useState([]);
+  const [uploading, setUploading] = React.useState(false);
   const scrollRef = React.useRef(null);
+  const fileRef = React.useRef(null);
   const store = window.__suvedaStore;
 
   React.useEffect(() => {
@@ -880,21 +883,44 @@ function AskHuveSheet({ open, onClose, initialPrompt, context = '' }) {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages, loading]);
 
+  async function handleFileUpload(files) {
+    if (!files || !files.length) return;
+    setUploading(true);
+    const newFiles = [];
+    for (const file of files) {
+      try {
+        const url = await window.__suvedaPhotos?.upload(file);
+        if (url) newFiles.push({ id: uid(), url, name: file.name, type: file.type });
+      } catch {}
+    }
+    if (newFiles.length > 0) {
+      setUploadedFiles(f => [...f, ...newFiles]);
+    }
+    setUploading(false);
+  }
+
+  function removeUploadedFile(id) {
+    setUploadedFiles(f => f.filter(x => x.id !== id));
+  }
+
   async function send(textArg) {
     const text = (textArg ?? input).trim();
     if (!text || loading) return;
     const userMessage = { role: 'user', text };
     setMessages(m => [...m, userMessage]);
     setInput('');
+    setUploadedFiles([]);
     setLoading(true);
     await store?.appendChatMessage?.(userMessage, 'main');
+    const fileUrls = uploadedFiles.map(f => f.url).join(', ');
+    const extendedContext = fileUrls ? `${context}\n\nAttached files: ${fileUrls}` : context;
     try {
-      const reply = await askHuve(text, context);
+      const reply = await askHuve(text, extendedContext);
       const aiMessage = { role: 'ai', text: reply };
       setMessages(m => [...m, aiMessage]);
       await store?.appendChatMessage?.(aiMessage, 'main');
     } catch (e) {
-      const aiMessage = { role: 'ai', text: "I'm having trouble right now. Try again in a moment. 🌵" };
+      const aiMessage = { role: 'ai', text: "I'm having trouble right now. Try again in a moment." };
       setMessages(m => [...m, aiMessage]);
       await store?.appendChatMessage?.(aiMessage, 'main');
     } finally {
@@ -928,8 +954,7 @@ function AskHuveSheet({ open, onClose, initialPrompt, context = '' }) {
       }}>
         {messages.length === 0 && !loading && (
           <div style={{ color: 'var(--muted)', fontSize: 13, textAlign: 'center', padding: '40px 8px' }}>
-            <div style={{ fontSize: 32, marginBottom: 8 }}>👋</div>
-            Ask me about visa stuff, packing tricks, or what to expect on day one.
+            Ask me about visa paperwork, packing logistics, or day-one setup in Abu Dhabi. You can also attach photos for context.
           </div>
         )}
         {messages.map((m, i) => (
@@ -989,12 +1014,58 @@ function AskHuveSheet({ open, onClose, initialPrompt, context = '' }) {
         ))}
       </div>
 
-      <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+      {uploadedFiles.length > 0 && (
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
+          {uploadedFiles.map(f => (
+            <div key={f.id} style={{
+              position: 'relative', width: 52, height: 52, borderRadius: 10,
+              overflow: 'hidden', border: '1px solid var(--line)',
+              background: 'var(--sand)',
+            }}>
+              {f.type?.startsWith('image/') ? (
+                <img src={f.url} alt={f.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : (
+                <div style={{ fontSize: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>📄</div>
+              )}
+              <button
+                onClick={() => removeUploadedFile(f.id)}
+                style={{
+                  position: 'absolute', top: -2, right: -2, width: 18, height: 18,
+                  borderRadius: '50%', border: 'none', background: 'var(--terracotta)',
+                  color: '#fff', fontSize: 10, cursor: 'pointer', fontFamily: 'inherit',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}
+              >✕</button>
+            </div>
+          ))}
+        </div>
+      )}
+      <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+        <button
+          onClick={() => fileRef.current?.click()}
+          disabled={uploading}
+          style={{
+            width: 40, height: 40, borderRadius: '50%', flexShrink: 0,
+            border: '1px solid var(--line)', background: 'var(--white)',
+            cursor: 'pointer', fontFamily: 'inherit', fontSize: 16,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: 'var(--muted)',
+          }}
+          title="Attach photo or file"
+        >📎</button>
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/*,.pdf,.doc,.docx,.txt"
+          multiple
+          style={{ display: 'none' }}
+          onChange={e => { handleFileUpload(e.target.files); e.target.value = ''; }}
+        />
         <input
           value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && send()}
-          placeholder="Ask Huve…"
+          placeholder="Ask Huve..."
           style={{
             flex: 1, padding: '12px 16px',
             border: '1px solid var(--line)', borderRadius: 999,
@@ -1002,7 +1073,7 @@ function AskHuveSheet({ open, onClose, initialPrompt, context = '' }) {
           }}
         />
         <Button variant="teal" onClick={() => send()} disabled={loading || !input.trim()}>
-          {loading ? '…' : 'Send'}
+          {loading ? '...' : 'Send'}
         </Button>
       </div>
     </Sheet>

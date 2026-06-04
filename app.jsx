@@ -26,6 +26,18 @@ function pickStoredState(candidate) {
     saved.whyNote = SEED.whyNote || '';
   }
   if (!saved.first48) saved.first48 = SEED.first48 || null;
+  if (Array.isArray(saved.housing)) {
+    saved.housing = { rooms: [
+      { id: 'living', label: 'Living Room', emoji: '🛋️', photos: [], tips: '' },
+      { id: 'bedroom', label: 'Bedroom', emoji: '🛏️', photos: [], tips: '' },
+      { id: 'kitchen', label: 'Kitchen', emoji: '🍳', photos: [], tips: '' },
+      { id: 'bathroom', label: 'Bathroom', emoji: '🚿', photos: [], tips: '' },
+      { id: 'balcony', label: 'Balcony / Entry', emoji: '🌿', photos: [], tips: '' },
+    ]};
+  }
+  if (!saved.housing?.rooms) {
+    saved.housing = saved.housing || { rooms: [] };
+  }
   return saved;
 }
 
@@ -416,6 +428,7 @@ const NAV_ITEMS = [
 
 function BottomNav({ current, onNavigate }) {
   const [isDesktop, setDesktop] = useState(window.innerWidth >= 640);
+  const [hovered, setHovered] = useState(null);
 
   useEffect(() => {
     const mq = window.matchMedia('(min-width: 640px)');
@@ -453,10 +466,13 @@ function BottomNav({ current, onNavigate }) {
       }}>
         {NAV_ITEMS.map(item => {
           const active = current === item.id;
+          const iconAnimate = active || hovered === item.id;
           return (
             <button
               key={item.id}
               onClick={() => onNavigate(item.id)}
+              onMouseEnter={() => setHovered(item.id)}
+              onMouseLeave={() => setHovered(null)}
               style={{
                 display: 'flex', flexDirection: 'column', alignItems: 'center',
                 gap: 1, padding: isDesktop ? '6px 10px' : '4px 6px',
@@ -467,7 +483,7 @@ function BottomNav({ current, onNavigate }) {
               }}
             >
               <span style={{ display: 'inline-flex', color: active ? 'var(--terracotta)' : 'var(--dark)' }}>
-                <AnimatedIcon name={item.icon} size={isDesktop ? 22 : 20} />
+                <AnimatedIcon name={item.icon} size={isDesktop ? 22 : 20} active={iconAnimate} />
               </span>
               <span style={{
                 fontSize: isDesktop ? 10 : 8, fontWeight: 600,
