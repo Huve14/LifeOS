@@ -415,9 +415,17 @@ const NAV_ITEMS = [
 ];
 
 function BottomNav({ current, onNavigate }) {
+  const [isDesktop, setDesktop] = useState(window.innerWidth >= 640);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 640px)');
+    const onChange = e => setDesktop(e.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+
   return (
     <div
-      className="nav-scroll-fade"
       style={{
         position: 'fixed', bottom: 0, left: 0, right: 0,
         height: 68, zIndex: 100,
@@ -426,44 +434,56 @@ function BottomNav({ current, onNavigate }) {
         WebkitBackdropFilter: 'blur(12px)',
         borderTop: '1px solid var(--line)',
         display: 'flex', alignItems: 'center',
-        overflowX: 'auto', overflowY: 'hidden',
+        justifyContent: isDesktop ? 'center' : undefined,
+        overflowX: isDesktop ? 'hidden' : 'auto',
+        overflowY: 'hidden',
         WebkitOverflowScrolling: 'touch',
         scrollbarWidth: 'none', msOverflowStyle: 'none',
-        gap: 2, padding: '0 8px',
+        gap: isDesktop ? 0 : 2,
+        padding: isDesktop ? '0 16px' : '0 8px',
         paddingBottom: 'env(safe-area-inset-bottom, 0)',
       }}
     >
-      {NAV_ITEMS.map(item => {
-        const active = current === item.id;
-        return (
-          <button
-            key={item.id}
-            onClick={() => onNavigate(item.id)}
-            style={{
-              display: 'flex', flexDirection: 'column', alignItems: 'center',
-              gap: 1, padding: '4px 6px',
-              border: 'none', background: 'none', cursor: 'pointer',
-              fontFamily: 'inherit', flex: '0 0 auto',
-              opacity: active ? 1 : 0.45,
-              transition: 'opacity 0.15s',
-            }}
-          >
-            <span style={{ display: 'inline-flex', color: active ? 'var(--terracotta)' : 'var(--dark)' }}>
-              <AnimatedIcon name={item.icon} size={20} />
-            </span>
-            <span style={{
-              fontSize: 8, fontWeight: 600, color: active ? 'var(--terracotta)' : 'var(--muted)',
-              letterSpacing: '0.01em', whiteSpace: 'nowrap',
-            }}>{item.label}</span>
-            {active && (
-              <div style={{
-                width: 3, height: 3, borderRadius: '50%',
-                background: 'var(--terracotta)', marginTop: 1,
-              }} />
-            )}
-          </button>
-        );
-      })}
+      <div style={{
+        display: 'flex', alignItems: 'center',
+        justifyContent: isDesktop ? 'space-evenly' : undefined,
+        gap: isDesktop ? 0 : 2,
+        maxWidth: isDesktop ? 600 : 'none',
+        width: '100%',
+      }}>
+        {NAV_ITEMS.map(item => {
+          const active = current === item.id;
+          return (
+            <button
+              key={item.id}
+              onClick={() => onNavigate(item.id)}
+              style={{
+                display: 'flex', flexDirection: 'column', alignItems: 'center',
+                gap: 1, padding: isDesktop ? '6px 10px' : '4px 6px',
+                border: 'none', background: 'none', cursor: 'pointer',
+                fontFamily: 'inherit', flex: isDesktop ? '0 1 auto' : '0 0 auto',
+                opacity: active ? 1 : 0.45,
+                transition: 'opacity 0.15s',
+              }}
+            >
+              <span style={{ display: 'inline-flex', color: active ? 'var(--terracotta)' : 'var(--dark)' }}>
+                <AnimatedIcon name={item.icon} size={isDesktop ? 22 : 20} />
+              </span>
+              <span style={{
+                fontSize: isDesktop ? 10 : 8, fontWeight: 600,
+                color: active ? 'var(--terracotta)' : 'var(--muted)',
+                letterSpacing: '0.01em', whiteSpace: 'nowrap',
+              }}>{item.label}</span>
+              {active && (
+                <div style={{
+                  width: 3, height: 3, borderRadius: '50%',
+                  background: 'var(--terracotta)', marginTop: 1,
+                }} />
+              )}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }

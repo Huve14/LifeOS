@@ -1,53 +1,53 @@
 import { animate, svg } from 'animejs';
 import * as Icons from 'lucide-react';
 
-const { useRef, useEffect } = React;
+const { useRef, useEffect, useState } = React;
+
+let _uid = 0;
 
 function AnimatedIcon({ name, size = 22, style, ...props }) {
   const ref = useRef(null);
+  const [uid] = useState(() => `ai-${++_uid}`);
+  const animRef = useRef(null);
 
   useEffect(() => {
-    if (!ref.current) return;
-    const svgElements = ref.current.querySelectorAll('svg path, svg circle, svg polyline, svg rect');
-    svgElements.forEach(el => el.classList.add('line'));
-    const anim = animate(svg.createDrawable('.line'), {
-      draw: ['0 0.05', '0.05 1'],
-      ease: 'inOutQuad',
-      duration: 1000,
-      loop: true,
-      alternate: true,
-    });
-    return () => anim?.kill();
-  }, [name, size]);
+    const el = ref.current;
+    if (!el) return;
+
+    try {
+      const svgElements = el.querySelectorAll('svg path, svg circle, svg polyline, svg rect');
+      if (svgElements.length === 0) return;
+
+      svgElements.forEach(node => node.classList.add(uid));
+      const anim = animate(svg.createDrawable(`.${uid}`), {
+        draw: ['0 0.05', '0.05 1'],
+        ease: 'inOutQuad',
+        duration: 1000,
+        loop: true,
+        alternate: true,
+      });
+      animRef.current = anim;
+    } catch (e) {
+      console.warn('AnimatedIcon:', e);
+    }
+
+    return () => {
+      try {
+        animRef.current?.kill();
+        animRef.current = null;
+        el.querySelectorAll(`.${uid}`).forEach(node => node.classList.remove(uid));
+      } catch (e) { /* cleanup */ }
+    };
+  }, [name, size, uid]);
 
   const IconComponent = Icons[name];
-  if (!IconComponent) return <span style={{ fontSize: size }}>?</span>;
+  if (!IconComponent) return React.createElement('span', { style: { fontSize: size } }, '?');
 
-  return (
-    <span ref={ref} style={{ display: 'inline-flex', alignItems: 'center', verticalAlign: 'middle', ...style }}>
-      <IconComponent size={size} {...props} />
-    </span>
+  return React.createElement(
+    'span',
+    { ref, style: { display: 'inline-flex', alignItems: 'center', verticalAlign: 'middle', ...style } },
+    React.createElement(IconComponent, { size, ...props }),
   );
 }
 
-function AnimatedNavContainer({ children, style }) {
-  const ref = useRef(null);
-
-  useEffect(() => {
-    if (!ref.current) return;
-    const svgElements = ref.current.querySelectorAll('svg path, svg circle, svg polyline, svg rect');
-    svgElements.forEach(el => el.classList.add('nav-line'));
-    const anim = animate(svg.createDrawable('.nav-line'), {
-      draw: ['0 0.05', '0.05 1'],
-      ease: 'inOutQuad',
-      duration: 1000,
-      loop: true,
-      alternate: true,
-    });
-    return () => anim?.kill();
-  }, []);
-
-  return <div ref={ref} style={style}>{children}</div>;
-}
-
-Object.assign(window, { AnimatedIcon, AnimatedNavContainer });
+Object.assign(window, { AnimatedIcon });
