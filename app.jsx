@@ -428,7 +428,7 @@ const NAV_ITEMS = [
 
 function BottomNav({ current, onNavigate }) {
   const [isDesktop, setDesktop] = useState(window.innerWidth >= 640);
-  const [hovered, setHovered] = useState(null);
+  const [playTriggers, setPlayTriggers] = useState({});
 
   useEffect(() => {
     const mq = window.matchMedia('(min-width: 640px)');
@@ -466,13 +466,14 @@ function BottomNav({ current, onNavigate }) {
       }}>
         {NAV_ITEMS.map(item => {
           const active = current === item.id;
-          const iconAnimate = active || hovered === item.id;
           return (
             <button
               key={item.id}
-              onClick={() => onNavigate(item.id)}
-              onMouseEnter={() => setHovered(item.id)}
-              onMouseLeave={() => setHovered(null)}
+              onClick={() => {
+                setPlayTriggers(t => ({ ...t, [item.id]: (t[item.id] || 0) + 1 }));
+                onNavigate(item.id);
+              }}
+              onMouseEnter={() => setPlayTriggers(t => ({ ...t, [item.id]: (t[item.id] || 0) + 1 }))}
               style={{
                 display: 'flex', flexDirection: 'column', alignItems: 'center',
                 gap: 1, padding: isDesktop ? '6px 10px' : '4px 6px',
@@ -483,7 +484,7 @@ function BottomNav({ current, onNavigate }) {
               }}
             >
               <span style={{ display: 'inline-flex', color: active ? 'var(--terracotta)' : 'var(--dark)' }}>
-                <AnimatedIcon name={item.icon} size={isDesktop ? 22 : 20} active={iconAnimate} />
+                <AnimatedIcon name={item.icon} size={isDesktop ? 22 : 20} play={playTriggers[item.id] || 0} />
               </span>
               <span style={{
                 fontSize: isDesktop ? 10 : 8, fontWeight: 600,

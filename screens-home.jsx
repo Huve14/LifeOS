@@ -932,150 +932,151 @@ function AskHuveSheet({ open, onClose, initialPrompt, context = '' }) {
 
   return (
     <Sheet open={open} onClose={onClose} height={isMobile ? '100dvh' : '86dvh'}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
-        <div style={{
-          width: 44, height: 44, borderRadius: '50%',
-          background: 'linear-gradient(135deg, var(--teal) 0%, #1e524f 100%)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22,
-        }}>🌵</div>
-        <div>
-          <h2 style={{ fontSize: 20 }}>Huve</h2>
-          <div style={{ fontSize: 12, color: 'var(--muted)' }}>Your move-abroad sidekick</div>
-        </div>
-      </div>
-
-      <div ref={scrollRef} style={{
-        background: 'var(--sand)', borderRadius: 18, padding: 14,
-        minHeight: isMobile ? 0 : 320,
-        flex: 1,
-        maxHeight: isMobile ? 'none' : 380,
-        overflowY: 'auto',
-        display: 'flex', flexDirection: 'column', gap: 10,
-      }}>
-        {messages.length === 0 && !loading && (
-          <div style={{ color: 'var(--muted)', fontSize: 13, textAlign: 'center', padding: '40px 8px' }}>
-            Ask me about visa paperwork, packing logistics, or day-one setup in Abu Dhabi. You can also attach photos for context.
-          </div>
-        )}
-        {messages.map((m, i) => (
-          <div key={i} style={{
-            alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start',
-            maxWidth: '85%',
-            background: m.role === 'user' ? 'var(--terracotta)' : 'var(--white)',
-            color: m.role === 'user' ? '#fff' : 'var(--dark)',
-            padding: '10px 14px', borderRadius: 16,
-            borderBottomRightRadius: m.role === 'user' ? 4 : 16,
-            borderBottomLeftRadius: m.role === 'user' ? 16 : 4,
-            fontSize: 14, lineHeight: 1.5,
-            whiteSpace: 'pre-wrap',
-            boxShadow: 'var(--shadow)',
-          }}>{m.text}</div>
-        ))}
-        {loading && (
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14, flexShrink: 0 }}>
           <div style={{
-            alignSelf: 'flex-start',
-            background: 'var(--white)', padding: '12px 16px', borderRadius: 16,
-            display: 'flex', gap: 4,
-          }}>
-            {[0,1,2].map(i => (
-              <div key={i} style={{
-                width: 7, height: 7, borderRadius: '50%', background: 'var(--muted)',
-                animation: `pop 0.6s ${i * 0.15}s infinite alternate`,
-              }} />
+            width: 44, height: 44, borderRadius: '50%',
+            background: 'linear-gradient(135deg, var(--teal) 0%, #1e524f 100%)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22,
+          }}>🌵</div>
+          <div>
+            <h2 style={{ fontSize: 20 }}>Huve</h2>
+            <div style={{ fontSize: 12, color: 'var(--muted)' }}>Your move-abroad sidekick</div>
+          </div>
+        </div>
+
+        <div ref={scrollRef} style={{
+          background: 'var(--sand)', borderRadius: 18, padding: 14,
+          flex: 1, minHeight: 0, overflowY: 'auto',
+          display: 'flex', flexDirection: 'column', gap: 10,
+        }}>
+          {messages.length === 0 && !loading && (
+            <div style={{ color: 'var(--muted)', fontSize: 13, textAlign: 'center', padding: '40px 8px' }}>
+              Ask me about visa paperwork, packing logistics, or day-one setup in Abu Dhabi. You can also attach photos for context.
+            </div>
+          )}
+          {messages.map((m, i) => (
+            <div key={i} style={{
+              alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start',
+              maxWidth: '85%',
+              background: m.role === 'user' ? 'var(--terracotta)' : 'var(--white)',
+              color: m.role === 'user' ? '#fff' : 'var(--dark)',
+              padding: '10px 14px', borderRadius: 16,
+              borderBottomRightRadius: m.role === 'user' ? 4 : 16,
+              borderBottomLeftRadius: m.role === 'user' ? 16 : 4,
+              fontSize: 14, lineHeight: 1.5,
+              whiteSpace: 'pre-wrap',
+              boxShadow: 'var(--shadow)',
+            }}>{m.text}</div>
+          ))}
+          {loading && (
+            <div style={{
+              alignSelf: 'flex-start',
+              background: 'var(--white)', padding: '12px 16px', borderRadius: 16,
+              display: 'flex', gap: 4,
+            }}>
+              {[0,1,2].map(i => (
+                <div key={i} style={{
+                  width: 7, height: 7, borderRadius: '50%', background: 'var(--muted)',
+                  animation: `pop 0.6s ${i * 0.15}s infinite alternate`,
+                }} />
+              ))}
+            </div>
+          )}
+        </div>
+
+      <div style={{ flexShrink: 0, marginTop: 10 }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {[
+            'What should I pack first?',
+            'Things I always forget',
+            'Tips for my first week in Abu Dhabi',
+          ].map((suggestion) => (
+            <button
+              key={suggestion}
+              onClick={() => {
+                setInput(suggestion);
+                send(suggestion);
+              }}
+              style={{
+                padding: '8px 12px',
+                borderRadius: 999,
+                border: '1px solid var(--line)',
+                background: 'var(--white)',
+                color: 'var(--dark)',
+                fontSize: 12,
+                fontWeight: 600,
+              }}
+            >
+              {suggestion}
+            </button>
+          ))}
+        </div>
+
+        {uploadedFiles.length > 0 && (
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
+            {uploadedFiles.map(f => (
+              <div key={f.id} style={{
+                position: 'relative', width: 52, height: 52, borderRadius: 10,
+                overflow: 'hidden', border: '1px solid var(--line)',
+                background: 'var(--sand)',
+              }}>
+                {f.type?.startsWith('image/') ? (
+                  <img src={f.url} alt={f.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : (
+                  <div style={{ fontSize: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>📄</div>
+                )}
+                <button
+                  onClick={() => removeUploadedFile(f.id)}
+                  style={{
+                    position: 'absolute', top: -2, right: -2, width: 18, height: 18,
+                    borderRadius: '50%', border: 'none', background: 'var(--terracotta)',
+                    color: '#fff', fontSize: 10, cursor: 'pointer', fontFamily: 'inherit',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}
+                >✕</button>
+              </div>
             ))}
           </div>
         )}
-      </div>
-
-      <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-        {[
-          'What should I pack first?',
-          'Things I always forget',
-          'Tips for my first week in Abu Dhabi',
-        ].map((suggestion) => (
+        <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
           <button
-            key={suggestion}
-            onClick={() => {
-              setInput(suggestion);
-              send(suggestion);
-            }}
+            onClick={() => fileRef.current?.click()}
+            disabled={uploading}
             style={{
-              padding: '8px 12px',
-              borderRadius: 999,
-              border: '1px solid var(--line)',
-              background: 'var(--white)',
-              color: 'var(--dark)',
-              fontSize: 12,
-              fontWeight: 600,
+              width: 40, height: 40, borderRadius: '50%', flexShrink: 0,
+              border: '1px solid var(--line)', background: 'var(--white)',
+              cursor: 'pointer', fontFamily: 'inherit', fontSize: 16,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: 'var(--muted)',
             }}
-          >
-            {suggestion}
-          </button>
-        ))}
-      </div>
-
-      {uploadedFiles.length > 0 && (
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
-          {uploadedFiles.map(f => (
-            <div key={f.id} style={{
-              position: 'relative', width: 52, height: 52, borderRadius: 10,
-              overflow: 'hidden', border: '1px solid var(--line)',
-              background: 'var(--sand)',
-            }}>
-              {f.type?.startsWith('image/') ? (
-                <img src={f.url} alt={f.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              ) : (
-                <div style={{ fontSize: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>📄</div>
-              )}
-              <button
-                onClick={() => removeUploadedFile(f.id)}
-                style={{
-                  position: 'absolute', top: -2, right: -2, width: 18, height: 18,
-                  borderRadius: '50%', border: 'none', background: 'var(--terracotta)',
-                  color: '#fff', fontSize: 10, cursor: 'pointer', fontFamily: 'inherit',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}
-              >✕</button>
-            </div>
-          ))}
+            title="Attach photo or file"
+          >📎</button>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*,.pdf,.doc,.docx,.txt"
+            multiple
+            style={{ display: 'none' }}
+            onChange={e => { handleFileUpload(e.target.files); e.target.value = ''; }}
+          />
+          <input
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && send()}
+            placeholder="Ask Huve..."
+            style={{
+              flex: 1, padding: '12px 16px',
+              border: '1px solid var(--line)', borderRadius: 999,
+              background: 'var(--white)', fontSize: 14, outline: 'none',
+            }}
+          />
+          <Button variant="teal" onClick={() => send()} disabled={loading || !input.trim()}>
+            {loading ? '...' : 'Send'}
+          </Button>
         </div>
-      )}
-      <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-        <button
-          onClick={() => fileRef.current?.click()}
-          disabled={uploading}
-          style={{
-            width: 40, height: 40, borderRadius: '50%', flexShrink: 0,
-            border: '1px solid var(--line)', background: 'var(--white)',
-            cursor: 'pointer', fontFamily: 'inherit', fontSize: 16,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: 'var(--muted)',
-          }}
-          title="Attach photo or file"
-        >📎</button>
-        <input
-          ref={fileRef}
-          type="file"
-          accept="image/*,.pdf,.doc,.docx,.txt"
-          multiple
-          style={{ display: 'none' }}
-          onChange={e => { handleFileUpload(e.target.files); e.target.value = ''; }}
-        />
-        <input
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && send()}
-          placeholder="Ask Huve..."
-          style={{
-            flex: 1, padding: '12px 16px',
-            border: '1px solid var(--line)', borderRadius: 999,
-            background: 'var(--white)', fontSize: 14, outline: 'none',
-          }}
-        />
-        <Button variant="teal" onClick={() => send()} disabled={loading || !input.trim()}>
-          {loading ? '...' : 'Send'}
-        </Button>
       </div>
+    </div>
     </Sheet>
   );
 }

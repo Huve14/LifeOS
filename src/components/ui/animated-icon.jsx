@@ -5,50 +5,34 @@ const { useRef, useEffect } = React;
 
 let _uid = 0;
 
-function AnimatedIcon({ name, size = 22, active, style, ...props }) {
+function AnimatedIcon({ name, size = 22, play, style, ...props }) {
   const uidRef = useRef(`ai-${++_uid}`);
-  const animRef = useRef(null);
   const ref = useRef(null);
+  const timerRef = useRef(null);
 
   useEffect(() => {
-    if (!active) {
-      stopAnim();
-      return;
-    }
-    startAnim();
-    return () => stopAnim();
-  }, [active]);
-
-  function startAnim() {
-    if (animRef.current) return;
+    if (play == null || play === 0 || !ref.current) return;
     const el = ref.current;
-    if (!el) return;
+    let cancelled = false;
     try {
       const svgElements = el.querySelectorAll('svg path, svg circle, svg polyline, svg rect');
       if (svgElements.length === 0) return;
       const uid = uidRef.current;
       svgElements.forEach(node => node.classList.add(uid));
-      animRef.current = animate(svg.createDrawable(`.${uid}`), {
+      animate(svg.createDrawable(`.${uid}`), {
         draw: ['0 0.05', '0.05 1'],
         ease: 'inOutQuad',
-        duration: 1000,
-        loop: true,
-        alternate: true,
+        duration: 800,
       });
+      clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => {
+        if (!cancelled) {
+          svgElements.forEach(node => node.classList.remove(uid));
+        }
+      }, 900);
     } catch (e) { console.warn('AnimatedIcon:', e); }
-  }
-
-  function stopAnim() {
-    try {
-      if (animRef.current) {
-        animRef.current.kill();
-        animRef.current = null;
-      }
-      if (ref.current) {
-        ref.current.querySelectorAll(`.${uidRef.current}`).forEach(node => node.classList.remove(uidRef.current));
-      }
-    } catch (e) { /* cleanup */ }
-  }
+    return () => { cancelled = true; };
+  }, [play]);
 
   const IconComponent = Icons[name];
   if (!IconComponent) return React.createElement('span', { style: { fontSize: size } }, '?');
