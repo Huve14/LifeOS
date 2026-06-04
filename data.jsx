@@ -9,11 +9,8 @@ const DEFAULT_MOVE_DATE = (() => {
 
 // Demo content tuned to the move (UAE-specific docs, kitchen for studio, etc.)
 const MONTHLY_BUDGET = [
-  { id: 'rent',     label: 'Rent',        emoji: '🏠', planned: 4200, spent: 0, fixed: true },
   { id: 'utilities', label: 'Utilities + Internet', emoji: '⚡', planned: 500, spent: 0, fixed: true },
   { id: 'groceries', label: 'Food & Groceries',    emoji: '🍽️', planned: 1200, spent: 0, fixed: false },
-  { id: 'transport', label: 'Transport',   emoji: '🚗', planned: 400, spent: 0, fixed: false },
-  { id: 'insurance', label: 'Health Insurance',    emoji: '🏥', planned: 300, spent: 0, fixed: true },
   { id: 'fun',       label: 'Life & Fun',  emoji: '🎮', planned: 700, spent: 0, fixed: false },
   { id: 'savings',   label: 'Savings',     emoji: '💰', planned: 1500, spent: 0, fixed: false },
 ];

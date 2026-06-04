@@ -641,12 +641,62 @@ function BudgetScreen({ state, setState, onBack }) {
   const savingsPct = Math.round(((monthly.find(c => c.id === 'savings')?.planned || 1500) / income) * 100);
 
   const [showZAR, setShowZAR] = React.useState(false);
+  const [addingMonthly, setAddingMonthly] = React.useState(false);
+  const [addingMove, setAddingMove] = React.useState(false);
+  const [newLabel, setNewLabel] = React.useState('');
+  const [newEmoji, setNewEmoji] = React.useState('📋');
+  const [newPlanned, setNewPlanned] = React.useState('');
+  const [newFixed, setNewFixed] = React.useState(false);
   const FX = 4.5;
   const cur = showZAR ? 'ZAR' : 'AED';
   const conv = (v) => showZAR ? Math.round(v * FX) : v;
   const totalPlanned = state.budget.categories.reduce((a, c) => a + c.planned, 0);
   const totalSpent = state.budget.categories.reduce((a, c) => a + c.spent, 0);
   const fx = state.budget.fxToUSD || 0.272;
+
+  function addMonthlyCategory() {
+    const label = newLabel.trim();
+    if (!label) return;
+    setState(s => ({
+      ...s,
+      budget: {
+        ...s.budget,
+        monthly: [...(s.budget.monthly || MONTHLY_BUDGET), {
+          id: uid(), label, emoji: newEmoji, planned: parseInt(newPlanned) || 0, spent: 0, fixed: newFixed,
+        }],
+      },
+    }));
+    setNewLabel(''); setNewPlanned(''); setNewEmoji('📋'); setNewFixed(false); setAddingMonthly(false);
+  }
+
+  function removeMonthlyCategory(id) {
+    setState(s => ({
+      ...s,
+      budget: { ...s.budget, monthly: (s.budget.monthly || MONTHLY_BUDGET).filter(c => c.id !== id) },
+    }));
+  }
+
+  function addMoveCategory() {
+    const label = newLabel.trim();
+    if (!label) return;
+    setState(s => ({
+      ...s,
+      budget: {
+        ...s.budget,
+        categories: [...s.budget.categories, {
+          id: uid(), label, emoji: newEmoji, planned: parseInt(newPlanned) || 0, spent: 0,
+        }],
+      },
+    }));
+    setNewLabel(''); setNewPlanned(''); setNewEmoji('📋'); setAddingMove(false);
+  }
+
+  function removeMoveCategory(id) {
+    setState(s => ({
+      ...s,
+      budget: { ...s.budget, categories: s.budget.categories.filter(c => c.id !== id) },
+    }));
+  }
 
   function tweakMonthly(catId, delta) {
     setState(s => {
@@ -684,7 +734,7 @@ function BudgetScreen({ state, setState, onBack }) {
     );
   };
 
-  const catRow = (c, tweakFn) => {
+  const catRow = (c, tweakFn, onRemove) => {
     const pct = c.planned > 0 ? Math.round(((c.spent || 0) / c.planned) * 100) : 0;
     const over = c.spent >= c.planned;
     const remaining = (c.planned || 0) - (c.spent || 0);
@@ -704,9 +754,17 @@ function BudgetScreen({ state, setState, onBack }) {
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
               <div style={{ fontFamily: 'DM Sans', fontSize: 14, fontWeight: 700 }}>{c.label}</div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: over ? 'var(--terracotta)' : 'var(--dark)' }}>
-                {conv(c.spent || 0).toLocaleString()}
-                <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 500 }}> / {conv(c.planned).toLocaleString()}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: over ? 'var(--terracotta)' : 'var(--dark)' }}>
+                  {conv(c.spent || 0).toLocaleString()}
+                  <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 500 }}> / {conv(c.planned).toLocaleString()}</span>
+                </div>
+                {onRemove && (
+                  <button onClick={e => { e.stopPropagation(); onRemove(c.id); }} style={{
+                    fontSize: 12, padding: '2px', border: 'none', background: 'none',
+                    cursor: 'pointer', color: 'var(--muted)', fontFamily: 'inherit', opacity: 0.4,
+                  }}>✕</button>
+                )}
               </div>
             </div>
             <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
@@ -734,14 +792,28 @@ function BudgetScreen({ state, setState, onBack }) {
     );
   };
 
+  const addForm = (onSubmit) => (
+    <Card padding="14px" style={{ marginTop: 10 }}>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+        <input value={newEmoji} onChange={e => setNewEmoji(e.target.value)} placeholder="Emoji" style={{...inputStyle, width: 50, textAlign: 'center'}} />
+        <input value={newLabel} onChange={e => setNewLabel(e.target.value)} placeholder="Category name" style={{...inputStyle, flex: 1}} onKeyDown={e => e.key === 'Enter' && onSubmit()} />
+        <input value={newPlanned} onChange={e => setNewPlanned(e.target.value)} placeholder="Amount" type="number" style={{...inputStyle, width: 80}} onKeyDown={e => e.key === 'Enter' && onSubmit()} />
+      </div>
+      <div style={{ display: 'flex', gap: 6 }}>
+        <Pill active={newFixed} onClick={() => setNewFixed(v => !v)}>Fixed</Pill>
+        <Button size="sm" onClick={onSubmit}>Add</Button>
+        <Button size="sm" variant="ghost" onClick={() => { setAddingMonthly(false); setAddingMove(false); }}>Cancel</Button>
+      </div>
+    </Card>
+  );
+
   return (
     <ModulePage
       title="Budget"
-      subtitle={tab === 'monthly' ? `${conv(income).toLocaleString()} ${cur} / mo` : `One-time · ${conv(totalPlanned).toLocaleString()} ${cur}`}
+      subtitle={tab === 'monthly' ? `${conv(income).toLocaleString()} ${cur} / mo` : `${conv(totalPlanned).toLocaleString()} ${cur}`}
       icon="Wallet"
       onBack={onBack}
     >
-      {/* Tab toggle */}
       <div style={{ display: 'flex', gap: 4, background: 'var(--sand)', borderRadius: 12, padding: 3, marginBottom: 8 }}>
         {[
           { id: 'monthly', label: `📆 Monthly · ${conv(income).toLocaleString()} ${cur}` },
@@ -762,7 +834,6 @@ function BudgetScreen({ state, setState, onBack }) {
         ))}
       </div>
 
-      {/* Currency toggle */}
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
         <button onClick={() => setShowZAR(v => !v)} style={{
           padding: '6px 14px', borderRadius: 8, border: '1px solid var(--line)',
@@ -775,7 +846,13 @@ function BudgetScreen({ state, setState, onBack }) {
 
       {tab === 'monthly' ? (
         <>
-          {/* Income ring + summary */}
+          <Card padding="14px" style={{ background: 'var(--teal)', color: '#fff', border: 'none', marginBottom: 16 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, opacity: 0.9, marginBottom: 2 }}>SABIS covers</div>
+            <div style={{ fontSize: 13, lineHeight: 1.5, opacity: 0.85 }}>
+              Housing (Rent), Health Insurance, Transport — all handled by your employer. The categories below are your personal spending.
+            </div>
+          </Card>
+
           <div style={{ display: 'flex', alignItems: 'center', gap: 18, marginBottom: 18 }}>
             <div style={{ position: 'relative', flexShrink: 0 }}>
               {ringSvg(Math.round((totalSpentMonthly / income) * 100), 'var(--teal)')}
@@ -800,40 +877,35 @@ function BudgetScreen({ state, setState, onBack }) {
                 <div><span style={{ fontWeight: 700 }}>Fixed:</span> {conv(totalFixed).toLocaleString()} {cur}</div>
                 <div><span style={{ fontWeight: 700 }}>Left:</span> <span style={{ color: remainingMonthly > 0 ? '#66bb6a' : 'var(--terracotta)' }}>{conv(remainingMonthly).toLocaleString()} {cur}</span></div>
               </div>
-              <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 3 }}>Savings target: {savingsPct}% · {conv(monthly.find(c => c.id === 'savings')?.planned || 1500).toLocaleString()} {cur}</div>
-              <div style={{ marginTop: 6, padding: '8px 12px', background: 'var(--sand)', borderRadius: 12, fontSize: 12, color: 'var(--muted)', lineHeight: 1.5 }}>
-                {!showZAR && <span>☕ <strong style={{ color: 'var(--terracotta)' }}>Back home</strong> this would be ~{(income * 4.5).toLocaleString()} ZAR<br /></span>}
-                {showZAR && <span>☕ <strong style={{ color: 'var(--terracotta)' }}>In Dubai</strong> this is ~{Math.round(income).toLocaleString()} AED<br /></span>}
-                <span style={{ fontSize: 11 }}>Remember to budget a small <strong>treat yourself</strong> line for those first-week cappuccinos 🇿🇦</span>
-              </div>
             </div>
           </div>
 
-          {/* Monthly categories */}
-          {monthly.map(c => catRow(c, tweakMonthly))}
+          {monthly.map(c => catRow(c, tweakMonthly, removeMonthlyCategory))}
+
+          {addingMonthly && addForm(addMonthlyCategory)}
+          <div style={{ marginTop: 14 }}>
+            <Button full variant="soft" icon="＋" onClick={() => { setAddingMonthly(true); setAddingMove(false); }}>Add category</Button>
+          </div>
         </>
       ) : (
         <>
-          {/* Move checklist — total card */}
           <Card padding="20px" style={{ background: 'linear-gradient(135deg, var(--teal) 0%, #1e524f 100%)', color: '#fff', border: 'none', marginBottom: 16 }}>
             <div style={{ fontSize: 12, opacity: 0.85, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Move checklist</div>
             <div style={{ fontFamily: 'DM Sans', fontWeight: 800, fontSize: 36, lineHeight: 1, marginTop: 4 }}>
-              ${Math.round(totalSpent * fx).toLocaleString()}
-              <span style={{ fontSize: 16, opacity: 0.7, marginLeft: 6, fontWeight: 600 }}>spent</span>
+              {conv(totalSpent).toLocaleString()}
+              <span style={{ fontSize: 16, opacity: 0.7, marginLeft: 6, fontWeight: 600 }}>{cur}</span>
             </div>
             <div style={{ fontSize: 12, opacity: 0.8, marginTop: 4 }}>
-              ${Math.round(totalPlanned * fx).toLocaleString()} planned budget
+              of {conv(totalPlanned).toLocaleString()} {cur}
             </div>
             <div style={{ marginTop: 14 }}>
               <ProgressBar value={totalSpent} total={totalPlanned} color="var(--gold)" height={8} />
             </div>
           </Card>
 
-          {/* Move checklist items */}
           {state.budget.categories.map(c => {
             const isSABIS = ['visa', 'deposit'].includes(c.id);
-            const claims = state.shopping.filter(s => s.cat === 'Move' && s.name.toLowerCase().includes(c.id)) || [];
-            const claimedBy = claims.filter(s => s.claimedBy).map(s => s.claimedBy);
+            const isDefault = ['shipping', 'visa', 'deposit', 'buffer'].includes(c.id);
             return (
               <div key={c.id} style={{
                 background: 'var(--white)', borderRadius: 16, padding: '14px 16px',
@@ -860,22 +932,48 @@ function BudgetScreen({ state, setState, onBack }) {
                           }}>SABIS</span>
                         )}
                       </div>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: isSABIS ? 'var(--teal)' : 'var(--dark)' }}>
-                        {conv(c.planned).toLocaleString()} {cur}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: isSABIS ? 'var(--teal)' : 'var(--dark)' }}>
+                          {conv(c.planned).toLocaleString()} {cur}
+                        </div>
+                        {!isDefault && (
+                          <button onClick={() => removeMoveCategory(c.id)} style={{
+                            fontSize: 12, padding: '2px', border: 'none', background: 'none',
+                            cursor: 'pointer', color: 'var(--muted)', fontFamily: 'inherit', opacity: 0.4,
+                          }}>✕</button>
+                        )}
                       </div>
                     </div>
                     <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
                       {isSABIS ? 'Covered by SABIS' : `${conv(c.spent).toLocaleString()} ${cur} spent`}
-                      {claimedBy.length > 0 && ` · Claimed by ${claimedBy.join(', ')}`}
                     </div>
                     <div style={{ marginTop: 6 }}>
                       <ProgressBar value={isSABIS ? c.planned : (c.spent || 0)} total={c.planned || 1} color={isSABIS ? 'var(--teal)' : 'var(--gold)'} height={6} />
                     </div>
                   </div>
                 </div>
+                {!isSABIS && (
+                  <div style={{ display: 'flex', gap: 6, marginTop: 10, justifyContent: 'flex-end' }}>
+                    <button onClick={() => tweakMove(c.id, -100)} style={{
+                      width: 28, height: 28, borderRadius: 8, border: 'none',
+                      background: 'var(--sand)', fontSize: 16, fontWeight: 700, color: 'var(--muted)',
+                      cursor: 'pointer', fontFamily: 'inherit',
+                    }}>−</button>
+                    <button onClick={() => tweakMove(c.id, 100)} style={{
+                      width: 28, height: 28, borderRadius: 8, border: 'none',
+                      background: 'var(--terracotta)', color: '#fff', fontSize: 16, fontWeight: 700,
+                      cursor: 'pointer', fontFamily: 'inherit',
+                    }}>＋</button>
+                  </div>
+                )}
               </div>
             );
           })}
+
+          {addingMove && addForm(addMoveCategory)}
+          <div style={{ marginTop: 14 }}>
+            <Button full variant="soft" icon="＋" onClick={() => { setAddingMove(true); setAddingMonthly(false); }}>Add move item</Button>
+          </div>
         </>
       )}
     </ModulePage>
