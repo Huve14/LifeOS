@@ -696,8 +696,10 @@ function Dashboard({ state, setState, onModule, onAsk, layout = 'classic', progr
             width: 40, height: 40, borderRadius: '50%',
             background: 'rgba(255,255,255,0.2)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 22, flexShrink: 0,
-          }}>🌵</div>
+            flexShrink: 0, overflow: 'hidden',
+          }}>
+            <img src="/favicon.svg" width="36" height="36" alt="Suveda" style={{ borderRadius: '50%' }} />
+          </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 13, fontWeight: 600, opacity: 0.85 }}>Good {timeGreeting}</div>
             <div style={{ fontSize: 14, fontWeight: 700, fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif', marginTop: 1 }}>{huveGreeting}</div>

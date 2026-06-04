@@ -241,7 +241,7 @@ function App() {
         color: 'var(--dark)',
         position: 'relative',
         paddingTop: 24,
-        paddingBottom: 'calc(68px + env(safe-area-inset-bottom, 0))',
+        paddingBottom: 'calc(80px + env(safe-area-inset-bottom, 0))',
       }}
     >
       {renderContent()}
@@ -261,7 +261,7 @@ function App() {
             boxShadow: '0 8px 24px -6px rgba(196, 113, 74, 0.55), 0 4px 10px rgba(0,0,0,0.1)',
             zIndex: 50, border: 'none', cursor: 'pointer',
           }}
-        >🌵</button>
+        ><img src="/favicon.svg" width="30" height="30" alt="Suveda" style={{ borderRadius: '50%' }} /></button>
       )}
 
       {/* Bottom navigation (hidden during onboarding) */}
@@ -449,16 +449,16 @@ function BottomNav({ current, onNavigate }) {
     <div
       style={{
         position: 'fixed', bottom: 0, left: 0, right: 0,
-        height: 68,
+        height: isDesktop ? 68 : 80,
         boxSizing: 'content-box',
         paddingTop: 0,
-        paddingLeft: isDesktop ? 16 : 8,
-        paddingRight: isDesktop ? 16 : 8,
+        paddingLeft: isDesktop ? 16 : 4,
+        paddingRight: isDesktop ? 16 : 4,
         paddingBottom: 'env(safe-area-inset-bottom, 0)',
         zIndex: 100,
-        background: 'rgba(255,255,255,0.88)',
-        backdropFilter: 'blur(12px)',
-        WebkitBackdropFilter: 'blur(12px)',
+        background: 'rgba(255,255,255,0.92)',
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
         borderTop: '1px solid var(--line)',
         display: 'flex', alignItems: 'center',
         justifyContent: isDesktop ? 'center' : undefined,
@@ -466,15 +466,14 @@ function BottomNav({ current, onNavigate }) {
         overflowY: 'hidden',
         WebkitOverflowScrolling: 'touch',
         scrollbarWidth: 'none', msOverflowStyle: 'none',
-        gap: isDesktop ? 0 : 2,
       }}
     >
       <div style={{
         display: 'flex', alignItems: 'center',
         justifyContent: isDesktop ? 'space-evenly' : undefined,
-        gap: isDesktop ? 0 : 2,
         maxWidth: isDesktop ? 600 : 'none',
         width: '100%',
+        gap: isDesktop ? 0 : 2,
       }}>
         {NAV_ITEMS.map(item => {
           const active = current === item.id;
@@ -488,27 +487,33 @@ function BottomNav({ current, onNavigate }) {
               onMouseEnter={() => setPlayTriggers(t => ({ ...t, [item.id]: (t[item.id] || 0) + 1 }))}
               style={{
                 display: 'flex', flexDirection: 'column', alignItems: 'center',
-                gap: 1, padding: isDesktop ? '6px 10px' : '4px 6px',
+                justifyContent: 'center',
+                gap: isDesktop ? 2 : 3,
+                padding: isDesktop ? '6px 10px' : '6px 0',
+                minWidth: isDesktop ? 'auto' : 56,
                 border: 'none', background: 'none', cursor: 'pointer',
-                fontFamily: 'inherit', flex: isDesktop ? '0 1 auto' : '0 0 auto',
-                opacity: active ? 1 : 0.45,
+                fontFamily: 'inherit', flex: isDesktop ? '0 1 auto' : '1 0 auto',
+                opacity: active ? 1 : 0.5,
                 transition: 'opacity 0.15s',
+                WebkitTapHighlightColor: 'transparent',
               }}
             >
-              <span style={{ display: 'inline-flex', color: active ? 'var(--terracotta)' : 'var(--dark)' }}>
-                <AnimatedIcon name={item.icon} size={isDesktop ? 22 : 20} play={playTriggers[item.id] || 0} />
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                width: isDesktop ? 'auto' : 40, height: isDesktop ? 'auto' : 30,
+                borderRadius: isDesktop ? 0 : 10,
+                background: !isDesktop && active ? 'rgba(196, 113, 74, 0.12)' : 'transparent',
+                color: active ? 'var(--terracotta)' : 'var(--dark)',
+                transition: 'background 0.15s',
+              }}>
+                <AnimatedIcon name={item.icon} size={isDesktop ? 22 : 24} play={playTriggers[item.id] || 0} />
               </span>
               <span style={{
-                fontSize: isDesktop ? 10 : 8, fontWeight: 600,
+                fontSize: 10, fontWeight: active ? 700 : 500,
                 color: active ? 'var(--terracotta)' : 'var(--muted)',
                 letterSpacing: '0.01em', whiteSpace: 'nowrap',
+                lineHeight: 1,
               }}>{item.label}</span>
-              {active && (
-                <div style={{
-                  width: 3, height: 3, borderRadius: '50%',
-                  background: 'var(--terracotta)', marginTop: 1,
-                }} />
-              )}
             </button>
           );
         })}
