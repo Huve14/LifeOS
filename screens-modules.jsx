@@ -1404,6 +1404,6 @@ function ContactsScreen({ state, setState, onBack }) {
 }
 
 Object.assign(window, {
-  PackingScreen, DocumentsScreen, TasksScreen, BudgetScreen, ShoppingScreen, HousingScreen,
+  ModulePage, PackingScreen, DocumentsScreen, TasksScreen, BudgetScreen, ShoppingScreen, HousingScreen,
   MemoryScreen, HabitsScreen, ContactsScreen, uid,
 });

@@ -106,6 +106,10 @@ async function bootstrap() {
   // @ts-expect-error legacy global JSX modules are injected for compatibility.
   await import('../shared-list.jsx');
   // @ts-expect-error legacy global JSX modules are injected for compatibility.
+  await import('./components/ui/map-utils.jsx');
+  // @ts-expect-error legacy global JSX modules are injected for compatibility.
+  await import('../screens-map.jsx');
+  // @ts-expect-error legacy global JSX modules are injected for compatibility.
   await import('../app.jsx');
 
   // Mount the app root after all modules are loaded.

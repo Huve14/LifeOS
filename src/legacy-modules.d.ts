@@ -6,6 +6,13 @@ declare module '*.jsx' {
 declare global {
   interface Window {
     __SUVEDA_MOUNTED?: boolean;
+    __mapLibreMap?: any;
+    MapScreen?: any;
+    MapLibreMap?: any;
+    MapMarker?: any;
+    MapPopup?: any;
+    MapControls?: any;
+    askHuve?: any;
   }
 }
 

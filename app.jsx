@@ -177,6 +177,7 @@ function App() {
       memory:  <MemoryScreen state={state} setState={setState} onBack={() => setView('home')} />,
       habits:  <HabitsScreen state={state} setState={setState} onBack={() => setView('home')} />,
       people:  <ContactsScreen state={state} setState={setState} onBack={() => setView('home')} />,
+      map:     <MapScreen state={state} setState={setState} onBack={() => setView('home')} />,
     };
     return screens[view] || screens.home;
   }
@@ -378,6 +379,7 @@ function SuvedaTweaks({ tweaks, setTweak, setView }) {
             { id: 'housing',    label: '🏠 Housing' },
             { id: 'memory',     label: '💭 Memory' },
             { id: 'habits',     label: '🎯 Habits' },
+            { id: 'map',        label: '🗺️ Map' },
             { id: 'people',     label: '👥 People' },
           ].map(s => (
             <button
@@ -408,6 +410,7 @@ const NAV_ITEMS = [
   { id: 'housing',  label: 'Housing',   emoji: '🏠' },
   { id: 'memory',   label: 'Memory',    emoji: '💭' },
   { id: 'habits',   label: 'Habits',    emoji: '🎯' },
+  { id: 'map',      label: 'Map',       emoji: '🗺️' },
   { id: 'people',   label: 'People',    emoji: '👥' },
 ];
 

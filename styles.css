@@ -132,6 +132,10 @@ input, textarea {
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 /* Glow/pulse for AI button */
 .ai-pulse {
   animation: pulse-ring 2s infinite;
