@@ -1,6 +1,6 @@
-const BASE_URL = 'https://integrate.api.nvidia.com/v1/';
+import { BASE_URL, DEFAULT_MODEL, buildRequestBody, extractResponseText, buildFallbackResponse } from './shared.mjs';
+
 const API_KEY = process.env.NVIDIA_API_KEY;
-const DEFAULT_MODEL = 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning';
 
 function sendJson(res, code, obj) {
   const s = JSON.stringify(obj);
@@ -10,15 +10,6 @@ function sendJson(res, code, obj) {
     'Access-Control-Allow-Origin': '*',
   });
   res.end(s);
-}
-
-function buildFallbackResponse(lastMsg = '') {
-  const prompt = String(lastMsg).toLowerCase();
-  if (prompt.includes('pack')) return 'Start with your passport, visa/entry permit paperwork, chargers, daily meds, and one carry-on set of essentials. Then add climate-safe clothes, toiletries, and one small comfort item so arrival day feels easier. 🌵';
-  if (prompt.includes('visa') || prompt.includes('documents')) return 'Put passport validity, employment visa steps, attestation, and medical fitment at the top of the list. Keep scans of everything in one folder and check official UAE sources for the latest requirements. 📑';
-  if (prompt.includes('week') || prompt.includes('arrival') || prompt.includes('day one')) return 'For week one, focus on SIM, transport, essentials for the apartment, and a simple grocery list. Don\'t try to finish everything on day one; settle in, then tackle the rest in order. 🛬';
-  if (prompt.includes('housing')) return 'Prioritize commute, daylight, noise, and whether utilities are included before rent alone. If two places feel close, choose the one that makes daily life easier, not just cheaper. 🏠';
-  return 'I\'m here. Tell me what you\'re deciding, and I\'ll break it into the next concrete step. 🌵';
 }
 
 export default async function handler(req, res) {
@@ -33,30 +24,21 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { messages, temperature, top_p, max_tokens } = req.body || {};
+    const { messages, ...rest } = req.body || {};
     if (!messages || !Array.isArray(messages)) {
       return sendJson(res, 400, { error: 'messages array required' });
     }
 
-    const body = {
-      model: DEFAULT_MODEL,
-      messages,
-      temperature: temperature ?? 0.6,
-      top_p: top_p ?? 0.95,
-      max_tokens: max_tokens ?? 65536,
-      chat_template_kwargs: { enable_thinking: true },
-      reasoning_budget: 16384,
-      stream: false,
-    };
+    const body = buildRequestBody(messages, rest);
 
-    const response = await fetch(BASE_URL + 'chat/completions', {
+    const response = await fetch(`${BASE_URL}/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${API_KEY}`,
       },
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(9000),
+      signal: AbortSignal.timeout(58000),
     });
 
     if (!response.ok) {
@@ -67,19 +49,7 @@ export default async function handler(req, res) {
     }
 
     const json = await response.json();
-    let out = '';
-    if (json.choices) {
-      for (const c of json.choices) {
-        if (c.message && c.message.content) out += c.message.content;
-        else if (c.message && c.message.reasoning_content) out += c.message.reasoning_content;
-        else if (c.delta && c.delta.content) out += c.delta.content;
-      }
-    }
-    if (!out && json.choices?.[0]?.message?.reasoning_content) {
-      out = json.choices[0].message.reasoning_content;
-    }
-
-    return sendJson(res, 200, { text: out || '...', raw: json });
+    return sendJson(res, 200, { text: extractResponseText(json), raw: json });
   } catch (err) {
     console.error('proxy error:', err.message);
     const lastMsg = req.body?.messages?.[req.body.messages.length - 1]?.content || '';
