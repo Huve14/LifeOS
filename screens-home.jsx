@@ -975,14 +975,11 @@ function AskHuveSheet({ open, onClose, initialPrompt, context = '' }) {
     <Sheet open={open} onClose={onClose} height={isMobile ? '100dvh' : '86dvh'}>
       <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14, flexShrink: 0 }}>
-          <div style={{
-            width: 44, height: 44, borderRadius: '50%',
-            background: 'linear-gradient(135deg, var(--teal) 0%, #1e524f 100%)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            overflow: 'hidden', padding: 6,
-          }}>
-            <img src="/favicon.svg" alt="Huve" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-          </div>
+          <img
+            src="/huve-avatar.svg"
+            alt="Huve"
+            style={{ width: 44, height: 44, borderRadius: '50%', flexShrink: 0 }}
+          />
           <div style={{ flex: 1 }}>
             <h2 style={{ fontSize: 20 }}>Huve</h2>
             <div style={{ fontSize: 12, color: 'var(--muted)' }}>Ask me anything about the move</div>
