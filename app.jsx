@@ -241,7 +241,7 @@ function App() {
         color: 'var(--dark)',
         position: 'relative',
         paddingTop: 24,
-        paddingBottom: 'calc(92px + env(safe-area-inset-bottom, 0))',
+        paddingBottom: 'calc(82px + env(safe-area-inset-bottom, 0))',
       }}
     >
       {renderContent()}
@@ -253,7 +253,7 @@ function App() {
           className="ai-pulse"
           style={{
             position: 'fixed',
-            right: 18, bottom: 'calc(env(safe-area-inset-bottom, 0px) + 84px)',
+            right: 18, bottom: 'calc(env(safe-area-inset-bottom, 0px) + 76px)',
             width: 56, height: 56, borderRadius: '50%',
             background: 'linear-gradient(135deg, var(--terracotta) 0%, var(--gold) 100%)',
             color: '#fff', fontSize: 26,
@@ -459,7 +459,7 @@ function BottomNav({ current, onNavigate }) {
       <div
         style={{
           position: 'fixed',
-          bottom: isDesktop ? 0 : 'calc(env(safe-area-inset-bottom, 0px) + 12px)',
+          bottom: isDesktop ? 0 : 'calc(env(safe-area-inset-bottom, 0px) + 4px)',
           left: isDesktop ? 0 : 12,
           right: isDesktop ? 0 : 12,
           height: isDesktop ? 68 : 66,
