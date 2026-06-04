@@ -241,7 +241,7 @@ function App() {
         color: 'var(--dark)',
         position: 'relative',
         paddingTop: 24,
-        paddingBottom: 68,
+        paddingBottom: 'calc(68px + env(safe-area-inset-bottom, 0))',
       }}
     >
       {renderContent()}
@@ -450,8 +450,11 @@ function BottomNav({ current, onNavigate }) {
       style={{
         position: 'fixed', bottom: 0, left: 0, right: 0,
         height: 68,
-        paddingBottom: 'env(safe-area-inset-bottom, 0)',
         boxSizing: 'content-box',
+        paddingTop: 0,
+        paddingLeft: isDesktop ? 16 : 8,
+        paddingRight: isDesktop ? 16 : 8,
+        paddingBottom: 'env(safe-area-inset-bottom, 0)',
         zIndex: 100,
         background: 'rgba(255,255,255,0.88)',
         backdropFilter: 'blur(12px)',
@@ -464,7 +467,6 @@ function BottomNav({ current, onNavigate }) {
         WebkitOverflowScrolling: 'touch',
         scrollbarWidth: 'none', msOverflowStyle: 'none',
         gap: isDesktop ? 0 : 2,
-        padding: isDesktop ? '0 16px' : '0 8px',
       }}
     >
       <div style={{
