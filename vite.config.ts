@@ -1,8 +1,14 @@
-import { defineConfig } from 'vite'
+import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
+  test: {
+    globals: true,
+    environment: 'jsdom',
+    setupFiles: './src/setupTests.ts',
+    include: ['src/**/*.test.{ts,tsx}'],
+  },
   plugins: [
     react(),
     VitePWA({
@@ -35,6 +41,8 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
+        navigateFallback: '/',
+        navigateFallbackDenylist: [/^\/s\//],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/[a-z]+\.supabase\.co\/.*/i,
@@ -42,6 +50,15 @@ export default defineConfig({
             options: {
               cacheName: 'supabase-api',
               expiration: { maxEntries: 50, maxAgeSeconds: 300 },
+              networkTimeoutSeconds: 10,
+            },
+          },
+          {
+            urlPattern: /\.(?:png|jpg|jpeg|svg|gif|webp)$/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'images',
+              expiration: { maxEntries: 60, maxAgeSeconds: 86400 },
             },
           },
         ],
@@ -58,7 +75,7 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      '/api/huve': {
+      '/api/deepseek': {
         target: 'http://localhost:3001',
         changeOrigin: true,
         proxyTimeout: 180000,
