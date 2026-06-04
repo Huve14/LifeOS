@@ -241,7 +241,7 @@ function App() {
         color: 'var(--dark)',
         position: 'relative',
         paddingTop: 24,
-        paddingBottom: 'calc(80px + env(safe-area-inset-bottom, 0))',
+        paddingBottom: 'calc(92px + env(safe-area-inset-bottom, 0))',
       }}
     >
       {renderContent()}
@@ -253,7 +253,7 @@ function App() {
           className="ai-pulse"
           style={{
             position: 'fixed',
-            right: 18, bottom: 84,
+            right: 18, bottom: 'calc(env(safe-area-inset-bottom, 0px) + 84px)',
             width: 56, height: 56, borderRadius: '50%',
             background: 'linear-gradient(135deg, var(--terracotta) 0%, var(--gold) 100%)',
             color: '#fff', fontSize: 26,
@@ -458,32 +458,35 @@ function BottomNav({ current, onNavigate }) {
     <>
       <div
         style={{
-          position: 'fixed', bottom: 0, left: 0, right: 0,
-          height: isDesktop ? 68 : 80,
-          boxSizing: 'content-box',
-          paddingTop: 0,
-          paddingLeft: isDesktop ? 16 : 4,
-          paddingRight: isDesktop ? 16 : 4,
-          paddingBottom: 'env(safe-area-inset-bottom, 0)',
+          position: 'fixed',
+          bottom: isDesktop ? 0 : 'calc(env(safe-area-inset-bottom, 0px) + 12px)',
+          left: isDesktop ? 0 : 12,
+          right: isDesktop ? 0 : 12,
+          height: isDesktop ? 68 : 66,
+          boxSizing: 'border-box',
+          paddingLeft: isDesktop ? 16 : 8,
+          paddingRight: isDesktop ? 16 : 8,
+          paddingBottom: isDesktop ? 'env(safe-area-inset-bottom, 0)' : 0,
           zIndex: 100,
-          background: 'rgba(255,255,255,0.92)',
-          backdropFilter: 'blur(16px)',
-          WebkitBackdropFilter: 'blur(16px)',
-          borderTop: '1px solid var(--line)',
+          background: 'rgba(255,255,255,0.94)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          borderTop: isDesktop ? '1px solid var(--line)' : 'none',
+          border: isDesktop ? undefined : '1px solid rgba(0,0,0,0.07)',
+          borderRadius: isDesktop ? 0 : 26,
+          boxShadow: isDesktop ? 'none' : '0 8px 32px rgba(0,0,0,0.10), 0 2px 8px rgba(0,0,0,0.05)',
           display: 'flex', alignItems: 'center',
           justifyContent: isDesktop ? 'center' : undefined,
-          overflowX: isDesktop ? 'hidden' : 'auto',
+          overflowX: 'hidden',
           overflowY: 'hidden',
-          WebkitOverflowScrolling: 'touch',
-          scrollbarWidth: 'none', msOverflowStyle: 'none',
         }}
       >
         <div style={{
           display: 'flex', alignItems: 'center',
-          justifyContent: isDesktop ? 'space-evenly' : undefined,
+          justifyContent: 'space-evenly',
           maxWidth: isDesktop ? 600 : 'none',
           width: '100%',
-          gap: isDesktop ? 0 : 2,
+          gap: 0,
         }}>
           {displayItems.map(item => {
             const active = current === item.id;
@@ -498,28 +501,27 @@ function BottomNav({ current, onNavigate }) {
                 style={{
                   display: 'flex', flexDirection: 'column', alignItems: 'center',
                   justifyContent: 'center',
-                  gap: isDesktop ? 2 : 3,
-                  padding: isDesktop ? '6px 10px' : '6px 0',
-                  minWidth: isDesktop ? 'auto' : 56,
-                  border: 'none', background: 'none', cursor: 'pointer',
-                  fontFamily: 'inherit', flex: isDesktop ? '0 1 auto' : '1 0 auto',
-                  opacity: active ? 1 : 0.5,
-                  transition: 'opacity 0.15s',
+                  gap: isDesktop ? 2 : 4,
+                  padding: isDesktop ? '6px 10px' : '7px 10px',
+                  flex: '1 1 0',
+                  border: 'none', cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  background: !isDesktop && active ? 'rgba(196, 113, 74, 0.13)' : 'transparent',
+                  borderRadius: isDesktop ? 0 : 18,
+                  opacity: active ? 1 : (isDesktop ? 0.5 : 0.42),
+                  transition: 'background 0.18s, opacity 0.18s',
                   WebkitTapHighlightColor: 'transparent',
                 }}
               >
                 <span style={{
                   display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                  width: isDesktop ? 'auto' : 40, height: isDesktop ? 'auto' : 30,
-                  borderRadius: isDesktop ? 0 : 10,
-                  background: !isDesktop && active ? 'rgba(196, 113, 74, 0.12)' : 'transparent',
                   color: active ? 'var(--terracotta)' : 'var(--dark)',
-                  transition: 'background 0.15s',
                 }}>
-                  <AnimatedIcon name={item.icon} size={isDesktop ? 22 : 24} play={playTriggers[item.id] || 0} />
+                  <AnimatedIcon name={item.icon} size={isDesktop ? 22 : 26} play={playTriggers[item.id] || 0} />
                 </span>
                 <span style={{
-                  fontSize: 10, fontWeight: active ? 700 : 500,
+                  fontSize: isDesktop ? 10 : 11,
+                  fontWeight: active ? 700 : 500,
                   color: active ? 'var(--terracotta)' : 'var(--muted)',
                   letterSpacing: '0.01em', whiteSpace: 'nowrap',
                   lineHeight: 1,
@@ -534,32 +536,30 @@ function BottomNav({ current, onNavigate }) {
               style={{
                 display: 'flex', flexDirection: 'column', alignItems: 'center',
                 justifyContent: 'center',
-                gap: 3,
-                padding: '6px 0',
-                minWidth: 56,
-                border: 'none', background: 'none', cursor: 'pointer',
-                fontFamily: 'inherit', flex: '1 0 auto',
-                opacity: activeMoreItem || moreOpen ? 1 : 0.5,
-                transition: 'opacity 0.15s',
+                gap: 4,
+                padding: '7px 10px',
+                flex: '1 1 0',
+                border: 'none', cursor: 'pointer',
+                fontFamily: 'inherit',
+                background: activeMoreItem ? 'rgba(196, 113, 74, 0.13)' : 'transparent',
+                borderRadius: 18,
+                opacity: activeMoreItem || moreOpen ? 1 : 0.42,
+                transition: 'background 0.18s, opacity 0.18s',
                 WebkitTapHighlightColor: 'transparent',
               }}
             >
               <span style={{
                 display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                width: 40, height: 30,
-                borderRadius: 10,
-                background: activeMoreItem ? 'rgba(196, 113, 74, 0.12)' : 'transparent',
                 color: activeMoreItem ? 'var(--terracotta)' : 'var(--dark)',
-                transition: 'background 0.15s',
               }}>
                 <AnimatedIcon
                   name={activeMoreItem ? activeMoreItem.icon : 'LayoutGrid'}
-                  size={24}
+                  size={26}
                   play={0}
                 />
               </span>
               <span style={{
-                fontSize: 10, fontWeight: activeMoreItem ? 700 : 500,
+                fontSize: 11, fontWeight: activeMoreItem ? 700 : 500,
                 color: activeMoreItem ? 'var(--terracotta)' : 'var(--muted)',
                 letterSpacing: '0.01em', whiteSpace: 'nowrap',
                 lineHeight: 1,
