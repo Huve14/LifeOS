@@ -61,18 +61,47 @@ for all
 using (auth.uid()::text = thread_id OR thread_id = 'main')
 with check (auth.uid()::text = thread_id OR thread_id = 'main');
 
--- Public access for shared shopping list (protection via share token)
-drop policy if exists "public access shopping items" on public.suveda_shopping_items;
-create policy "public access shopping items"
+-- Shopping items: public can read and claim; only authenticated users can insert/delete
+drop policy if exists "public read shopping items" on public.suveda_shopping_items;
+create policy "public read shopping items"
 on public.suveda_shopping_items
-for all
+for select
+using (true);
+
+drop policy if exists "public claim shopping items"
+on public.suveda_shopping_items;
+create policy "public claim shopping items"
+on public.suveda_shopping_items
+for update
 using (true)
 with check (true);
 
-drop policy if exists "public access share tokens" on public.suveda_share_tokens;
-create policy "public access share tokens"
+drop policy if exists "auth manage shopping items" on public.suveda_shopping_items;
+create policy "auth manage shopping items"
+on public.suveda_shopping_items
+for insert
+to authenticated
+with check (true);
+
+drop policy if exists "auth delete shopping items" on public.suveda_shopping_items;
+create policy "auth delete shopping items"
+on public.suveda_shopping_items
+for delete
+to authenticated
+using (true);
+
+-- Share tokens: public can validate; only authenticated users can create/manage
+drop policy if exists "public validate share tokens" on public.suveda_share_tokens;
+create policy "public validate share tokens"
+on public.suveda_share_tokens
+for select
+using (active = true);
+
+drop policy if exists "auth manage share tokens" on public.suveda_share_tokens;
+create policy "auth manage share tokens"
 on public.suveda_share_tokens
 for all
+to authenticated
 using (true)
 with check (true);
 
@@ -91,15 +120,6 @@ insert into public.suveda_shopping_items (category, item, quantity, price, suppl
   ('🎁 Gifts',      'beach towel',             'x1',   200, '', 'gifts', 8),
   ('🎁 Gifts',      'bed linen',               'x2',   300, '', 'gifts', 9),
   ('🎁 Gifts',      'duvet set',               'x2',   500, '', 'gifts', 10),
-  ('👗 Clothes',    'pants',                   'x5',  2100, '', '', 11),
-  ('👗 Clothes',    'tops',                    'x10', 3000, '', '', 12),
-  ('👗 Clothes',    'heels',                   'x3',  1500, '', '', 13),
-  ('👗 Clothes',    'blazers',                 'x2',  1000, '', '', 14),
-  ('👗 Clothes',    'jersey',                  'x3',   900, '', '', 15),
-  ('👗 Clothes',    'underwear packs',         'x2',   600, '', '', 16),
-  ('👗 Clothes',    'underwear packs',         'x2',   500, '', '', 17),
-  ('👗 Clothes',    'pyjamas',                 'x3',   900, '', '', 18),
-  ('👗 Clothes',    'sneakers',               '',    2200, '', '', 19),
   ('🧳 Luggage',    'hard shell luggage',     'x3',     0, 'Laven', '', 20),
   ('🧳 Luggage',    'travel plugs',           'x2',   300, 'Huve', '', 21),
   ('🧳 Luggage',    'travel cubes',           'x2',   250, 'Huve', '', 22),
@@ -107,23 +127,9 @@ insert into public.suveda_shopping_items (category, item, quantity, price, suppl
   ('🧳 Luggage',    'iphone charger',         '',     400, '', '', 24),
   ('🧳 Luggage',    'documents folder',       '',     100, '', '', 25),
   ('📱 Electronics', 'esim data',             '',     400, '', 'kovidh to advise', 26),
-  ('💊 Medical',    'meds',                   '',       0, '', 'medical aid', 27),
-  ('💊 Medical',    'plasters',               '',      50, '', '', 28),
-  ('💊 Medical',    'over the counter meds',  '',     150, '', 'medical aid', 29),
-  ('🧴 Toiletries', 'skincare',               'x3',  1000, '', '', 30),
-  ('🧴 Toiletries', 'toothpaste',             '',      50, 'Ramona', '', 31),
-  ('🧴 Toiletries', 'shower gel',             '',      80, '', '', 32),
-  ('🧴 Toiletries', 'scrub',                  '',      40, '', '', 33),
-  ('🧴 Toiletries', 'shampoo & conditioner',  '',     500, '', '', 34),
-  ('🧴 Toiletries', 'deodorant',              'x2',   100, '', '', 35),
-  ('🧴 Toiletries', 'pads',                   '',     100, '', '', 36),
-  ('🧴 Toiletries', 'sunblock',               '',     100, 'Laven', '', 37),
-  ('🧴 Toiletries', 'toothbrush',             '',      50, '', '', 38),
-  ('🧴 Toiletries', 'aftersun',               '',     100, 'Laven', '', 39),
-  ('🧴 Toiletries', 'sponge kitchen',         '',      40, '', '', 40),
-  ('🧴 Toiletries', 'swab',                   '',      50, '', '', 41),
-  ('🧴 Toiletries', 'toilet paper',           '4 rolls',50, 'Ramona', '', 42),
-  ('🧴 Toiletries', 'dish cloths',            'x3',   100, '', '', 43),
+  ('🧳 Luggage',    'ziplock bags / packing organisers','',  50, '', '', 27),
+  ('🧳 Luggage',    'reusable shopping bags',  '',     50, '', '', 28),
+  ('🧳 Luggage',    'pen + small notebook',    '',     30, '', '', 29),
   ('🍪 Snacks',     'snacks',                 '',     500, '', '', 44),
   ('🍪 Snacks',     'biltong',                '',       0, '', '', 45),
   ('🍪 Snacks',     'biscuits',               '',       0, '', '', 46),
