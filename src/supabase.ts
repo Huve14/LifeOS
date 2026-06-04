@@ -185,6 +185,7 @@ export function onAuthChange(fn: (user: User | null) => void) {
 }
 
 export async function signUp(email: string, password: string, name: string) {
+  if (!hasConfig) return { data: null, error: new Error('Supabase is not configured.') };
   if (!email || !email.includes('@')) {
     return { data: null, error: new Error('Please enter a valid email address.') };
   }
@@ -205,6 +206,7 @@ export async function signUp(email: string, password: string, name: string) {
 }
 
 export async function signIn(email: string, password: string) {
+  if (!hasConfig) return { data: null, error: new Error('Supabase is not configured.') };
   if (!email || !email.includes('@')) {
     return { data: null, error: new Error('Please enter a valid email address.') };
   }
@@ -216,6 +218,7 @@ export async function signIn(email: string, password: string) {
 }
 
 export async function signOut() {
+  if (!hasConfig) return;
   const client = getAuthClient();
   await client.auth.signOut();
   window.__suvedaUser = null;
