@@ -488,11 +488,54 @@ function BottomNav({ current, onNavigate }) {
   );
 }
 
+// ---------- Error Boundary ----------
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { error };
+  }
+  componentDidCatch(error, info) {
+    console.error('ErrorBoundary caught:', error, info);
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        React.createElement('div', {
+          style: {
+            padding: '40px 24px', fontFamily: 'inherit',
+            color: 'var(--dark)', background: 'var(--cream)',
+            minHeight: '100%', width: '100%',
+          },
+        },
+          React.createElement('h2', { style: { fontSize: 18, marginBottom: 12 } }, 'Something went wrong'),
+          React.createElement('pre', {
+            style: { fontSize: 12, color: 'var(--terracotta)', whiteSpace: 'pre-wrap', wordBreak: 'break-word' },
+          }, this.state.error?.message || String(this.state.error)),
+          React.createElement('button', {
+            onClick: () => this.setState({ error: null }),
+            style: {
+              marginTop: 16, padding: '10px 20px', borderRadius: 10,
+              border: '1px solid var(--line)', background: 'var(--white)',
+              fontSize: 13, fontFamily: 'inherit', cursor: 'pointer',
+            },
+          }, 'Try again'),
+        )
+      );
+    }
+    return this.props.children;
+  }
+}
+
 // ---------- Mount ----------
 function Root() {
   return (
     <div data-screen-label="Suveda Move App" style={{ width: '100%', height: '100%' }}>
-      <App />
+      <ErrorBoundary>
+        <App />
+      </ErrorBoundary>
     </div>
   );
 }
