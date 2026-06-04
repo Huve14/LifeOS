@@ -445,12 +445,32 @@ function TasksScreen({ state, setState, onBack }) {
   const [adding, setAdding] = React.useState(false);
   const [newTask, setNewTask] = React.useState('');
   const [newWhen, setNewWhen] = React.useState(groups[0]);
+  const [view, setView] = React.useState('list');
+  const GlassCalendar = window.GlassCalendar;
   const grouped = groups.map(g => ({
     when: g,
     items: state.tasks.filter(t => t.when === g),
   }));
   const days = daysUntil(state.moveDate);
   const allDone = state.tasks.filter(t => t.status === 'done').length;
+  const moveDate = new Date(state.moveDate + 'T00:00:00');
+
+  const tasksWithDates = React.useMemo(() => {
+    const now = new Date(); now.setHours(0,0,0,0);
+    return state.tasks.map(t => {
+      let date = null;
+      if (t.when === 'Move day') date = new Date(moveDate);
+      else if (t.when === 'After') date = null;
+      else {
+        const num = parseInt(t.when);
+        if (!isNaN(num)) {
+          date = new Date(now);
+          date.setDate(date.getDate() + num);
+        }
+      }
+      return { ...t, date };
+    });
+  }, [state.tasks, moveDate]);
 
   function toggle(id) {
     setState(s => ({
@@ -483,145 +503,160 @@ function TasksScreen({ state, setState, onBack }) {
       subtitle={`${days} days · ${allDone} of ${state.tasks.length} done`}
       icon="CalendarDays"
       onBack={onBack}
-      action={<Button size="sm" variant="ghost" icon="＋" onClick={() => setAdding(true)}>Add</Button>}
+      action={
+        <div style={{ display: 'flex', gap: 6 }}>
+          <Button size="sm" variant="ghost" icon={view === 'calendar' ? '📋' : '📅'} onClick={() => setView(v => v === 'calendar' ? 'list' : 'calendar')}>
+            {view === 'calendar' ? 'List' : 'Calendar'}
+          </Button>
+          <Button size="sm" variant="ghost" icon="＋" onClick={() => setAdding(true)}>Add</Button>
+        </div>
+      }
     >
-      {/* Countdown hero */}
-      <Card padding="18px" style={{
-        background: 'linear-gradient(135deg, var(--gold) 0%, #c49a3a 100%)', color: '#fff', border: 'none', marginBottom: 18,
-      }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <div style={{ fontSize: 12, opacity: 0.85, fontWeight: 600 }}>Countdown</div>
-            <div style={{ fontFamily: 'DM Sans', fontSize: 36, fontWeight: 800, marginTop: 2 }}>
-              {days}<span style={{ fontSize: 16, fontWeight: 600, opacity: 0.85, marginLeft: 4 }}>days</span>
-            </div>
-          </div>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontFamily: 'DM Sans', fontSize: 22, fontWeight: 700 }}>{allDone}</div>
-            <div style={{ fontSize: 12, opacity: 0.85 }}>tasks done</div>
-          </div>
+      {view === 'calendar' && GlassCalendar ? (
+        <div>
+          <GlassCalendar
+            tasks={tasksWithDates}
+            selectedDate={new Date()}
+          />
         </div>
-        <div style={{ marginTop: 10 }}>
-          <ProgressBar value={allDone} total={state.tasks.length} color="#fff" height={6} />
-        </div>
-      </Card>
-
-      {/* Timeline spine */}
-      <div style={{ position: 'relative', paddingLeft: 28 }}>
-        <div style={{
-          position: 'absolute', left: 13, top: 8, bottom: 8,
-          width: 2, background: 'var(--line)',
-        }} />
-        {grouped.map((group, gi) => {
-          if (group.items.length === 0) return null;
-          const groupDone = group.items.filter(t => t.status === 'done').length;
-          const allGroupDone = groupDone === group.items.length;
-          const anyDone = groupDone > 0;
-          const daysNum = parseInt(group.when);
-          const urgency = !isNaN(daysNum) && daysNum <= days ? 'overdue' : (anyDone ? 'progress' : 'pending');
-          return (
-            <div key={group.when} style={{ marginBottom: 18, position: 'relative' }}>
-              {/* Spine dot */}
-              <div style={{
-                position: 'absolute', left: -22, top: 4,
-                width: 16, height: 16, borderRadius: '50%',
-                background: allGroupDone ? '#66bb6a' : (anyDone ? 'var(--gold)' : 'var(--white)'),
-                border: `3px solid ${allGroupDone ? '#66bb6a' : (anyDone ? 'var(--gold)' : 'var(--line)')}`,
-                boxShadow: '0 0 0 4px var(--cream)',
-                zIndex: 1,
-              }} />
-              {/* Phase header */}
-              <div style={{
-                display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8,
-              }}>
-                <span style={{
-                  fontFamily: 'DM Sans', fontSize: 13, fontWeight: 700,
-                  color: allGroupDone ? '#66bb6a' : 'var(--terracotta)',
-                  textTransform: 'uppercase', letterSpacing: '0.06em',
-                  display: 'flex', alignItems: 'center', gap: 6,
-                }}>
-                  {group.when}
-                  {allGroupDone && <span style={{ fontSize: 11, color: '#66bb6a' }}>✓ All done</span>}
-                </span>
-                {urgency === 'overdue' && (
-                  <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--terracotta)', background: 'var(--terracotta)15', padding: '2px 8px', borderRadius: 999 }}>OVERDUE</span>
-                )}
-                {allGroupDone && <span style={{ fontSize: 14 }}>🎯</span>}
+      ) : (
+        <>
+          {/* Countdown hero */}
+          <Card padding="18px" style={{
+            background: 'linear-gradient(135deg, var(--gold) 0%, #c49a3a 100%)', color: '#fff', border: 'none', marginBottom: 18,
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ fontSize: 12, opacity: 0.85, fontWeight: 600 }}>Countdown</div>
+                <div style={{ fontFamily: 'DM Sans', fontSize: 36, fontWeight: 800, marginTop: 2 }}>
+                  {days}<span style={{ fontSize: 16, fontWeight: 600, opacity: 0.85, marginLeft: 4 }}>days</span>
+                </div>
               </div>
-              {/* Task cards */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {group.items.map(t => {
-                    const isDone = t.status === 'done';
-                    return (
-                      <div
-                        key={t.id}
-                        onClick={() => toggle(t.id)}
-                        style={{
-                          display: 'flex', alignItems: 'center', gap: 10,
-                          padding: '10px 12px', borderRadius: 10,
-                          background: isDone ? '#f0faf0' : 'var(--white)',
-                          border: `1px solid ${isDone ? '#d4edd4' : 'var(--line)'}`,
-                          cursor: 'pointer', transition: 'all 0.15s',
-                        }}
-                      >
-                        <div style={{
-                          width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
-                          background: isDone ? '#66bb6a' : 'var(--cream)',
-                          border: isDone ? 'none' : '1.5px solid var(--line)',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          color: '#fff', fontSize: 10, fontWeight: 700,
-                        }}>{isDone ? '✓' : ''}</div>
-                        <div style={{
-                          flex: 1, fontSize: 13, fontWeight: 500,
-                          textDecoration: isDone ? 'line-through' : 'none',
-                          color: isDone ? 'var(--muted)' : 'var(--dark)',
-                        }}>{t.text}</div>
-                        {!isDone && (
-                          <div style={{
-                            width: 4, height: 4, borderRadius: '50%',
-                            background: urgency === 'overdue' ? 'var(--terracotta)' : 'var(--muted)',
-                            flexShrink: 0, opacity: 0.4,
-                          }} />
-                        )}
-                        <button
-                          onClick={e => { e.stopPropagation(); removeTask(t.id); }}
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontFamily: 'DM Sans', fontSize: 22, fontWeight: 700 }}>{allDone}</div>
+                <div style={{ fontSize: 12, opacity: 0.85 }}>tasks done</div>
+              </div>
+            </div>
+            <div style={{ marginTop: 10 }}>
+              <ProgressBar value={allDone} total={state.tasks.length} color="#fff" height={6} />
+            </div>
+          </Card>
+
+          {/* Timeline spine */}
+          <div style={{ position: 'relative', paddingLeft: 28 }}>
+            <div style={{
+              position: 'absolute', left: 13, top: 8, bottom: 8,
+              width: 2, background: 'var(--line)',
+            }} />
+            {grouped.map((group, gi) => {
+              if (group.items.length === 0) return null;
+              const groupDone = group.items.filter(t => t.status === 'done').length;
+              const allGroupDone = groupDone === group.items.length;
+              const anyDone = groupDone > 0;
+              const daysNum = parseInt(group.when);
+              const urgency = !isNaN(daysNum) && daysNum <= days ? 'overdue' : (anyDone ? 'progress' : 'pending');
+              return (
+                <div key={group.when} style={{ marginBottom: 18, position: 'relative' }}>
+                  <div style={{
+                    position: 'absolute', left: -22, top: 4,
+                    width: 16, height: 16, borderRadius: '50%',
+                    background: allGroupDone ? '#66bb6a' : (anyDone ? 'var(--gold)' : 'var(--white)'),
+                    border: `3px solid ${allGroupDone ? '#66bb6a' : (anyDone ? 'var(--gold)' : 'var(--line)')}`,
+                    boxShadow: '0 0 0 4px var(--cream)',
+                    zIndex: 1,
+                  }} />
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8,
+                  }}>
+                    <span style={{
+                      fontFamily: 'DM Sans', fontSize: 13, fontWeight: 700,
+                      color: allGroupDone ? '#66bb6a' : 'var(--terracotta)',
+                      textTransform: 'uppercase', letterSpacing: '0.06em',
+                      display: 'flex', alignItems: 'center', gap: 6,
+                    }}>
+                      {group.when}
+                      {allGroupDone && <span style={{ fontSize: 11, color: '#66bb6a' }}>✓ All done</span>}
+                    </span>
+                    {urgency === 'overdue' && (
+                      <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--terracotta)', background: 'var(--terracotta)15', padding: '2px 8px', borderRadius: 999 }}>OVERDUE</span>
+                    )}
+                    {allGroupDone && <span style={{ fontSize: 14 }}>🎯</span>}
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {group.items.map(t => {
+                      const isDone = t.status === 'done';
+                      return (
+                        <div
+                          key={t.id}
+                          onClick={() => toggle(t.id)}
                           style={{
-                            fontSize: 12, padding: '2px', border: 'none',
-                            background: 'none', cursor: 'pointer', color: 'var(--muted)',
-                            fontFamily: 'inherit', opacity: 0.4,
+                            display: 'flex', alignItems: 'center', gap: 10,
+                            padding: '10px 12px', borderRadius: 10,
+                            background: isDone ? '#f0faf0' : 'var(--white)',
+                            border: `1px solid ${isDone ? '#d4edd4' : 'var(--line)'}`,
+                            cursor: 'pointer', transition: 'all 0.15s',
                           }}
-                        >✕</button>
-                      </div>
-                    );
-                  })}
-              </div>
-            </div>
-          );
-        })}
-      </div>
+                        >
+                          <div style={{
+                            width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
+                            background: isDone ? '#66bb6a' : 'var(--cream)',
+                            border: isDone ? 'none' : '1.5px solid var(--line)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            color: '#fff', fontSize: 10, fontWeight: 700,
+                          }}>{isDone ? '✓' : ''}</div>
+                          <div style={{
+                            flex: 1, fontSize: 13, fontWeight: 500,
+                            textDecoration: isDone ? 'line-through' : 'none',
+                            color: isDone ? 'var(--muted)' : 'var(--dark)',
+                          }}>{t.text}</div>
+                          {!isDone && (
+                            <div style={{
+                              width: 4, height: 4, borderRadius: '50%',
+                              background: urgency === 'overdue' ? 'var(--terracotta)' : 'var(--muted)',
+                              flexShrink: 0, opacity: 0.4,
+                            }} />
+                          )}
+                          <button
+                            onClick={e => { e.stopPropagation(); removeTask(t.id); }}
+                            style={{
+                              fontSize: 12, padding: '2px', border: 'none',
+                              background: 'none', cursor: 'pointer', color: 'var(--muted)',
+                              fontFamily: 'inherit', opacity: 0.4,
+                            }}
+                          >✕</button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
 
-      {adding && (
-        <Card padding="14px" style={{ marginTop: 8 }}>
-          <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-            <input
-              value={newTask}
-              onChange={e => setNewTask(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && addTask()}
-              placeholder="Task description..."
-              style={{
-                flex: 1, padding: '8px 10px', border: '1px solid var(--line)',
-                borderRadius: 8, fontSize: 13, fontFamily: 'inherit',
-                background: 'var(--cream)', outline: 'none',
-              }}
-            />
-            <Button size="sm" onClick={addTask}>Add</Button>
-          </div>
-          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-            {groups.map(g => (
-              <Pill key={g} active={newWhen === g} onClick={() => setNewWhen(g)}>{g}</Pill>
-            ))}
-          </div>
-        </Card>
+          {adding && (
+            <Card padding="14px" style={{ marginTop: 8 }}>
+              <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                <input
+                  value={newTask}
+                  onChange={e => setNewTask(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && addTask()}
+                  placeholder="Task description..."
+                  style={{
+                    flex: 1, padding: '8px 10px', border: '1px solid var(--line)',
+                    borderRadius: 8, fontSize: 13, fontFamily: 'inherit',
+                    background: 'var(--cream)', outline: 'none',
+                  }}
+                />
+                <Button size="sm" onClick={addTask}>Add</Button>
+              </div>
+              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                {groups.map(g => (
+                  <Pill key={g} active={newWhen === g} onClick={() => setNewWhen(g)}>{g}</Pill>
+                ))}
+              </div>
+            </Card>
+          )}
+        </>
       )}
     </ModulePage>
   );

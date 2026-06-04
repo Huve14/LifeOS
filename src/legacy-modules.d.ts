@@ -21,6 +21,7 @@ declare global {
     askHuve?: any;
     AnimatedIcon?: any;
     AnimatedNavContainer?: any;
+    GlassCalendar?: any;
   }
 }
 
