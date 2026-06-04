@@ -185,17 +185,32 @@ export function onAuthChange(fn: (user: User | null) => void) {
 }
 
 export async function signUp(email: string, password: string, name: string) {
+  if (!email || !email.includes('@')) {
+    return { data: null, error: new Error('Please enter a valid email address.') };
+  }
+  if (!password || password.length < 6) {
+    return { data: null, error: new Error('Password must be at least 6 characters.') };
+  }
+  if (!name || !name.trim()) {
+    return { data: null, error: new Error('Please enter your name.') };
+  }
   const client = getAuthClient();
   return client.auth.signUp({
     email,
     password,
     options: {
-      data: { name },
+      data: { name: name.trim() },
     },
   });
 }
 
 export async function signIn(email: string, password: string) {
+  if (!email || !email.includes('@')) {
+    return { data: null, error: new Error('Please enter a valid email address.') };
+  }
+  if (!password) {
+    return { data: null, error: new Error('Please enter your password.') };
+  }
   const client = getAuthClient();
   return client.auth.signInWithPassword({ email, password });
 }
@@ -244,14 +259,16 @@ export async function loadShoppingItems(): Promise<ShoppingItem[]> {
 
 export async function claimShoppingItem(itemId: string, name: string): Promise<void> {
   if (!hasConfig) return;
+  if (!itemId || !name?.trim()) return;
   await getPublicClient()
     .from('suveda_shopping_items')
-    .update({ supplied_by: name, updated_at: new Date().toISOString() })
+    .update({ supplied_by: name.trim(), updated_at: new Date().toISOString() })
     .eq('id', itemId);
 }
 
 export async function unclaimShoppingItem(itemId: string): Promise<void> {
   if (!hasConfig) return;
+  if (!itemId) return;
   await getPublicClient()
     .from('suveda_shopping_items')
     .update({ supplied_by: '', updated_at: new Date().toISOString() })
