@@ -305,6 +305,46 @@ function Sheet({ open, onClose, title, children, height }) {
   );
 }
 
+function Modal({ open, onClose, title, children }) {
+  if (!open) return null;
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 200,
+        background: 'rgba(30, 30, 30, 0.4)',
+        backdropFilter: 'blur(6px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        animation: 'fade-in 0.15s ease',
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          background: 'var(--white)',
+          borderRadius: 'var(--radius)',
+          padding: 24,
+          width: 'min(400px, calc(100vw - 32px))',
+          maxHeight: '80dvh',
+          overflowY: 'auto',
+          boxShadow: '0 16px 48px rgba(0,0,0,0.2)',
+        }}
+      >
+        {title && (
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            marginBottom: 16,
+          }}>
+            <h3 style={{ fontSize: 18, fontWeight: 700 }}>{title}</h3>
+            <button onClick={onClose} style={{ fontSize: 20, color: 'var(--muted)' }}>✕</button>
+          </div>
+        )}
+        {children}
+      </div>
+    </div>
+  );
+}
+
 // Confetti for celebrations
 function Confetti({ active }) {
   if (!active) return null;
@@ -337,5 +377,5 @@ function Confetti({ active }) {
 
 Object.assign(window, {
   Badge, Button, Card, ProgressBar, Checkbox, SectionHeader,
-  EmptyState, Pill, TabBar, Sheet, Confetti, STATUS,
+  EmptyState, Pill, TabBar, Sheet, Modal, Confetti, STATUS,
 });

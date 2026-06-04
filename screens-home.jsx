@@ -2,7 +2,9 @@
 
 // ---------- Helpers ----------
 function daysUntil(dateStr) {
+  if (!dateStr) return 0;
   const target = new Date(dateStr + 'T00:00:00');
+  if (isNaN(target.getTime())) return 0;
   const now = new Date(); now.setHours(0,0,0,0);
   return Math.ceil((target - now) / (1000 * 60 * 60 * 24));
 }
@@ -19,27 +21,37 @@ function overallProgress(state) {
 }
 
 function moduleProgress(state) {
-  const packItems = state.packing.rooms.flatMap(r => r.items);
+  const pack = state.packing || { rooms: [] };
+  const docs = state.documents || [];
+  const tasks = state.tasks || [];
+  const shop = state.shopping || [];
+  const cats = state.budget?.categories || [];
+  const house = state.housing || [];
+  const packItems = pack.rooms.flatMap(r => r.items || []);
   const packDone = packItems.filter(i => i.status === 'packed').length;
-  const docDone = state.documents.filter(d => d.status === 'done').length;
-  const taskDone = state.tasks.filter(t => t.status === 'done').length;
-  const shopDone = state.shopping.filter(s => s.status === 'packed').length;
-  const budgetSpent = state.budget.categories.reduce((a, c) => a + c.spent, 0);
-  const budgetTotal = state.budget.categories.reduce((a, c) => a + c.planned, 0);
-  const housingShortlisted = state.housing.filter(h => h.status === 'shortlisted' || h.status === 'viewing').length;
+  const docDone = docs.filter(d => d.status === 'done').length;
+  const taskDone = tasks.filter(t => t.status === 'done').length;
+  const shopDone = shop.filter(s => s.status === 'packed').length;
+  const budgetSpent = cats.reduce((a, c) => a + (c.spent || 0), 0);
+  const budgetTotal = cats.reduce((a, c) => a + (c.planned || 0), 0);
+  const housingShortlisted = house.filter(h => h.status === 'shortlisted' || h.status === 'viewing').length;
     const ltDone = (state.memories?.lastTimes || []).filter(m => m.done).length;
     const ltTotal = (state.memories?.lastTimes || []).length;
     const gbDone = (state.memories?.goodbyes || []).filter(g => g.done).length;
     const gbTotal = (state.memories?.goodbyes || []).length;
+    const today = new Date().toISOString().slice(0, 10);
+    const habitsDone = (state.habits || []).filter(h => h.lastDone === today).length;
+    const habitsTotal = (state.habits || []).length;
   return {
-    packing:  { done: packDone, total: packItems.length },
-    docs:     { done: docDone, total: state.documents.length },
-    tasks:    { done: taskDone, total: state.tasks.length },
-    budget:   { done: budgetSpent, total: budgetTotal, isMoney: true },
-    shopping: { done: shopDone, total: state.shopping.length },
-    housing:  { done: housingShortlisted, total: state.housing.length },
-    memory:   { done: ltDone + gbDone, total: ltTotal + gbTotal },
-    people:   { done: (state.contacts || []).filter(c => c.phone || c.email).length, total: (state.contacts || []).length },
+    packing:  { done: packDone, total: Math.max(packItems.length, 1) },
+    docs:     { done: docDone, total: Math.max(docs.length, 1) },
+    tasks:    { done: taskDone, total: Math.max(tasks.length, 1) },
+    budget:   { done: Math.max(budgetSpent, 1), total: Math.max(budgetTotal, 1), isMoney: true },
+    shopping: { done: shopDone, total: Math.max(shop.length, 1) },
+    housing:  { done: housingShortlisted, total: Math.max(house.length, 1) },
+    memory:   { done: ltDone + gbDone, total: Math.max(ltTotal + gbTotal, 1) },
+    people:   { done: (state.contacts || []).filter(c => c.phone || c.email).length, total: Math.max((state.contacts || []).length, 1) },
+    habits:   { done: habitsDone, total: Math.max(habitsTotal, 1) },
   };
 }
 
@@ -51,6 +63,7 @@ const MODULES = [
   { id: 'shopping', label: 'To buy',    emoji: '🛍️', color: 'var(--gold)' },
   { id: 'housing',  label: 'Housing',   emoji: '🏠', color: 'var(--teal)' },
   { id: 'memory',   label: 'Memory',    emoji: '💭', color: 'var(--gold)' },
+  { id: 'habits',   label: 'Habits',    emoji: '🎯', color: 'var(--teal)' },
   { id: 'people',   label: 'People',    emoji: '👥', color: 'var(--teal)' },
 ];
 
@@ -285,8 +298,7 @@ function Onboarding({ onDone, initialDate, user }) {
         )}
       </div>
 
-      {(!user || step > 0 || step === 0) && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 24 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 24 }}>
           {user && step === 0 && (
             <Button variant="primary" size="lg" full onClick={() => setStep(1)}>
               Let's do this
@@ -312,7 +324,6 @@ function Onboarding({ onDone, initialDate, user }) {
             </button>
           )}
         </div>
-      )}
     </div>
   );
 }
@@ -465,17 +476,82 @@ function ModuleCard({ module, progress, onClick, progressStyle, layout }) {
   );
 }
 
+// ---------- Daily Journal ----------
+function DailyJournal({ state, setState }) {
+  const today = new Date().toISOString().slice(0, 10);
+  const entries = (state.journal || []).filter(e => e.date === today);
+  const allEntries = state.journal || [];
+  const [text, setText] = React.useState('');
+  const [mood, setMood] = React.useState(3);
+
+  function addEntry() {
+    if (!text.trim()) return;
+    setState(s => ({
+      ...s,
+      journal: [...(s.journal || []), { id: uid(), date: today, text: text.trim(), mood }],
+    }));
+    setText('');
+  }
+
+  return (
+    <Card padding="16px" style={{ marginTop: 14 }}>
+      <SectionHeader title="Daily Journal" icon="📓" />
+      {entries.length > 0 && (
+        <div style={{ marginBottom: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {entries.map(e => (
+            <div key={e.id} style={{ padding: '10px 12px', background: 'var(--sand)', borderRadius: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                <span style={{ fontSize: 16 }}>{['😔','🙁','😐','🙂','😊'][e.mood - 1]}</span>
+                <button
+                  onClick={() => setState(s => ({...s, journal: (s.journal||[]).filter(x => x.id !== e.id)}))}
+                  style={{ fontSize: 12, padding: '2px', border: 'none', background: 'none', cursor: 'pointer', color: 'var(--muted)', fontFamily: 'inherit', opacity: 0.4 }}
+                >✕</button>
+              </div>
+              <div style={{ fontSize: 13, lineHeight: 1.4 }}>{e.text}</div>
+            </div>
+          ))}
+        </div>
+      )}
+      <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
+        {[1,2,3,4,5].map(m => (
+          <button key={m} onClick={() => setMood(m)} style={{
+            fontSize: 20, padding: '4px 8px', borderRadius: 8, border: mood === m ? '2px solid var(--teal)' : '2px solid transparent',
+            background: 'none', cursor: 'pointer',
+          }}>{['😔','🙁','😐','🙂','😊'][m - 1]}</button>
+        ))}
+      </div>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <input
+          value={text}
+          onChange={e => setText(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && addEntry()}
+          placeholder="How was your day?"
+          style={{
+            flex: 1, padding: '10px 12px', border: '1px solid var(--line)',
+            borderRadius: 8, fontSize: 13, fontFamily: 'inherit',
+            background: 'var(--cream)', outline: 'none',
+          }}
+        />
+        <Button size="sm" onClick={addEntry}>Log</Button>
+      </div>
+    </Card>
+  );
+}
+
 // ---------- Dashboard ----------
 function Dashboard({ state, setState, onModule, onAsk, layout = 'classic', progressStyle = 'bar', syncStatus = '', userName = 'Suveda' }) {
   const progress = moduleProgress(state);
   const overall = overallProgress(state);
   const days = daysUntil(state.moveDate);
   const [whyNote, setWhyNote] = React.useState(state.whyNote || '');
+  const [whyNote2, setWhyNote2] = React.useState(state.whyNote2 || '');
+  const [showExport, setShowExport] = React.useState(false);
 
   const h = new Date().getHours();
   const timeGreeting = h < 12 ? 'morning' : h < 18 ? 'afternoon' : 'evening';
 
-  const totalModules = 8;
+  const isAfterMove = days <= 0;
+  const totalModules = 9;
   const completedModules = Object.entries(progress).filter(([, v]) => v.total > 0 && v.done === v.total && !v.isMoney).length;
   const milestoneMessages = [
     'First checklist done — that\'s a real step! 🌱',
@@ -486,11 +562,31 @@ function Dashboard({ state, setState, onModule, onAsk, layout = 'classic', progr
   ];
   const milestoneIdx = Math.min(completedModules, milestoneMessages.length - 1);
 
-  const huveMessage = completedModules === 0
-    ? `Ready to start planning your big move? Let's go! 🌵`
-    : `${completedModules} of ${totalModules} lists done — keep going! ✨`;
+  const today = new Date().toISOString().slice(0, 10);
+  const habitsDone = (state.habits || []).filter(h => h.lastDone === today).length;
+  const habitsTotal = (state.habits || []).length;
+  const totalStreak = (state.habits || []).reduce((a, h) => a + (h.streak || 0), 0);
 
-  const aiSuggestions = [
+  const huveGreeting = isAfterMove
+    ? `Welcome home! You've been here ${Math.abs(days)} days. How's the new chapter? 🇦🇪`
+    : completedModules === 0
+      ? `Ready to start planning your move? Let's go! 🌵`
+      : `${completedModules} of ${totalModules} lists done — keep going! ✨`;
+
+  const streakMsg = totalStreak > 0 ? ` · 🔥 ${totalStreak} total habit streak` : '';
+  const huveSubtext = habitsDone === habitsTotal && habitsTotal > 0
+    ? `All habits done today${streakMsg}! You're unstoppable ✨`
+    : habitsTotal > 0
+      ? `${habitsDone}/${habitsTotal} habits checked off today${streakMsg}`
+      : `${Math.abs(days)} ${isAfterMove ? 'days in Abu Dhabi' : 'days to go'}`;
+
+  const aiSuggestions = isAfterMove ? [
+    'Where\'s the best coffee near Al Khalifa City?',
+    'How do I set up utilities in Abu Dhabi?',
+    'What should I do this weekend?',
+    'Tips for making friends as a new expat',
+    'What\'s the best gym near me?',
+  ] : [
     'What should I pack for August in Abu Dhabi?',
     'How do I get a residency visa?',
     'What\'s the cost of living in Al Khalifa City?',
@@ -498,10 +594,26 @@ function Dashboard({ state, setState, onModule, onAsk, layout = 'classic', progr
     'What should I do in my first week?',
   ];
 
-  // Sync whyNote to app state
+  // Sync whyNote(s) to app state
   function updateWhy(val) {
     setWhyNote(val);
     setState?.(s => ({ ...s, whyNote: val }));
+  }
+  function updateWhy2(val) {
+    setWhyNote2(val);
+    setState?.(s => ({ ...s, whyNote2: val }));
+  }
+
+  function exportData() {
+    const data = JSON.stringify(state, null, 2);
+    const blob = new Blob([data], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `suveda-export-${today}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setShowExport(false);
   }
 
   return (
@@ -515,21 +627,32 @@ function Dashboard({ state, setState, onModule, onAsk, layout = 'classic', progr
             <div style={{ marginTop: 4, fontSize: 11, fontWeight: 600, color: 'var(--muted)' }}>{syncStatus}</div>
           )}
         </div>
-        <div style={{
-          width: 44, height: 44, borderRadius: '50%', overflow: 'hidden',
-          background: 'linear-gradient(135deg, var(--terracotta) 0%, var(--gold) 100%)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          boxShadow: 'var(--shadow)',
-        }}>
-          <svg viewBox="0 0 200 170" width="38" height="38">
-            <rect width="200" height="170" rx="0" fill="none"/>
-            <circle cx="150" cy="46" r="19" fill="#FAF7F2" opacity="0.9"/>
-            <circle cx="150" cy="46" r="19" fill="none" stroke="#fff" stroke-width="1" opacity="0.3"/>
-            <g><rect x="67" y="110" width="66" height="9" fill="#B9851F"/><ellipse cx="100" cy="119" rx="33" ry="10.5" fill="#B9851F"/><ellipse cx="100" cy="110" rx="33" ry="10.5" fill="#FAF7F2" opacity="0.9"/></g>
-            <g><rect x="67" y="96" width="66" height="9" fill="#B9851F"/><ellipse cx="100" cy="105" rx="33" ry="10.5" fill="#B9851F"/><ellipse cx="100" cy="96" rx="33" ry="10.5" fill="#FAF7F2" opacity="0.9"/></g>
-            <g><rect x="67" y="82" width="66" height="9" fill="#B9851F"/><ellipse cx="100" cy="91" rx="33" ry="10.5" fill="#B9851F"/><ellipse cx="100" cy="82" rx="33" ry="10.5" fill="#FAF7F2" opacity="0.9"/></g>
-            <path d="M0 150 C 30 132 60 134 80 142 C 96 148 112 150 128 144 C 150 136 168 138 200 132 L 200 170 L 0 170 Z" fill="#1E524F" opacity="0.4"/>
-          </svg>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <button
+            onClick={() => setShowExport(true)}
+            style={{
+              width: 36, height: 36, borderRadius: '50%', border: '1px solid var(--line)',
+              background: 'var(--white)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer', fontSize: 16,
+            }}
+            title="Export data"
+          >📥</button>
+          <div style={{
+            width: 44, height: 44, borderRadius: '50%', overflow: 'hidden',
+            background: 'linear-gradient(135deg, var(--terracotta) 0%, var(--gold) 100%)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: 'var(--shadow)',
+          }}>
+            <svg viewBox="0 0 200 170" width="38" height="38">
+              <rect width="200" height="170" rx="0" fill="none"/>
+              <circle cx="150" cy="46" r="19" fill="#FAF7F2" opacity="0.9"/>
+              <circle cx="150" cy="46" r="19" fill="none" stroke="#fff" stroke-width="1" opacity="0.3"/>
+              <g><rect x="67" y="110" width="66" height="9" fill="#B9851F"/><ellipse cx="100" cy="119" rx="33" ry="10.5" fill="#B9851F"/><ellipse cx="100" cy="110" rx="33" ry="10.5" fill="#FAF7F2" opacity="0.9"/></g>
+              <g><rect x="67" y="96" width="66" height="9" fill="#B9851F"/><ellipse cx="100" cy="105" rx="33" ry="10.5" fill="#B9851F"/><ellipse cx="100" cy="96" rx="33" ry="10.5" fill="#FAF7F2" opacity="0.9"/></g>
+              <g><rect x="67" y="82" width="66" height="9" fill="#B9851F"/><ellipse cx="100" cy="91" rx="33" ry="10.5" fill="#B9851F"/><ellipse cx="100" cy="82" rx="33" ry="10.5" fill="#FAF7F2" opacity="0.9"/></g>
+              <path d="M0 150 C 30 132 60 134 80 142 C 96 148 112 150 128 144 C 150 136 168 138 200 132 L 200 170 L 0 170 Z" fill="#1E524F" opacity="0.4"/>
+            </svg>
+          </div>
         </div>
       </div>
 
@@ -544,24 +667,53 @@ function Dashboard({ state, setState, onModule, onAsk, layout = 'classic', progr
           }}>🌵</div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 13, fontWeight: 600, opacity: 0.85 }}>Good {timeGreeting}</div>
-            <div style={{ fontSize: 14, fontWeight: 700, fontFamily: 'DM Sans', marginTop: 1 }}>{huveMessage}</div>
+            <div style={{ fontSize: 14, fontWeight: 700, fontFamily: 'DM Sans', marginTop: 1 }}>{huveGreeting}</div>
+            <div style={{ fontSize: 12, opacity: 0.8, marginTop: 2 }}>{huveSubtext}</div>
           </div>
         </div>
       </Card>
 
-      {/* "Why I'm doing this" anchor */}
-      <Card padding="12px 16px" style={{ marginBottom: 14, background: 'var(--white)', border: '1px dashed var(--gold)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontSize: 20 }}>💫</span>
-          <input
-            value={whyNote}
-            onChange={e => updateWhy(e.target.value)}
-            placeholder="Why are you doing this? Write your reason here..."
+      {/* Why I'm doing this — twin notes */}
+      <Card padding="18px 18px" style={{
+        marginBottom: 14,
+        background: 'linear-gradient(135deg, #fdf6ee 0%, #f5efe4 100%)',
+        border: '1px solid var(--gold)',
+        borderRadius: 18,
+        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.6), 0 4px 12px rgba(212,168,83,0.12)',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+          <span style={{ fontSize: 22 }}>💫</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--gold)', letterSpacing: '0.04em', textTransform: 'uppercase' }}>A note from your love</span>
+        </div>
+        <textarea
+          value={whyNote}
+          onChange={e => updateWhy(e.target.value)}
+          placeholder="Write something for her..."
+          rows={3}
+          style={{
+            width: '100%', border: 'none', background: 'transparent',
+            fontSize: 14, fontWeight: 500, fontFamily: 'DM Sans',
+            color: 'var(--dark)', outline: 'none', resize: 'none',
+            lineHeight: 1.6, fontStyle: 'italic',
+          }}
+        />
+        <div style={{
+          marginTop: 10, paddingTop: 12, borderTop: '1px solid rgba(212,168,83,0.25)',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+            <span style={{ fontSize: 14 }}>💖</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--terracotta)', letterSpacing: '0.03em', textTransform: 'uppercase' }}>And another</span>
+          </div>
+          <textarea
+            value={whyNote2}
+            onChange={e => updateWhy2(e.target.value)}
+            placeholder="One more thought..."
+            rows={3}
             style={{
-              flex: 1, border: 'none', background: 'transparent',
-              fontSize: 14, fontWeight: 600, fontFamily: 'DM Sans',
-              color: 'var(--dark)', outline: 'none',
-              fontStyle: whyNote ? 'normal' : 'italic',
+              width: '100%', border: 'none', background: 'transparent',
+              fontSize: 14, fontWeight: 500, fontFamily: 'DM Sans',
+              color: 'var(--terracotta)', outline: 'none', resize: 'none',
+              lineHeight: 1.6, fontStyle: 'italic',
             }}
           />
         </div>
@@ -581,6 +733,9 @@ function Dashboard({ state, setState, onModule, onAsk, layout = 'classic', progr
           <span style={{ fontSize: 18 }}>{['🎒', '🌟', '🎯', '✈️'][milestoneIdx]}</span>
         </div>
       )}
+
+      {/* Daily Journal */}
+      <DailyJournal state={state} setState={setState} />
 
       {/* First 48 Hours guide */}
       {state.first48 && (
@@ -642,7 +797,7 @@ function Dashboard({ state, setState, onModule, onAsk, layout = 'classic', progr
 
       {/* Modules */}
       <div style={{ marginTop: 22 }}>
-        <SectionHeader title="Your move, in 8 lists" />
+        <SectionHeader title={isAfterMove ? "Your hub" : "Your move, in 9 lists"} />
         {layout === 'cards' ? (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             {MODULES.map(m => (
@@ -660,8 +815,16 @@ function Dashboard({ state, setState, onModule, onAsk, layout = 'classic', progr
 
       {/* Footer cheer */}
       <div style={{ textAlign: 'center', marginTop: 24, fontSize: 12, color: 'var(--muted)' }}>
-        {days} days until wheels up. You've got this. 🌴
+        {isAfterMove ? `You've been here ${Math.abs(days)} days. Home at last. 🌴` : `${days} days until wheels up. You've got this. 🌴`}
       </div>
+
+      {/* Export modal */}
+      <Modal open={showExport} onClose={() => setShowExport(false)} title="Export your data">
+        <div style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.6, marginBottom: 16 }}>
+          Download all your Suveda data as a JSON file. Contains all your lists, progress, habits, journal entries, and settings.
+        </div>
+        <Button full onClick={exportData}>📥 Download JSON</Button>
+      </Modal>
     </div>
   );
 }
@@ -847,6 +1010,6 @@ function AskHuveSheet({ open, onClose, initialPrompt, context = '' }) {
 }
 
 Object.assign(window, {
-  Onboarding, Dashboard, AskHuveSheet, CountdownHero, ModuleCard,
+  Onboarding, Dashboard, AskHuveSheet, CountdownHero, ModuleCard, DailyJournal,
   MODULES, daysUntil, formatDate, moduleProgress, overallProgress,
 });

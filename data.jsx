@@ -149,12 +149,21 @@ const SEED = {
       { id: 'gb4', name: 'Close friends', note: 'Goodbye dinner (t9)', done: false },
     ],
   },
+  habits: [
+    { id: 'h1', name: 'Drink 8 glasses of water', emoji: '💧', streak: 0, lastDone: '' },
+    { id: 'h2', name: '10 min walk or stretch', emoji: '🚶', streak: 0, lastDone: '' },
+    { id: 'h3', name: 'Read for 15 min', emoji: '📖', streak: 0, lastDone: '' },
+    { id: 'h4', name: 'Practice Arabic (Duolingo)', emoji: '🇦🇪', streak: 0, lastDone: '' },
+    { id: 'h5', name: 'Journal 5 min', emoji: '✍️', streak: 0, lastDone: '' },
+  ],
+  journal: [],
   contacts: [
     { id: 'c1', name: 'SABIS HR', role: 'Sponsor / Visa', phone: '', email: '', note: 'They initiate the entry permit' },
     { id: 'c2', name: 'Current landlord', role: 'Housing notice', phone: '', email: '', note: '2-month notice required (t3)' },
     { id: 'c3', name: 'Friend in AUH', role: 'On-ground support', phone: '', email: '', note: 'Can help with apartment viewing' },
   ],
-  whyNote: `I'm doing this to make sure you still feel loved and appreciated, always seen and always heard, wherever life takes us just know I'll always be right there to help you through it... I love you my baby. 🌍`,
+  whyNote: `My gorgeous baby Suveda, I have written this for you to use as a fallback and guide to help you in and around so that you know I am always with you whether far or near, that I am close to your heart and soul forever and always 🌍`,
+  whyNote2: `I'm doing this to make sure you still feel loved and appreciated, always seen and always heard, wherever life takes us just know I'll always be right there to help you through it... I love you my baby.`,
   first48: {
     simCard: { provider: 'Etisalat / du', where: 'Airport or Al Wahda Mall', note: 'Tourist eSIM works day 1' },
     groceries: { store: 'Lulu Hypermarket', location: 'Al Khalifa City', tip: 'Walkable from most studios' },
@@ -230,7 +239,7 @@ async function askHuve(prompt, context = '') {
         messages: [ { role: 'user', content: `${sys}\n\n${user}` } ],
         temperature: 0.6,
         top_p: 0.95,
-        max_tokens: 65536,
+        max_tokens: 2048,
       }),
     });
 

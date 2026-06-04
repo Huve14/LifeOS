@@ -6,6 +6,8 @@ function createSeedState(tweaks) {
   return {
     moveDate: tweaks.moveDate,
     ...applyProgress(SEED, tweaks.progressLevel),
+    habits: SEED.habits || [],
+    journal: [],
   };
 }
 
@@ -15,6 +17,13 @@ function pickStoredState(candidate) {
   if (!saved.packing || !saved.documents || !saved.tasks || !saved.budget || !saved.shopping || !saved.housing) {
     return null;
   }
+  if (!saved.habits) saved.habits = SEED.habits || [];
+  if (!saved.journal) saved.journal = [];
+  if (!saved.memories) saved.memories = SEED.memories || { lastTimes: [], goodbyes: [] };
+  if (!saved.contacts) saved.contacts = SEED.contacts || [];
+  if (!saved.whyNote) saved.whyNote = '';
+  if (!saved.whyNote2) saved.whyNote2 = '';
+  if (!saved.first48) saved.first48 = SEED.first48 || null;
   return saved;
 }
 
@@ -164,6 +173,7 @@ function App() {
       shopping:<ShoppingScreen state={state} setState={setState} onBack={() => setView('home')} onAsk={openAi} />,
       housing: <HousingScreen state={state} setState={setState} onBack={() => setView('home')} onAsk={openAi} />,
       memory:  <MemoryScreen state={state} setState={setState} onBack={() => setView('home')} />,
+      habits:  <HabitsScreen state={state} setState={setState} onBack={() => setView('home')} />,
       people:  <ContactsScreen state={state} setState={setState} onBack={() => setView('home')} />,
     };
     return screens[view] || screens.home;
@@ -364,6 +374,9 @@ function SuvedaTweaks({ tweaks, setTweak, setView }) {
             { id: 'budget',     label: '💰 Budget' },
             { id: 'shopping',   label: '🛍️ Shopping' },
             { id: 'housing',    label: '🏠 Housing' },
+            { id: 'memory',     label: '💭 Memory' },
+            { id: 'habits',     label: '🎯 Habits' },
+            { id: 'people',     label: '👥 People' },
           ].map(s => (
             <button
               key={s.id}
@@ -392,6 +405,7 @@ const NAV_ITEMS = [
   { id: 'shopping', label: 'Shopping',  emoji: '🛍️' },
   { id: 'housing',  label: 'Housing',   emoji: '🏠' },
   { id: 'memory',   label: 'Memory',    emoji: '💭' },
+  { id: 'habits',   label: 'Habits',    emoji: '🎯' },
   { id: 'people',   label: 'People',    emoji: '👥' },
 ];
 

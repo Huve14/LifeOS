@@ -29,13 +29,24 @@ function ModulePage({ title, subtitle, emoji, onBack, children, action }) {
   );
 }
 
+let _id = 0;
+function uid() { return `id_${++_id}_${Date.now()}`; }
+const inputStyle = {
+  width: '100%', padding: '10px 12px', border: '1px solid var(--line)',
+  borderRadius: 8, fontSize: 13, fontFamily: 'inherit',
+  background: 'var(--cream)', outline: 'none',
+  boxSizing: 'border-box',
+};
+
 // ---------- PACKING (inspired by Things 3) ----------
 function PackingScreen({ state, setState, onBack, onAsk }) {
-  const [room, setRoom] = React.useState(state.packing.rooms[0].id);
-  const cur = state.packing.rooms.find(r => r.id === room);
-  const totalItems = state.packing.rooms.flatMap(r => r.items).length;
-  const packed = state.packing.rooms.flatMap(r => r.items).filter(i => i.status === 'packed').length;
+  const rooms = state.packing?.rooms || [];
+  const [room, setRoom] = React.useState(rooms[0]?.id || '');
+  const cur = rooms.find(r => r.id === room);
+  const totalItems = rooms.flatMap(r => r.items || []).length;
+  const packed = rooms.flatMap(r => r.items || []).filter(i => i.status === 'packed').length;
   const pct = totalItems > 0 ? Math.round((packed / totalItems) * 100) : 0;
+  const inputRef = React.useRef(null);
 
   function setItemStatus(itemId, status) {
     setState(s => ({
@@ -54,6 +65,38 @@ function PackingScreen({ state, setState, onBack, onAsk }) {
     const order = ['pending', 'packed', 'toBuy', 'missing'];
     return order[(order.indexOf(cur || 'pending') + 1) % order.length];
   }
+
+  function addPackingItem() {
+    const name = newItem.trim();
+    if (!name) return;
+    setState(s => ({
+      ...s,
+      packing: {
+        ...s.packing,
+        rooms: s.packing.rooms.map(r => r.id === room ? {
+          ...r,
+          items: [...r.items, { id: uid(), name, status: 'pending' }],
+        } : r),
+      },
+    }));
+    setNewItem('');
+    setAdding(false);
+  }
+
+  function removePackingItem(itemId) {
+    setState(s => ({
+      ...s,
+      packing: {
+        ...s.packing,
+        rooms: s.packing.rooms.map(r => r.id === room ? {
+          ...r,
+          items: r.items.filter(it => it.id !== itemId),
+        } : r),
+      },
+    }));
+  }
+
+  React.useEffect(() => { if (adding) inputRef.current?.focus(); }, [adding]);
 
   return (
     <ModulePage
@@ -137,9 +180,37 @@ function PackingScreen({ state, setState, onBack, onAsk }) {
                   color: statusColors[item.status || 'pending'],
                 }}
               >{statusLabels[item.status || 'pending']}</button>
+              <button
+                onClick={() => removePackingItem(item.id)}
+                style={{
+                  fontSize: 14, padding: '4px', border: 'none',
+                  background: 'none', cursor: 'pointer', color: 'var(--muted)', fontFamily: 'inherit',
+                  opacity: 0.4,
+                }}
+              >✕</button>
             </div>
           );
         })}
+        {adding && (
+          <div style={{ display: 'flex', gap: 8, padding: '10px 12px', alignItems: 'center' }}>
+            <input
+              ref={inputRef}
+              value={newItem}
+              onChange={e => setNewItem(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && addPackingItem()}
+              placeholder="Item name..."
+              style={{
+                flex: 1, padding: '8px 10px', border: '1px solid var(--line)',
+                borderRadius: 8, fontSize: 13, fontFamily: 'inherit',
+                background: 'var(--cream)', outline: 'none',
+              }}
+            />
+            <Button size="sm" onClick={addPackingItem}>Add</Button>
+            <button onClick={() => { setAdding(false); setNewItem(''); }} style={{
+              fontSize: 18, border: 'none', background: 'none', cursor: 'pointer', color: 'var(--muted)', fontFamily: 'inherit',
+            }}>✕</button>
+          </div>
+        )}
       </Card>
 
       {/* Overall room progress bar */}
@@ -152,7 +223,7 @@ function PackingScreen({ state, setState, onBack, onAsk }) {
       </div>
 
       <div style={{ marginTop: 12 }}>
-        <Button full variant="soft" icon="＋">Add item</Button>
+        <Button full variant="soft" icon="＋" onClick={() => setAdding(true)}>Add item</Button>
       </div>
     </ModulePage>
   );
@@ -299,6 +370,9 @@ function DocumentsScreen({ state, setState, onBack, onAsk }) {
 // ---------- TASKS / TIMELINE (inspired by Linear) ----------
 function TasksScreen({ state, setState, onBack }) {
   const groups = ['90+ days', '60 days', '30 days', '14 days', '7 days', 'Move day', 'After'];
+  const [adding, setAdding] = React.useState(false);
+  const [newTask, setNewTask] = React.useState('');
+  const [newWhen, setNewWhen] = React.useState(groups[0]);
   const grouped = groups.map(g => ({
     when: g,
     items: state.tasks.filter(t => t.when === g),
@@ -313,12 +387,31 @@ function TasksScreen({ state, setState, onBack }) {
     }));
   }
 
+  function addTask() {
+    const text = newTask.trim();
+    if (!text) return;
+    setState(s => ({
+      ...s,
+      tasks: [...s.tasks, { id: uid(), text, status: 'pending', when: newWhen }],
+    }));
+    setNewTask('');
+    setAdding(false);
+  }
+
+  function removeTask(id) {
+    setState(s => ({
+      ...s,
+      tasks: s.tasks.filter(t => t.id !== id),
+    }));
+  }
+
   return (
     <ModulePage
       title="Timeline"
       subtitle={`${days} days · ${allDone} of ${state.tasks.length} done`}
       emoji="🗓️"
       onBack={onBack}
+      action={<Button size="sm" variant="ghost" icon="＋" onClick={() => setAdding(true)}>Add</Button>}
     >
       {/* Countdown hero */}
       <Card padding="18px" style={{
@@ -385,47 +478,79 @@ function TasksScreen({ state, setState, onBack }) {
               </div>
               {/* Task cards */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {group.items.map(t => {
-                  const isDone = t.status === 'done';
-                  return (
-                    <div
-                      key={t.id}
-                      onClick={() => toggle(t.id)}
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: 10,
-                        padding: '10px 12px', borderRadius: 10,
-                        background: isDone ? '#f0faf0' : 'var(--white)',
-                        border: `1px solid ${isDone ? '#d4edd4' : 'var(--line)'}`,
-                        cursor: 'pointer', transition: 'all 0.15s',
-                      }}
-                    >
-                      <div style={{
-                        width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
-                        background: isDone ? '#66bb6a' : 'var(--cream)',
-                        border: isDone ? 'none' : '1.5px solid var(--line)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        color: '#fff', fontSize: 10, fontWeight: 700,
-                      }}>{isDone ? '✓' : ''}</div>
-                      <div style={{
-                        flex: 1, fontSize: 13, fontWeight: 500,
-                        textDecoration: isDone ? 'line-through' : 'none',
-                        color: isDone ? 'var(--muted)' : 'var(--dark)',
-                      }}>{t.text}</div>
-                      {!isDone && (
+                  {group.items.map(t => {
+                    const isDone = t.status === 'done';
+                    return (
+                      <div
+                        key={t.id}
+                        onClick={() => toggle(t.id)}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 10,
+                          padding: '10px 12px', borderRadius: 10,
+                          background: isDone ? '#f0faf0' : 'var(--white)',
+                          border: `1px solid ${isDone ? '#d4edd4' : 'var(--line)'}`,
+                          cursor: 'pointer', transition: 'all 0.15s',
+                        }}
+                      >
                         <div style={{
-                          width: 4, height: 4, borderRadius: '50%',
-                          background: urgency === 'overdue' ? 'var(--terracotta)' : 'var(--muted)',
-                          flexShrink: 0, opacity: 0.4,
-                        }} />
-                      )}
-                    </div>
-                  );
-                })}
+                          width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
+                          background: isDone ? '#66bb6a' : 'var(--cream)',
+                          border: isDone ? 'none' : '1.5px solid var(--line)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          color: '#fff', fontSize: 10, fontWeight: 700,
+                        }}>{isDone ? '✓' : ''}</div>
+                        <div style={{
+                          flex: 1, fontSize: 13, fontWeight: 500,
+                          textDecoration: isDone ? 'line-through' : 'none',
+                          color: isDone ? 'var(--muted)' : 'var(--dark)',
+                        }}>{t.text}</div>
+                        {!isDone && (
+                          <div style={{
+                            width: 4, height: 4, borderRadius: '50%',
+                            background: urgency === 'overdue' ? 'var(--terracotta)' : 'var(--muted)',
+                            flexShrink: 0, opacity: 0.4,
+                          }} />
+                        )}
+                        <button
+                          onClick={e => { e.stopPropagation(); removeTask(t.id); }}
+                          style={{
+                            fontSize: 12, padding: '2px', border: 'none',
+                            background: 'none', cursor: 'pointer', color: 'var(--muted)',
+                            fontFamily: 'inherit', opacity: 0.4,
+                          }}
+                        >✕</button>
+                      </div>
+                    );
+                  })}
               </div>
             </div>
           );
         })}
       </div>
+
+      {adding && (
+        <Card padding="14px" style={{ marginTop: 8 }}>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+            <input
+              value={newTask}
+              onChange={e => setNewTask(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && addTask()}
+              placeholder="Task description..."
+              style={{
+                flex: 1, padding: '8px 10px', border: '1px solid var(--line)',
+                borderRadius: 8, fontSize: 13, fontFamily: 'inherit',
+                background: 'var(--cream)', outline: 'none',
+              }}
+            />
+            <Button size="sm" onClick={addTask}>Add</Button>
+          </div>
+          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+            {groups.map(g => (
+              <Pill key={g} active={newWhen === g} onClick={() => setNewWhen(g)}>{g}</Pill>
+            ))}
+          </div>
+        </Card>
+      )}
     </ModulePage>
   );
 }
@@ -449,7 +574,7 @@ function BudgetScreen({ state, setState, onBack }) {
   const conv = (v) => showZAR ? Math.round(v * FX) : v;
   const totalPlanned = state.budget.categories.reduce((a, c) => a + c.planned, 0);
   const totalSpent = state.budget.categories.reduce((a, c) => a + c.spent, 0);
-  const fx = state.budget.fxToUSD;
+  const fx = state.budget.fxToUSD || 0.272;
 
   function tweakMonthly(catId, delta) {
     setState(s => {
@@ -645,6 +770,10 @@ function ShoppingScreen({ state, setState, onBack, onAsk }) {
   const [filter, setFilter] = React.useState('all');
   const [shareLink, setShareLink] = React.useState('');
   const [linkCopied, setLinkCopied] = React.useState(false);
+  const [adding, setAdding] = React.useState(false);
+  const [newName, setNewName] = React.useState('');
+  const [newCat, setNewCat] = React.useState('Essentials');
+  const [newPrice, setNewPrice] = React.useState('');
   const cats = ['all', ...new Set(state.shopping.map(s => s.cat))];
   const list = filter === 'all' ? state.shopping : state.shopping.filter(s => s.cat === filter);
   const total = state.shopping.reduce((a, s) => a + (s.price || 0), 0);
@@ -653,6 +782,25 @@ function ShoppingScreen({ state, setState, onBack, onAsk }) {
     setState(s => ({
       ...s,
       shopping: s.shopping.map(it => it.id === id ? { ...it, status: it.status === 'packed' ? 'toBuy' : 'packed' } : it),
+    }));
+  }
+
+  function addShoppingItem() {
+    const name = newName.trim();
+    if (!name) return;
+    setState(s => ({
+      ...s,
+      shopping: [...s.shopping, {
+        id: uid(), name, cat: newCat, price: parseInt(newPrice) || 0, status: 'toBuy',
+      }],
+    }));
+    setNewName(''); setNewPrice(''); setAdding(false);
+  }
+
+  function removeShoppingItem(id) {
+    setState(s => ({
+      ...s,
+      shopping: s.shopping.filter(it => it.id !== id),
     }));
   }
 
@@ -721,13 +869,56 @@ function ShoppingScreen({ state, setState, onBack, onAsk }) {
               </div>
               {item.status !== 'packed' && <Badge status={item.status} size="sm" />}
               {item.status === 'packed' && <span style={{ fontSize: 16 }}>✅</span>}
+              <button
+                onClick={e => { e.stopPropagation(); removeShoppingItem(item.id); }}
+                style={{
+                  fontSize: 14, padding: '2px', border: 'none',
+                  background: 'none', cursor: 'pointer', color: 'var(--muted)',
+                  fontFamily: 'inherit', opacity: 0.4,
+                }}
+              >✕</button>
             </div>
           </Card>
         ))}
       </div>
 
+      {adding && (
+        <Card padding="14px" style={{ marginTop: 10 }}>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+            <input
+              value={newName}
+              onChange={e => setNewName(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && addShoppingItem()}
+              placeholder="Item name..."
+              style={{
+                flex: 1, padding: '8px 10px', border: '1px solid var(--line)',
+                borderRadius: 8, fontSize: 13, fontFamily: 'inherit',
+                background: 'var(--cream)', outline: 'none',
+              }}
+            />
+            <input
+              value={newPrice}
+              onChange={e => setNewPrice(e.target.value)}
+              placeholder="Price"
+              type="number"
+              style={{
+                width: 80, padding: '8px 10px', border: '1px solid var(--line)',
+                borderRadius: 8, fontSize: 13, fontFamily: 'inherit',
+                background: 'var(--cream)', outline: 'none',
+              }}
+            />
+            <Button size="sm" onClick={addShoppingItem}>Add</Button>
+          </div>
+          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+            {['Essentials', 'Kitchen', 'Tech', 'Furniture', 'Decor'].map(c => (
+              <Pill key={c} active={newCat === c} onClick={() => setNewCat(c)}>{c}</Pill>
+            ))}
+          </div>
+        </Card>
+      )}
+
       <div style={{ marginTop: 14 }}>
-        <Button full variant="soft" icon="＋">Add something</Button>
+        <Button full variant="soft" icon="＋" onClick={() => setAdding(true)}>Add something</Button>
       </div>
     </ModulePage>
   );
@@ -740,14 +931,47 @@ function HousingScreen({ state, setState, onBack, onAsk }) {
     viewing:     'var(--gold)',
     considering: 'var(--muted)',
   };
+  const blankForm = { name: '', rent: '', area: '', size: '', pros: '', cons: '', status: 'shortlisted' };
+  const [showForm, setShowForm] = React.useState(false);
+  const [form, setForm] = React.useState({...blankForm});
+
+  function addListing() {
+    if (!form.name.trim()) return;
+    setState(s => ({
+      ...s,
+      housing: [...s.housing, {
+        id: uid(),
+        name: form.name.trim(),
+        rent: parseInt(form.rent) || 0,
+        area: form.area || 'Al Khalifa City',
+        size: form.size || 'Studio',
+        pros: form.pros.split(',').map(s => s.trim()).filter(Boolean),
+        cons: form.cons.split(',').map(s => s.trim()).filter(Boolean),
+        status: form.status,
+      }],
+    }));
+    setForm({...blankForm});
+    setShowForm(false);
+  }
+
+  function removeHousing(id) {
+    setState(s => ({
+      ...s,
+      housing: s.housing.filter(h => h.id !== id),
+    }));
+  }
 
   return (
     <ModulePage
       title="Housing"
-      subtitle="Al Khalifa City · 3 saved"
+      subtitle={`Al Khalifa City · ${state.housing?.length || 0} saved`}
       emoji="🏠"
       onBack={onBack}
-      action={<Button size="sm" variant="ghost" icon="✨" onClick={() => onAsk('What should I look for when renting in Al Khalifa City, Abu Dhabi?')}>AI</Button>}
+      action={
+        <div style={{ display: 'flex', gap: 6 }}>
+          <Button size="sm" variant="ghost" icon="✨" onClick={() => onAsk('What should I look for when renting in Al Khalifa City, Abu Dhabi?')}>AI</Button>
+        </div>
+      }
     >
       {/* Search criteria */}
       <Card padding="16px" style={{ background: 'var(--sand)', border: 'none' }}>
@@ -765,7 +989,7 @@ function HousingScreen({ state, setState, onBack, onAsk }) {
 
       <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
         {state.housing.map(h => (
-          <Card key={h.id} padding="0" style={{ overflow: 'hidden' }}>
+          <Card key={h.id} padding="0" style={{ overflow: 'hidden', position: 'relative' }}>
             {/* Photo placeholder */}
             <div style={{
               height: 110,
@@ -788,8 +1012,18 @@ function HousingScreen({ state, setState, onBack, onAsk }) {
             <div style={{ padding: 16 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
                 <h3 style={{ fontSize: 15, lineHeight: 1.3 }}>{h.name}</h3>
-                <div style={{ fontFamily: 'DM Sans', fontWeight: 700, fontSize: 16, color: 'var(--terracotta)', whiteSpace: 'nowrap' }}>
-                  {h.rent.toLocaleString()}<span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 500 }}> /mo</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <div style={{ fontFamily: 'DM Sans', fontWeight: 700, fontSize: 16, color: 'var(--terracotta)', whiteSpace: 'nowrap' }}>
+                    {h.rent.toLocaleString()}<span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 500 }}> /mo</span>
+                  </div>
+                  <button
+                    onClick={e => { e.stopPropagation(); removeHousing(h.id); }}
+                    style={{
+                      fontSize: 14, padding: '2px', border: 'none',
+                      background: 'none', cursor: 'pointer', color: 'var(--muted)',
+                      fontFamily: 'inherit', opacity: 0.4,
+                    }}
+                  >✕</button>
                 </div>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 12 }}>
@@ -811,8 +1045,27 @@ function HousingScreen({ state, setState, onBack, onAsk }) {
         ))}
       </div>
 
+      <Modal open={showForm} onClose={() => setShowForm(false)} title="Add listing">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <input value={form.name} onChange={e => setForm(f => ({...f, name: e.target.value}))} placeholder="Property name" style={inputStyle} />
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input value={form.rent} onChange={e => setForm(f => ({...f, rent: e.target.value}))} placeholder="Rent (AED)" type="number" style={{...inputStyle, flex: 1}} />
+            <input value={form.size} onChange={e => setForm(f => ({...f, size: e.target.value}))} placeholder="Studio / 1BR" style={{...inputStyle, flex: 1}} />
+          </div>
+          <input value={form.area} onChange={e => setForm(f => ({...f, area: e.target.value}))} placeholder="Area" style={inputStyle} />
+          <input value={form.pros} onChange={e => setForm(f => ({...f, pros: e.target.value}))} placeholder="Pros (comma separated)" style={inputStyle} />
+          <input value={form.cons} onChange={e => setForm(f => ({...f, cons: e.target.value}))} placeholder="Cons (comma separated)" style={inputStyle} />
+          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+            {['shortlisted', 'viewing', 'considering'].map(s => (
+              <Pill key={s} active={form.status === s} onClick={() => setForm(f => ({...f, status: s}))}>{s}</Pill>
+            ))}
+          </div>
+          <Button full onClick={addListing}>Save listing</Button>
+        </div>
+      </Modal>
+
       <div style={{ marginTop: 14 }}>
-        <Button full variant="soft" icon="＋">Save another listing</Button>
+        <Button full variant="soft" icon="＋" onClick={() => setShowForm(true)}>Save another listing</Button>
       </div>
     </ModulePage>
   );
@@ -877,6 +1130,7 @@ function MemoryScreen({ state, setState, onBack }) {
                 color: done ? 'var(--muted)' : 'var(--dark)',
               }}>{m.text}</div>
               <span style={{ fontSize: 18, opacity: done ? 0.3 : 0.5 }}>💛</span>
+              <button onClick={e => { e.stopPropagation(); setState(s => ({...s, memories: {...s.memories, lastTimes: (s.memories?.lastTimes||[]).filter(x => x.id !== m.id)}})); }} style={{fontSize:12,padding:'2px',border:'none',background:'none',cursor:'pointer',color:'var(--muted)',fontFamily:'inherit',opacity:0.4}}>✕</button>
             </div>
           );
         })}
@@ -910,6 +1164,7 @@ function MemoryScreen({ state, setState, onBack }) {
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   color: '#fff', fontSize: 10, fontWeight: 700,
                 }}>{done ? '✓' : ''}</div>
+                <button onClick={e => { e.stopPropagation(); setState(s => ({...s, memories: {...s.memories, goodbyes: (s.memories?.goodbyes||[]).filter(x => x.id !== g.id)}})); }} style={{fontSize:12,padding:'2px',border:'none',background:'none',cursor:'pointer',color:'var(--muted)',fontFamily:'inherit',opacity:0.4}}>✕</button>
               </div>
             </Card>
           );
@@ -927,14 +1182,138 @@ function MemoryScreen({ state, setState, onBack }) {
   );
 }
 
+// ---------- HABIT TRACKER ----------
+function HabitsScreen({ state, setState, onBack }) {
+  const habits = state.habits || [];
+  const today = new Date().toISOString().slice(0, 10);
+  const doneToday = habits.filter(h => h.lastDone === today).length;
+  const totalStreak = habits.reduce((a, h) => a + (h.streak || 0), 0);
+
+  function checkIn(id) {
+    setState(s => ({
+      ...s,
+      habits: (s.habits || []).map(h => {
+        if (h.id !== id) return h;
+        const already = h.lastDone === today;
+        const newStreak = already ? h.streak - 1 : (h.streak || 0) + 1;
+        return {
+          ...h,
+          streak: Math.max(0, newStreak),
+          lastDone: already ? '' : today,
+        };
+      }),
+    }));
+  }
+
+  return (
+    <ModulePage
+      title="Habits"
+      subtitle={`${doneToday}/${habits.length} today · ${totalStreak} total streak`}
+      emoji="🎯"
+      onBack={onBack}
+    >
+      {/* Streak summary */}
+      <Card padding="18px" style={{
+        background: 'linear-gradient(135deg, var(--teal) 0%, #1e524f 100%)',
+        color: '#fff', border: 'none', marginBottom: 16,
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <div style={{ fontSize: 12, opacity: 0.85, fontWeight: 600 }}>Today's progress</div>
+            <div style={{ fontFamily: 'DM Sans', fontSize: 32, fontWeight: 800, marginTop: 2 }}>
+              {doneToday}<span style={{ fontSize: 16, fontWeight: 600, opacity: 0.85, marginLeft: 4 }}>/{habits.length}</span>
+            </div>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontFamily: 'DM Sans', fontSize: 22, fontWeight: 700 }}>🔥 {totalStreak}</div>
+            <div style={{ fontSize: 12, opacity: 0.85 }}>total streak days</div>
+          </div>
+        </div>
+        <div style={{ marginTop: 10 }}>
+          <ProgressBar value={doneToday} total={habits.length} color="var(--gold)" height={8} />
+        </div>
+      </Card>
+
+      {/* Habit list */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {habits.map(h => {
+          const done = h.lastDone === today;
+          return (
+            <Card key={h.id} padding="14px 16px" onClick={() => checkIn(h.id)} accent={done ? 'var(--teal)' : undefined}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{
+                  width: 44, height: 44, borderRadius: 12,
+                  background: done ? 'var(--teal)' : 'var(--sand)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 22, flexShrink: 0,
+                }}>{h.emoji}</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{
+                    fontSize: 14, fontWeight: 600,
+                    color: done ? 'var(--muted)' : 'var(--dark)',
+                    textDecoration: done ? 'line-through' : 'none',
+                  }}>{h.name}</div>
+                  <div style={{ display: 'flex', gap: 6, fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
+                    <span>🔥 {h.streak || 0} day{(h.streak || 0) !== 1 ? 's' : ''}</span>
+                    {done && <span style={{ color: 'var(--teal)', fontWeight: 600 }}>✓ Done</span>}
+                    {!done && h.lastDone && h.lastDone !== today && (
+                      <span>Last: {new Date(h.lastDone).toLocaleDateString()}</span>
+                    )}
+                  </div>
+                </div>
+                <Checkbox checked={done} onChange={() => checkIn(h.id)} color="var(--teal)" />
+              </div>
+            </Card>
+          );
+        })}
+      </div>
+
+      {habits.length === 0 && (
+        <EmptyState
+          emoji="🎯"
+          title="No habits yet"
+          body="Daily habits will appear here once you set them up."
+        />
+      )}
+    </ModulePage>
+  );
+}
+
 // ---------- PEOPLE & CONTACTS ----------
 function ContactsScreen({ state, setState, onBack }) {
   const contacts = state.contacts || [];
+  const blankForm = { name: '', role: '', phone: '', email: '', note: '' };
+  const [showForm, setShowForm] = React.useState(false);
+  const [form, setForm] = React.useState({...blankForm});
 
   function update(id, field, value) {
     setState(s => ({
       ...s,
       contacts: (s.contacts || []).map(c => c.id === id ? { ...c, [field]: value } : c),
+    }));
+  }
+
+  function addContact() {
+    if (!form.name.trim()) return;
+    setState(s => ({
+      ...s,
+      contacts: [...(s.contacts || []), {
+        id: uid(),
+        name: form.name.trim(),
+        role: form.role || 'Friend',
+        phone: form.phone,
+        email: form.email,
+        note: form.note,
+      }],
+    }));
+    setForm({...blankForm});
+    setShowForm(false);
+  }
+
+  function removeContact(id) {
+    setState(s => ({
+      ...s,
+      contacts: (s.contacts || []).filter(c => c.id !== id),
     }));
   }
 
@@ -963,8 +1342,20 @@ function ContactsScreen({ state, setState, onBack }) {
                 color: '#fff', fontSize: 18, fontWeight: 700, fontFamily: 'DM Sans',
               }}>{c.name.charAt(0)}</div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontFamily: 'DM Sans', fontSize: 15, fontWeight: 700 }}>{c.name}</div>
-                <div style={{ fontSize: 12, color: 'var(--terracotta)', fontWeight: 600, marginTop: 1 }}>{c.role}</div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div>
+                    <div style={{ fontFamily: 'DM Sans', fontSize: 15, fontWeight: 700 }}>{c.name}</div>
+                    <div style={{ fontSize: 12, color: 'var(--terracotta)', fontWeight: 600, marginTop: 1 }}>{c.role}</div>
+                  </div>
+                  <button
+                    onClick={() => removeContact(c.id)}
+                    style={{
+                      fontSize: 14, padding: '2px', border: 'none',
+                      background: 'none', cursor: 'pointer', color: 'var(--muted)',
+                      fontFamily: 'inherit', opacity: 0.4,
+                    }}
+                  >✕</button>
+                </div>
                 <input
                   value={c.phone || ''}
                   onChange={e => update(c.id, 'phone', e.target.value)}
@@ -994,8 +1385,19 @@ function ContactsScreen({ state, setState, onBack }) {
         ))}
       </div>
 
+      <Modal open={showForm} onClose={() => setShowForm(false)} title="Add contact">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <input value={form.name} onChange={e => setForm(f => ({...f, name: e.target.value}))} placeholder="Name *" style={inputStyle} />
+          <input value={form.role} onChange={e => setForm(f => ({...f, role: e.target.value}))} placeholder="Role (e.g. Friend, Agent)" style={inputStyle} />
+          <input value={form.phone} onChange={e => setForm(f => ({...f, phone: e.target.value}))} placeholder="Phone" style={inputStyle} />
+          <input value={form.email} onChange={e => setForm(f => ({...f, email: e.target.value}))} placeholder="Email" style={inputStyle} />
+          <input value={form.note} onChange={e => setForm(f => ({...f, note: e.target.value}))} placeholder="Note" style={inputStyle} />
+          <Button full onClick={addContact}>Add contact</Button>
+        </div>
+      </Modal>
+
       <div style={{ marginTop: 14 }}>
-        <Button full variant="soft" icon="＋">Add contact</Button>
+        <Button full variant="soft" icon="＋" onClick={() => setShowForm(true)}>Add contact</Button>
       </div>
     </ModulePage>
   );
@@ -1003,5 +1405,5 @@ function ContactsScreen({ state, setState, onBack }) {
 
 Object.assign(window, {
   PackingScreen, DocumentsScreen, TasksScreen, BudgetScreen, ShoppingScreen, HousingScreen,
-  MemoryScreen, ContactsScreen,
+  MemoryScreen, HabitsScreen, ContactsScreen, uid,
 });
