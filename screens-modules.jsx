@@ -445,8 +445,10 @@ function TasksScreen({ state, setState, onBack }) {
   const [adding, setAdding] = React.useState(false);
   const [newTask, setNewTask] = React.useState('');
   const [newWhen, setNewWhen] = React.useState(groups[0]);
-  const [view, setView] = React.useState('list');
-  const GlassCalendar = window.GlassCalendar;
+  const [view, setView] = React.useState('calendar');
+  const GlassCalendar = React.useMemo(() => {
+    try { return window.GlassCalendar; } catch { return null; }
+  }, [view]);
   const grouped = groups.map(g => ({
     when: g,
     items: state.tasks.filter(t => t.when === g),

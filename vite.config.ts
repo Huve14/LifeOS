@@ -15,6 +15,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      injectRegister: 'inline',
       includeAssets: ['favicon.svg', 'icons/*.png'],
       manifest: {
         name: 'Suveda · Moving to Abu Dhabi',

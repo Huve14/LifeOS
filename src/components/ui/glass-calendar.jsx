@@ -1,13 +1,11 @@
 import * as React from "react";
 import { Settings, Plus, Edit2, ChevronLeft, ChevronRight } from "lucide-react";
 import { format, addMonths, subMonths, isSameDay, isToday, getDate, getDaysInMonth, startOfMonth } from "date-fns";
-import { motion } from "framer-motion";
 import { cn } from "../../lib/utils";
 
-export function GlassCalendar({ selectedDate: propSelectedDate, onDateSelect, tasks = [], className }) {
+function GlassCalendar({ selectedDate: propSelectedDate, onDateSelect, tasks = [], className }) {
   const [currentMonth, setCurrentMonth] = React.useState(propSelectedDate || new Date());
   const [selectedDate, setSelectedDate] = React.useState(propSelectedDate || new Date());
-  const [view, setView] = React.useState('monthly');
 
   const monthDays = React.useMemo(() => {
     const start = startOfMonth(currentMonth);
@@ -45,42 +43,16 @@ export function GlassCalendar({ selectedDate: propSelectedDate, onDateSelect, ta
         .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
       `}</style>
 
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-1 rounded-lg bg-[var(--sand)] p-1">
-          <button
-            onClick={() => setView('weekly')}
-            className={cn(
-              "rounded-md px-4 py-1 text-xs font-bold shadow-md transition-colors",
-              view === 'weekly' ? 'bg-[var(--white)] text-[var(--dark)]' : 'text-[var(--muted)] hover:text-[var(--dark)]'
-            )}
-          >
-            Weekly
-          </button>
-          <button
-            onClick={() => setView('monthly')}
-            className={cn(
-              "rounded-md px-4 py-1 text-xs font-semibold transition-colors",
-              view === 'monthly' ? 'bg-[var(--white)] text-[var(--dark)] shadow-md' : 'text-[var(--muted)] hover:text-[var(--dark)]'
-            )}
-          >
-            Monthly
-          </button>
-        </div>
+      <div className="flex items-center justify-end">
         <button className="p-2 text-[var(--muted)] hover:bg-[var(--sand)] rounded-full transition-colors">
           <Settings className="h-5 w-5" />
         </button>
       </div>
 
       <div className="my-6 flex items-center justify-between">
-        <motion.p
-          key={format(currentMonth, "MMMM")}
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-          className="text-4xl font-bold tracking-tight text-[var(--dark)]"
-        >
+        <p className="text-4xl font-bold tracking-tight text-[var(--dark)]">
           {format(currentMonth, "MMMM")}
-        </motion.p>
+        </p>
         <div className="flex items-center space-x-2">
           <button onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} className="p-1 rounded-full text-[var(--muted)] hover:bg-[var(--sand)] transition-colors">
             <ChevronLeft className="h-5 w-5" />
@@ -154,4 +126,5 @@ export function GlassCalendar({ selectedDate: propSelectedDate, onDateSelect, ta
   );
 }
 
+console.log('[GlassCalendar] loaded, assigning to window');
 Object.assign(window, { GlassCalendar });

@@ -2,6 +2,13 @@
 
 const { useState, useEffect, useMemo, useRef, useCallback } = React;
 
+// Force SW update on page load — reloads if new version available
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    window.location.reload();
+  });
+}
+
 function createSeedState(tweaks) {
   return {
     moveDate: tweaks.moveDate,
