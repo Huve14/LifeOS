@@ -429,7 +429,7 @@ function MapScreen({ state, setState, onBack }) {
           border: '1px solid var(--line)',
         }}>
           <div style={{ fontSize: 24, marginBottom: 6 }}>🌵</div>
-          <div style={{ fontFamily: 'DM Sans', fontSize: 15, fontWeight: 700, marginBottom: 4 }}>
+          <div style={{ fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif', fontSize: 15, fontWeight: 700, marginBottom: 4 }}>
             Welcome to Abu Dhabi!
           </div>
           <div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.5 }}>
@@ -518,7 +518,7 @@ function MapScreen({ state, setState, onBack }) {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div>
                   <div style={{
-                    fontFamily: 'DM Sans', fontSize: 16, fontWeight: 700,
+                    fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif', fontSize: 16, fontWeight: 700,
                     lineHeight: 1.2,
                   }}>{selected.name}</div>
                   <div style={{

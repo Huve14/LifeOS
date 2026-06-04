@@ -163,7 +163,7 @@ function MapPopup({ longitude, latitude, children, onClose }) {
 
   const content = (
     <div style={{
-      fontFamily: "'Inter', system-ui, sans-serif",
+      fontFamily: "-apple-system, BlinkMacSystemFont, system-ui, sans-serif",
       color: 'var(--dark)',
       fontSize: 13,
     }}>

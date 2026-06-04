@@ -146,7 +146,7 @@ function Onboarding({ onDone, initialDate, user }) {
               borderRadius: 14,
               background: 'var(--white)',
               fontSize: 16,
-              fontFamily: 'DM Sans',
+              fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif',
               fontWeight: 600,
               color: 'var(--dark)',
               outline: 'none',
@@ -266,7 +266,7 @@ function Onboarding({ onDone, initialDate, user }) {
                     borderRadius: 14, border: 'none',
                     background: authLoading ? '#aaa' : 'linear-gradient(135deg, var(--terracotta) 0%, var(--gold) 100%)',
                     color: '#fff', fontSize: 16, fontWeight: 700,
-                    fontFamily: 'DM Sans', cursor: authLoading ? 'not-allowed' : 'pointer',
+                    fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif', cursor: authLoading ? 'not-allowed' : 'pointer',
                     opacity: authLoading ? 0.7 : 1,
                     boxShadow: '0 4px 14px -4px rgba(196, 113, 74, 0.4)',
                   }}
@@ -340,7 +340,7 @@ function CountdownHero({ moveDate, layout, total, done }) {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div>
             <div style={{ fontSize: 11, opacity: 0.85, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Wheels up in</div>
-            <div style={{ fontFamily: 'DM Sans', fontWeight: 800, fontSize: 56, lineHeight: 1, marginTop: 6 }}>
+            <div style={{ fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif', fontWeight: 800, fontSize: 56, lineHeight: 1, marginTop: 6 }}>
               {days}
               <span style={{ fontSize: 18, fontWeight: 600, opacity: 0.85, marginLeft: 6 }}>days</span>
             </div>
@@ -359,7 +359,7 @@ function CountdownHero({ moveDate, layout, total, done }) {
           <ProgressBar value={done} total={total || 1} style="circle" color="var(--terracotta)" />
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Move day</div>
-            <div style={{ fontFamily: 'DM Sans', fontSize: 22, fontWeight: 700, marginTop: 2 }}>
+            <div style={{ fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif', fontSize: 22, fontWeight: 700, marginTop: 2 }}>
               {days} {days === 1 ? 'day' : 'days'}
             </div>
             <div style={{ fontSize: 12, color: 'var(--muted)' }}>{formatDate(moveDate)}</div>
@@ -377,7 +377,7 @@ function CountdownHero({ moveDate, layout, total, done }) {
       </div>
       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 8 }}>
         <div>
-          <div style={{ fontFamily: 'DM Sans', fontWeight: 800, fontSize: 64, lineHeight: 0.95, color: 'var(--terracotta)' }}>
+          <div style={{ fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif', fontWeight: 800, fontSize: 64, lineHeight: 0.95, color: 'var(--terracotta)' }}>
             {days}
           </div>
           <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>days until {formatDate(moveDate)}</div>
@@ -412,7 +412,7 @@ function ModuleCard({ module, progress, onClick, progressStyle, layout }) {
           {isDone && <span style={{ fontSize: 16 }}>🎉</span>}
         </div>
         <div>
-          <div style={{ fontFamily: 'DM Sans', fontSize: 15, fontWeight: 700 }}>{module.label}</div>
+          <div style={{ fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif', fontSize: 15, fontWeight: 700 }}>{module.label}</div>
           <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
             {isMoney
               ? `${done.toLocaleString()} / ${total.toLocaleString()} AED`
@@ -436,7 +436,7 @@ function ModuleCard({ module, progress, onClick, progressStyle, layout }) {
         }}>{module.emoji}</div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ fontFamily: 'DM Sans', fontSize: 15, fontWeight: 700 }}>{module.label}</div>
+            <div style={{ fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif', fontSize: 15, fontWeight: 700 }}>{module.label}</div>
             <div style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600 }}>
               {isMoney ? `${pct}%` : `${done}/${total}`}
             </div>
@@ -462,7 +462,7 @@ function ModuleCard({ module, progress, onClick, progressStyle, layout }) {
       }}>{isDone ? '✅' : module.emoji}</div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
-          <div style={{ fontFamily: 'DM Sans', fontSize: 16, fontWeight: 700 }}>{module.label}</div>
+          <div style={{ fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif', fontSize: 16, fontWeight: 700 }}>{module.label}</div>
           <div style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>{pct}%</div>
         </div>
         <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4, marginBottom: 10 }}>
@@ -667,7 +667,7 @@ function Dashboard({ state, setState, onModule, onAsk, layout = 'classic', progr
           }}>🌵</div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 13, fontWeight: 600, opacity: 0.85 }}>Good {timeGreeting}</div>
-            <div style={{ fontSize: 14, fontWeight: 700, fontFamily: 'DM Sans', marginTop: 1 }}>{huveGreeting}</div>
+            <div style={{ fontSize: 14, fontWeight: 700, fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif', marginTop: 1 }}>{huveGreeting}</div>
             <div style={{ fontSize: 12, opacity: 0.8, marginTop: 2 }}>{huveSubtext}</div>
           </div>
         </div>
@@ -692,7 +692,7 @@ function Dashboard({ state, setState, onModule, onAsk, layout = 'classic', progr
           rows={3}
           style={{
             width: '100%', border: 'none', background: 'transparent',
-            fontSize: 14, fontWeight: 500, fontFamily: 'DM Sans',
+            fontSize: 14, fontWeight: 500, fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif',
             color: 'var(--dark)', outline: 'none', resize: 'none',
             lineHeight: 1.6, fontStyle: 'italic',
           }}
@@ -711,7 +711,7 @@ function Dashboard({ state, setState, onModule, onAsk, layout = 'classic', progr
             rows={3}
             style={{
               width: '100%', border: 'none', background: 'transparent',
-              fontSize: 14, fontWeight: 500, fontFamily: 'DM Sans',
+              fontSize: 14, fontWeight: 500, fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif',
               color: 'var(--terracotta)', outline: 'none', resize: 'none',
               lineHeight: 1.6, fontStyle: 'italic',
             }}
@@ -741,7 +741,7 @@ function Dashboard({ state, setState, onModule, onAsk, layout = 'classic', progr
       {state.first48 && (
         <details style={{ marginTop: 14, background: 'var(--white)', borderRadius: 16, boxShadow: 'var(--shadow)', overflow: 'hidden' }}>
           <summary style={{
-            padding: '14px 16px', fontSize: 14, fontWeight: 700, fontFamily: 'DM Sans',
+            padding: '14px 16px', fontSize: 14, fontWeight: 700, fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif',
             cursor: 'pointer', color: 'var(--dark)',
             listStyle: 'none', display: 'flex', alignItems: 'center', gap: 10,
           }}>

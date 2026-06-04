@@ -69,7 +69,7 @@ function AuthScreen() {
           boxShadow: '0 8px 28px -8px rgba(196, 113, 74, 0.4)',
         }}>🌴</div>
         <h1 style={{
-          fontSize: 30, fontWeight: 700, fontFamily: 'DM Sans',
+          fontSize: 30, fontWeight: 700, fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif',
           letterSpacing: '-0.5px', margin: 0,
         }}>Suveda</h1>
         <p style={{
@@ -186,7 +186,7 @@ function AuthScreen() {
                 ? '#aaa'
                 : 'linear-gradient(135deg, var(--terracotta) 0%, var(--gold) 100%)',
               color: '#fff', fontSize: 16, fontWeight: 700,
-              fontFamily: 'DM Sans',
+              fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif',
               cursor: loading ? 'not-allowed' : 'pointer',
               opacity: loading ? 0.7 : 1,
               boxShadow: '0 4px 14px -4px rgba(196, 113, 74, 0.4)',

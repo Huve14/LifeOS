@@ -199,7 +199,7 @@ function SharedList({ token }) {
         {Object.entries(categories).map(([cat, catItems]) => (
           <div key={cat} style={{ marginBottom: 20 }}>
             <h3 style={{
-              fontSize: 15, fontWeight: 700, fontFamily: 'DM Sans',
+              fontSize: 15, fontWeight: 700, fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif',
               margin: '0 0 8px 4px', color: 'var(--muted)',
             }}>{cat}</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>

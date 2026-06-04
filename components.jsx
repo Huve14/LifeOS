@@ -118,7 +118,7 @@ function ProgressBar({ value, total, style = 'bar', color, height = 8, showLabel
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           flexDirection: 'column',
         }}>
-          <div style={{ fontFamily: 'DM Sans', fontWeight: 700, fontSize: 22, color: 'var(--dark)' }}>{pct}%</div>
+          <div style={{ fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif', fontWeight: 700, fontSize: 22, color: 'var(--dark)' }}>{pct}%</div>
           <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: -2 }}>{value}/{total}</div>
         </div>
       </div>

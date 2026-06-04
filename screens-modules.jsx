@@ -320,7 +320,7 @@ function DocumentsScreen({ state, setState, onBack, onAsk }) {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <div style={{ fontSize: 12, opacity: 0.85, fontWeight: 600 }}>Document readiness</div>
-            <div style={{ fontFamily: 'DM Sans', fontSize: 28, fontWeight: 800, marginTop: 2 }}>{Math.round((done / state.documents.length) * 100)}%</div>
+            <div style={{ fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif', fontSize: 28, fontWeight: 800, marginTop: 2 }}>{Math.round((done / state.documents.length) * 100)}%</div>
           </div>
           <div style={{ textAlign: 'right', fontSize: 12, opacity: 0.8 }}>
             <div>{done} done</div>
@@ -376,7 +376,7 @@ function DocumentsScreen({ state, setState, onBack, onAsk }) {
                       }}>{doc.emoji}</div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{
-                          fontFamily: 'DM Sans', fontSize: 14, fontWeight: 700,
+                          fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif', fontSize: 14, fontWeight: 700,
                           textDecoration: isDone ? 'line-through' : 'none',
                           color: isDone ? 'var(--muted)' : 'var(--dark)',
                         }}>{doc.name}</div>
@@ -446,9 +446,6 @@ function TasksScreen({ state, setState, onBack }) {
   const [newTask, setNewTask] = React.useState('');
   const [newWhen, setNewWhen] = React.useState(groups[0]);
   const [view, setView] = React.useState('calendar');
-  const GlassCalendar = React.useMemo(() => {
-    try { return window.GlassCalendar; } catch { return null; }
-  }, [view]);
   const grouped = groups.map(g => ({
     when: g,
     items: state.tasks.filter(t => t.when === g),
@@ -514,13 +511,13 @@ function TasksScreen({ state, setState, onBack }) {
         </div>
       }
     >
-      {view === 'calendar' && GlassCalendar ? (
-        <div>
+      {view === 'calendar' ? (
+        GlassCalendar ? (
           <GlassCalendar
             tasks={tasksWithDates}
             selectedDate={new Date()}
           />
-        </div>
+        ) : <div style={{ padding: 40, textAlign: 'center', opacity: 0.5 }}>Loading calendar...</div>
       ) : (
         <>
           {/* Countdown hero */}
@@ -530,12 +527,12 @@ function TasksScreen({ state, setState, onBack }) {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
                 <div style={{ fontSize: 12, opacity: 0.85, fontWeight: 600 }}>Countdown</div>
-                <div style={{ fontFamily: 'DM Sans', fontSize: 36, fontWeight: 800, marginTop: 2 }}>
+                <div style={{ fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif', fontSize: 36, fontWeight: 800, marginTop: 2 }}>
                   {days}<span style={{ fontSize: 16, fontWeight: 600, opacity: 0.85, marginLeft: 4 }}>days</span>
                 </div>
               </div>
               <div style={{ textAlign: 'right' }}>
-                <div style={{ fontFamily: 'DM Sans', fontSize: 22, fontWeight: 700 }}>{allDone}</div>
+                <div style={{ fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif', fontSize: 22, fontWeight: 700 }}>{allDone}</div>
                 <div style={{ fontSize: 12, opacity: 0.85 }}>tasks done</div>
               </div>
             </div>
@@ -571,7 +568,7 @@ function TasksScreen({ state, setState, onBack }) {
                     display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8,
                   }}>
                     <span style={{
-                      fontFamily: 'DM Sans', fontSize: 13, fontWeight: 700,
+                      fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif', fontSize: 13, fontWeight: 700,
                       color: allGroupDone ? '#66bb6a' : 'var(--terracotta)',
                       textTransform: 'uppercase', letterSpacing: '0.06em',
                       display: 'flex', alignItems: 'center', gap: 6,
@@ -790,7 +787,7 @@ function BudgetScreen({ state, setState, onBack }) {
           }}>{c.emoji}</div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-              <div style={{ fontFamily: 'DM Sans', fontSize: 14, fontWeight: 700 }}>{c.label}</div>
+              <div style={{ fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif', fontSize: 14, fontWeight: 700 }}>{c.label}</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: over ? 'var(--terracotta)' : 'var(--dark)' }}>
                   {conv(c.spent || 0).toLocaleString()}
@@ -897,13 +894,13 @@ function BudgetScreen({ state, setState, onBack }) {
                 position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
                 textAlign: 'center',
               }}>
-                <div style={{ fontFamily: 'DM Sans', fontSize: 18, fontWeight: 800, color: 'var(--dark)' }}>{conv(income).toLocaleString()}</div>
+                <div style={{ fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif', fontSize: 18, fontWeight: 800, color: 'var(--dark)' }}>{conv(income).toLocaleString()}</div>
                 <div style={{ fontSize: 9, color: 'var(--muted)', fontWeight: 600 }}>{cur}</div>
               </div>
             </div>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>Monthly income</div>
-              <div style={{ fontFamily: 'DM Sans', fontSize: 22, fontWeight: 800, color: 'var(--teal)', marginTop: 2 }}>{conv(income).toLocaleString()} {cur}</div>
+              <div style={{ fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif', fontSize: 22, fontWeight: 800, color: 'var(--teal)', marginTop: 2 }}>{conv(income).toLocaleString()} {cur}</div>
               {!showZAR && <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
                 ≈ {(income * 4.5).toLocaleString()} ZAR · {(income * 0.27).toLocaleString()} USD
               </div>}
@@ -928,7 +925,7 @@ function BudgetScreen({ state, setState, onBack }) {
         <>
           <Card padding="20px" style={{ background: 'linear-gradient(135deg, var(--teal) 0%, #1e524f 100%)', color: '#fff', border: 'none', marginBottom: 16 }}>
             <div style={{ fontSize: 12, opacity: 0.85, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Move checklist</div>
-            <div style={{ fontFamily: 'DM Sans', fontWeight: 800, fontSize: 36, lineHeight: 1, marginTop: 4 }}>
+            <div style={{ fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif', fontWeight: 800, fontSize: 36, lineHeight: 1, marginTop: 4 }}>
               {conv(totalSpent).toLocaleString()}
               <span style={{ fontSize: 16, opacity: 0.7, marginLeft: 6, fontWeight: 600 }}>{cur}</span>
             </div>
@@ -961,7 +958,7 @@ function BudgetScreen({ state, setState, onBack }) {
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
                       <div>
-                        <span style={{ fontFamily: 'DM Sans', fontSize: 14, fontWeight: 700 }}>{c.label}</span>
+                        <span style={{ fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif', fontSize: 14, fontWeight: 700 }}>{c.label}</span>
                         {isSABIS && (
                           <span style={{
                             marginLeft: 8, fontSize: 10, fontWeight: 700, padding: '2px 8px',
@@ -1543,7 +1540,7 @@ function MemoryScreen({ state, setState, onBack }) {
           onClick={() => fileRef.current?.click()}
         >
           <div style={{ fontSize: 40, marginBottom: 8 }}>📸</div>
-          <div style={{ fontFamily: 'DM Sans', fontSize: 15, fontWeight: 700, marginBottom: 4 }}>
+          <div style={{ fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif', fontSize: 15, fontWeight: 700, marginBottom: 4 }}>
             Upload your memories
           </div>
           <div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.5 }}>
@@ -1573,7 +1570,7 @@ function MemoryScreen({ state, setState, onBack }) {
       {/* One last time */}
       <div style={{ marginBottom: 20, padding: '18px 20px', background: 'linear-gradient(135deg, var(--gold)20, var(--terracotta)15)', borderRadius: 20, border: '1px solid var(--line)' }}>
         <div style={{ fontSize: 24, marginBottom: 8 }}>🌅</div>
-        <div style={{ fontFamily: 'DM Sans', fontSize: 16, fontWeight: 700, marginBottom: 4 }}>One last time</div>
+        <div style={{ fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif', fontSize: 16, fontWeight: 700, marginBottom: 4 }}>One last time</div>
         <div style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.5 }}>
           Leaving a place is also about honouring what you're saying goodbye to. Tick these off before you fly.
         </div>
@@ -1693,12 +1690,12 @@ function HabitsScreen({ state, setState, onBack }) {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <div style={{ fontSize: 12, opacity: 0.85, fontWeight: 600 }}>Today's progress</div>
-            <div style={{ fontFamily: 'DM Sans', fontSize: 32, fontWeight: 800, marginTop: 2 }}>
+            <div style={{ fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif', fontSize: 32, fontWeight: 800, marginTop: 2 }}>
               {doneToday}<span style={{ fontSize: 16, fontWeight: 600, opacity: 0.85, marginLeft: 4 }}>/{habits.length}</span>
             </div>
           </div>
           <div style={{ textAlign: 'right' }}>
-            <div style={{ fontFamily: 'DM Sans', fontSize: 22, fontWeight: 700 }}>🔥 {totalStreak}</div>
+            <div style={{ fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif', fontSize: 22, fontWeight: 700 }}>🔥 {totalStreak}</div>
             <div style={{ fontSize: 12, opacity: 0.85 }}>total streak days</div>
           </div>
         </div>
@@ -1812,12 +1809,12 @@ function ContactsScreen({ state, setState, onBack }) {
                 width: 44, height: 44, borderRadius: '50%', flexShrink: 0,
                 background: 'linear-gradient(135deg, var(--teal), var(--gold))',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: '#fff', fontSize: 18, fontWeight: 700, fontFamily: 'DM Sans',
+                color: '#fff', fontSize: 18, fontWeight: 700, fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif',
               }}>{c.name.charAt(0)}</div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <div>
-                    <div style={{ fontFamily: 'DM Sans', fontSize: 15, fontWeight: 700 }}>{c.name}</div>
+                    <div style={{ fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif', fontSize: 15, fontWeight: 700 }}>{c.name}</div>
                     <div style={{ fontSize: 12, color: 'var(--terracotta)', fontWeight: 600, marginTop: 1 }}>{c.role}</div>
                   </div>
                   <button
