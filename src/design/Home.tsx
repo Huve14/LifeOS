@@ -2,13 +2,25 @@ import { useState, useEffect } from 'react';
 import IOSDevice from './IOSFrame';
 import { samplePacking } from '../data';
 
-export function PackingList({ items, onToggle }: any) {
+type PackingItem = {
+  id: string;
+  name: string;
+  category: string;
+  checked: boolean;
+};
+
+type PackingListProps = {
+  items: PackingItem[];
+  onToggle: (id: string) => void;
+};
+
+export function PackingList({ items, onToggle }: PackingListProps) {
   return (
     <div style={{ borderRadius: 14, overflow: 'hidden', background: 'white' }}>
-      {items.map((it: any) => (
+      {items.map(it => (
         <div key={it.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
           <label style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <input type="checkbox" checked={!!it.checked} onChange={() => onToggle(it.id)} />
+            <input type="checkbox" checked={it.checked} onChange={() => onToggle(it.id)} />
             <div style={{ fontSize: 16 }}>{it.name}</div>
           </label>
           <div style={{ color: '#777' }}>{it.category}</div>
@@ -19,12 +31,12 @@ export function PackingList({ items, onToggle }: any) {
 }
 
 export default function Home() {
-  const [items, setItems] = useState(() => samplePacking.map(i => ({ ...i })));
+  const [items, setItems] = useState<PackingItem[]>(() => samplePacking.map(i => ({ ...i })));
 
   useEffect(() => {
     const raw = localStorage.getItem('suveda-packing');
     if (raw) {
-      try { setItems(JSON.parse(raw)); } catch (e) {}
+      try { setItems(JSON.parse(raw)); } catch { /* safe */ }
     }
   }, []);
 
@@ -33,10 +45,10 @@ export default function Home() {
   }, [items]);
 
   function toggle(id: string) {
-    setItems(prev => prev.map((p:any) => p.id === id ? { ...p, checked: !p.checked } : p));
+    setItems(prev => prev.map(p => p.id === id ? { ...p, checked: !p.checked } : p));
   }
 
-  const readyCount = items.filter((i:any) => i.checked).length;
+  const readyCount = items.filter(i => i.checked).length;
 
   return (
     <div style={{ display: 'flex', justifyContent: 'center', padding: 24 }}>

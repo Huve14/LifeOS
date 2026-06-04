@@ -1,4 +1,9 @@
-export function IOSStatusBar({ dark = false, time = '9:41' }: any) {
+type IOSStatusBarProps = {
+  dark?: boolean;
+  time?: string;
+};
+
+export function IOSStatusBar({ dark = false, time = '9:41' }: IOSStatusBarProps) {
   const c = dark ? '#fff' : '#000';
   return (
     <div style={{ display: 'flex', gap: 154, alignItems: 'center', justifyContent: 'center', padding: '21px 24px 19px', boxSizing: 'border-box', position: 'relative', zIndex: 20, width: '100%' }}>
@@ -17,7 +22,12 @@ export function IOSStatusBar({ dark = false, time = '9:41' }: any) {
   );
 }
 
-export function IOSDevice({ children, title }: any) {
+type IOSDeviceProps = {
+  children: React.ReactNode;
+  title?: string;
+};
+
+export function IOSDevice({ children, title }: IOSDeviceProps) {
   return (
     <div style={{ width: 390, maxWidth: '100%', borderRadius: 28, overflow: 'hidden', position: 'relative', background: '#F2F2F7', boxShadow: '0 40px 80px rgba(0,0,0,0.12)', fontFamily: '-apple-system, system-ui, sans-serif' }}>
       <div style={{ position: 'absolute', top: 11, left: '50%', transform: 'translateX(-50%)', width: 126, height: 37, borderRadius: 24, background: '#000', zIndex: 50 }} />
