@@ -472,6 +472,32 @@ function Dashboard({ state, setState, onModule, onAsk, layout = 'classic', progr
   const days = daysUntil(state.moveDate);
   const [whyNote, setWhyNote] = React.useState(state.whyNote || '');
 
+  const h = new Date().getHours();
+  const timeGreeting = h < 12 ? 'morning' : h < 18 ? 'afternoon' : 'evening';
+
+  const totalModules = 8;
+  const completedModules = Object.entries(progress).filter(([, v]) => v.total > 0 && v.done === v.total && !v.isMoney).length;
+  const milestoneMessages = [
+    'First checklist done — that\'s a real step! 🌱',
+    'Two lists complete — this is really happening! 🌿',
+    'Halfway there — you\'re on fire! 🔥',
+    'Almost there — Abu Dhabi is calling! ✈️',
+    'Every list done — nothing can stop you now! 🌟',
+  ];
+  const milestoneIdx = Math.min(completedModules, milestoneMessages.length - 1);
+
+  const huveMessage = completedModules === 0
+    ? `Ready to start planning your big move? Let's go! 🌵`
+    : `${completedModules} of ${totalModules} lists done — keep going! ✨`;
+
+  const aiSuggestions = [
+    'What should I pack for August in Abu Dhabi?',
+    'How do I get a residency visa?',
+    'What\'s the cost of living in Al Khalifa City?',
+    'Give me a weekly prep timeline',
+    'What should I do in my first week?',
+  ];
+
   // Sync whyNote to app state
   function updateWhy(val) {
     setWhyNote(val);

@@ -31,7 +31,12 @@ const DEFAULT_TWEAKS = window.__suvedaDefaults || {
 };
 
 function App() {
-  // Shared shopping list route (no auth required)
+  // Shared shopping list route — handle both hash (#shared/TOKEN) and path (/s/TOKEN) formats.
+  // Path format catches cases where the old SW intercepts /s/ and serves index.html.
+  const pathMatch = window.location.pathname.match(/^\/s\/(.+)/);
+  if (pathMatch) {
+    return <SharedList token={pathMatch[1]} />;
+  }
   const hash = window.location.hash;
   if (hash.startsWith('#shared/')) {
     return <SharedList token={hash.replace('#shared/', '')} />;
