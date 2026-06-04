@@ -18,10 +18,18 @@ const FALLBACK_IMAGES = [
   'https://images.unsplash.com/photo-1580651315530-69c8e0026377?w=600&h=800&fit=crop',
 ];
 
-function Tile({ src, side, aspectRatio, maxBlur, maxTilt, perspective, rounded }) {
+function getScrollParent(el) {
+  if (!el || el === document.body || el === document.documentElement) return null;
+  const { overflow, overflowY } = window.getComputedStyle(el);
+  if (/auto|scroll/.test(overflow + overflowY) && el.scrollHeight > el.clientHeight) return el;
+  return getScrollParent(el.parentElement);
+}
+
+function Tile({ src, side, aspectRatio, maxBlur, maxTilt, perspective, rounded, scrollContainer }) {
   const ref = useRef(null);
   const { scrollYProgress: p } = useScroll({
     target: ref,
+    container: scrollContainer,
     offset: ['start end', 'end start'],
   });
 
@@ -95,6 +103,16 @@ function MemoryPhotoGrid({
 }) {
   const [cycles, setCycles] = useState(3);
   const sentinelRef = useRef(null);
+  const wrapperRef = useRef(null);
+  const scrollContainerRef = useRef(null);
+  const [containerReady, setContainerReady] = useState(false);
+
+  // Find the actual scrollable ancestor (#root has overflow-y: auto, not window)
+  useEffect(() => {
+    const parent = getScrollParent(wrapperRef.current) ?? document.getElementById('root');
+    if (parent) scrollContainerRef.current = parent;
+    setContainerReady(true);
+  }, []);
 
   useEffect(() => {
     const el = sentinelRef.current;
@@ -120,25 +138,28 @@ function MemoryPhotoGrid({
   );
 
   return (
-    <div style={{ position: 'relative', width: '100%', ...(className ? {} : {}) }}>
-      <div style={{
-        margin: '0 auto', width: '100%',
-        maxWidth: maxWidth,
-        display: 'grid', gridTemplateColumns: '1fr 1fr',
-        gap: gap,
-        padding: '0 24px',
-        paddingTop: '20vh', paddingBottom: '20vh',
-        marginTop: '20vh', marginBottom: '10vh',
-      }}>
-        {items.map((src, i) => (
-          <Tile
-            key={`${i}-${src}`}
-            src={typeof src === 'string' ? src : (src.url || src.src || '')}
-            side={i % 2 === 0 ? 'L' : 'R'}
-            {...config}
-          />
-        ))}
-      </div>
+    <div ref={wrapperRef} style={{ position: 'relative', width: '100%', ...(className ? {} : {}) }}>
+      {containerReady && (
+        <div style={{
+          margin: '0 auto', width: '100%',
+          maxWidth: maxWidth,
+          display: 'grid', gridTemplateColumns: '1fr 1fr',
+          gap: gap,
+          padding: '0 24px',
+          paddingTop: '20vh', paddingBottom: '20vh',
+          marginTop: '20vh', marginBottom: '10vh',
+        }}>
+          {items.map((src, i) => (
+            <Tile
+              key={`${i}-${src}`}
+              src={typeof src === 'string' ? src : (src.url || src.src || '')}
+              side={i % 2 === 0 ? 'L' : 'R'}
+              scrollContainer={scrollContainerRef}
+              {...config}
+            />
+          ))}
+        </div>
+      )}
       <div ref={sentinelRef} style={{ height: 1, width: '100%' }} aria-hidden />
     </div>
   );
