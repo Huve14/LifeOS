@@ -27,6 +27,7 @@ declare global {
     ReactDOM: {
       createRoot: typeof createRoot;
     };
+    Root?: React.ComponentType;
     __suvedaDefaults?: {
       moveDate: string;
       progressLevel: 'empty' | 'half' | 'almost';
@@ -125,7 +126,7 @@ async function bootstrap() {
   // Mount the app root after all modules are loaded.
   const rootElement = document.getElementById('root');
   if (rootElement && !rootElement.hasChildNodes()) {
-    const Root = (window as any).Root;
+    const Root = window.Root;
     if (Root) {
       createRoot(rootElement).render(React.createElement(Root));
     }
