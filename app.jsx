@@ -21,8 +21,10 @@ function pickStoredState(candidate) {
   if (!saved.journal) saved.journal = [];
   if (!saved.memories) saved.memories = SEED.memories || { lastTimes: [], goodbyes: [] };
   if (!saved.contacts) saved.contacts = SEED.contacts || [];
-  if (!saved.whyNote) saved.whyNote = '';
-  if (!saved.whyNote2) saved.whyNote2 = '';
+  if (!saved.whyNote2) {
+    saved.whyNote2 = SEED.whyNote2 || '';
+    saved.whyNote = SEED.whyNote || '';
+  }
   if (!saved.first48) saved.first48 = SEED.first48 || null;
   return saved;
 }
