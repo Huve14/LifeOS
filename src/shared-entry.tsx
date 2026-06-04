@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components, @typescript-eslint/no-explicit-any */
 import { useState, useEffect, useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
 import '../styles.css';

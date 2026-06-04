@@ -241,7 +241,7 @@ function App() {
         color: 'var(--dark)',
         position: 'relative',
         paddingTop: 24,
-        paddingBottom: 68,
+        paddingBottom: 'calc(92px + env(safe-area-inset-bottom, 0))',
       }}
     >
       {renderContent()}
@@ -253,7 +253,7 @@ function App() {
           className="ai-pulse"
           style={{
             position: 'fixed',
-            right: 18, bottom: 84,
+            right: 18, bottom: 'calc(env(safe-area-inset-bottom, 0px) + 84px)',
             width: 56, height: 56, borderRadius: '50%',
             background: 'linear-gradient(135deg, var(--terracotta) 0%, var(--gold) 100%)',
             color: '#fff', fontSize: 26,
@@ -261,7 +261,7 @@ function App() {
             boxShadow: '0 8px 24px -6px rgba(196, 113, 74, 0.55), 0 4px 10px rgba(0,0,0,0.1)',
             zIndex: 50, border: 'none', cursor: 'pointer',
           }}
-        >🌵</button>
+        ><img src="/favicon.svg" width="30" height="30" alt="Suveda" style={{ borderRadius: '50%' }} /></button>
       )}
 
       {/* Bottom navigation (hidden during onboarding) */}
@@ -420,23 +420,29 @@ function SuvedaTweaks({ tweaks, setTweak, setView }) {
 }
 
 // ---------- Bottom navigation ----------
-const NAV_ITEMS = [
-  { id: 'home',     label: 'Home',     icon: 'House' },
-  { id: 'packing',  label: 'Packing',   icon: 'Package' },
-  { id: 'docs',     label: 'Documents', icon: 'FileText' },
-  { id: 'tasks',    label: 'Timeline',  icon: 'CalendarDays' },
-  { id: 'budget',   label: 'Budget',    icon: 'Wallet' },
-  { id: 'shopping', label: 'Shopping',  icon: 'ShoppingCart' },
-  { id: 'housing',  label: 'Housing',   icon: 'Building2' },
-  { id: 'memory',   label: 'Memory',    icon: 'Camera' },
-  { id: 'habits',   label: 'Habits',    icon: 'Target' },
-  { id: 'map',      label: 'Map',       icon: 'Map' },
-  { id: 'people',   label: 'People',    icon: 'Users' },
+const PRIMARY_NAV = [
+  { id: 'home',    label: 'Home',      icon: 'House' },
+  { id: 'packing', label: 'Packing',   icon: 'Package' },
+  { id: 'docs',    label: 'Documents', icon: 'FileText' },
+  { id: 'budget',  label: 'Budget',    icon: 'Wallet' },
 ];
+
+const MORE_NAV = [
+  { id: 'tasks',    label: 'Timeline', icon: 'CalendarDays' },
+  { id: 'shopping', label: 'Shopping', icon: 'ShoppingCart' },
+  { id: 'housing',  label: 'Housing',  icon: 'Building2' },
+  { id: 'memory',   label: 'Memory',   icon: 'Camera' },
+  { id: 'habits',   label: 'Habits',   icon: 'Target' },
+  { id: 'map',      label: 'Map',      icon: 'Map' },
+  { id: 'people',   label: 'People',   icon: 'Users' },
+];
+
+const NAV_ITEMS = [...PRIMARY_NAV, ...MORE_NAV];
 
 function BottomNav({ current, onNavigate }) {
   const [isDesktop, setDesktop] = useState(window.innerWidth >= 640);
   const [playTriggers, setPlayTriggers] = useState({});
+  const [moreOpen, setMoreOpen] = useState(false);
 
   useEffect(() => {
     const mq = window.matchMedia('(min-width: 640px)');
@@ -445,73 +451,162 @@ function BottomNav({ current, onNavigate }) {
     return () => mq.removeEventListener('change', onChange);
   }, []);
 
+  const activeMoreItem = MORE_NAV.find(item => item.id === current);
+  const displayItems = isDesktop ? NAV_ITEMS : PRIMARY_NAV;
+
   return (
-    <div
-      style={{
-        position: 'fixed', bottom: 0, left: 0, right: 0,
-        height: 68,
-        paddingBottom: 'env(safe-area-inset-bottom, 0)',
-        boxSizing: 'content-box',
-        zIndex: 100,
-        background: 'rgba(255,255,255,0.88)',
-        backdropFilter: 'blur(12px)',
-        WebkitBackdropFilter: 'blur(12px)',
-        borderTop: '1px solid var(--line)',
-        display: 'flex', alignItems: 'center',
-        justifyContent: isDesktop ? 'center' : undefined,
-        overflowX: isDesktop ? 'hidden' : 'auto',
-        overflowY: 'hidden',
-        WebkitOverflowScrolling: 'touch',
-        scrollbarWidth: 'none', msOverflowStyle: 'none',
-        gap: isDesktop ? 0 : 2,
-        padding: isDesktop ? '0 16px' : '0 8px',
-      }}
-    >
-      <div style={{
-        display: 'flex', alignItems: 'center',
-        justifyContent: isDesktop ? 'space-evenly' : undefined,
-        gap: isDesktop ? 0 : 2,
-        maxWidth: isDesktop ? 600 : 'none',
-        width: '100%',
-      }}>
-        {NAV_ITEMS.map(item => {
-          const active = current === item.id;
-          return (
+    <>
+      <div
+        style={{
+          position: 'fixed',
+          bottom: isDesktop ? 0 : 'calc(env(safe-area-inset-bottom, 0px) + 12px)',
+          left: isDesktop ? 0 : 12,
+          right: isDesktop ? 0 : 12,
+          height: isDesktop ? 68 : 66,
+          boxSizing: 'border-box',
+          paddingLeft: isDesktop ? 16 : 8,
+          paddingRight: isDesktop ? 16 : 8,
+          paddingBottom: isDesktop ? 'env(safe-area-inset-bottom, 0)' : 0,
+          zIndex: 100,
+          background: 'rgba(255,255,255,0.94)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          borderTop: isDesktop ? '1px solid var(--line)' : 'none',
+          border: isDesktop ? undefined : '1px solid rgba(0,0,0,0.07)',
+          borderRadius: isDesktop ? 0 : 26,
+          boxShadow: isDesktop ? 'none' : '0 8px 32px rgba(0,0,0,0.10), 0 2px 8px rgba(0,0,0,0.05)',
+          display: 'flex', alignItems: 'center',
+          justifyContent: isDesktop ? 'center' : undefined,
+          overflowX: 'hidden',
+          overflowY: 'hidden',
+        }}
+      >
+        <div style={{
+          display: 'flex', alignItems: 'center',
+          justifyContent: 'space-evenly',
+          maxWidth: isDesktop ? 600 : 'none',
+          width: '100%',
+          gap: 0,
+        }}>
+          {displayItems.map(item => {
+            const active = current === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => {
+                  setPlayTriggers(t => ({ ...t, [item.id]: (t[item.id] || 0) + 1 }));
+                  onNavigate(item.id);
+                }}
+                onMouseEnter={() => setPlayTriggers(t => ({ ...t, [item.id]: (t[item.id] || 0) + 1 }))}
+                style={{
+                  display: 'flex', flexDirection: 'column', alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: isDesktop ? 2 : 4,
+                  padding: isDesktop ? '6px 10px' : '7px 10px',
+                  flex: '1 1 0',
+                  border: 'none', cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  background: !isDesktop && active ? 'rgba(196, 113, 74, 0.13)' : 'transparent',
+                  borderRadius: isDesktop ? 0 : 18,
+                  opacity: active ? 1 : (isDesktop ? 0.5 : 0.42),
+                  transition: 'background 0.18s, opacity 0.18s',
+                  WebkitTapHighlightColor: 'transparent',
+                }}
+              >
+                <span style={{
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  color: active ? 'var(--terracotta)' : 'var(--dark)',
+                }}>
+                  <AnimatedIcon name={item.icon} size={isDesktop ? 22 : 26} play={playTriggers[item.id] || 0} />
+                </span>
+                <span style={{
+                  fontSize: isDesktop ? 10 : 11,
+                  fontWeight: active ? 700 : 500,
+                  color: active ? 'var(--terracotta)' : 'var(--muted)',
+                  letterSpacing: '0.01em', whiteSpace: 'nowrap',
+                  lineHeight: 1,
+                }}>{item.label}</span>
+              </button>
+            );
+          })}
+
+          {!isDesktop && (
             <button
-              key={item.id}
-              onClick={() => {
-                setPlayTriggers(t => ({ ...t, [item.id]: (t[item.id] || 0) + 1 }));
-                onNavigate(item.id);
-              }}
-              onMouseEnter={() => setPlayTriggers(t => ({ ...t, [item.id]: (t[item.id] || 0) + 1 }))}
+              onClick={() => setMoreOpen(o => !o)}
               style={{
                 display: 'flex', flexDirection: 'column', alignItems: 'center',
-                gap: 1, padding: isDesktop ? '6px 10px' : '4px 6px',
-                border: 'none', background: 'none', cursor: 'pointer',
-                fontFamily: 'inherit', flex: isDesktop ? '0 1 auto' : '0 0 auto',
-                opacity: active ? 1 : 0.45,
-                transition: 'opacity 0.15s',
+                justifyContent: 'center',
+                gap: 4,
+                padding: '7px 10px',
+                flex: '1 1 0',
+                border: 'none', cursor: 'pointer',
+                fontFamily: 'inherit',
+                background: activeMoreItem ? 'rgba(196, 113, 74, 0.13)' : 'transparent',
+                borderRadius: 18,
+                opacity: activeMoreItem || moreOpen ? 1 : 0.42,
+                transition: 'background 0.18s, opacity 0.18s',
+                WebkitTapHighlightColor: 'transparent',
               }}
             >
-              <span style={{ display: 'inline-flex', color: active ? 'var(--terracotta)' : 'var(--dark)' }}>
-                <AnimatedIcon name={item.icon} size={isDesktop ? 22 : 20} play={playTriggers[item.id] || 0} />
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                color: activeMoreItem ? 'var(--terracotta)' : 'var(--dark)',
+              }}>
+                <AnimatedIcon
+                  name={activeMoreItem ? activeMoreItem.icon : 'LayoutGrid'}
+                  size={26}
+                  play={0}
+                />
               </span>
               <span style={{
-                fontSize: isDesktop ? 10 : 8, fontWeight: 600,
-                color: active ? 'var(--terracotta)' : 'var(--muted)',
+                fontSize: 11, fontWeight: activeMoreItem ? 700 : 500,
+                color: activeMoreItem ? 'var(--terracotta)' : 'var(--muted)',
                 letterSpacing: '0.01em', whiteSpace: 'nowrap',
-              }}>{item.label}</span>
-              {active && (
-                <div style={{
-                  width: 3, height: 3, borderRadius: '50%',
-                  background: 'var(--terracotta)', marginTop: 1,
-                }} />
-              )}
+                lineHeight: 1,
+              }}>{activeMoreItem ? activeMoreItem.label : 'More'}</span>
             </button>
-          );
-        })}
+          )}
+        </div>
       </div>
-    </div>
+
+      {!isDesktop && (
+        <Sheet open={moreOpen} onClose={() => setMoreOpen(false)} title="More">
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(3, 1fr)',
+            gap: 12,
+            padding: '4px 0 8px',
+          }}>
+            {MORE_NAV.map(item => {
+              const active = current === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => { onNavigate(item.id); setMoreOpen(false); }}
+                  style={{
+                    display: 'flex', flexDirection: 'column', alignItems: 'center',
+                    gap: 8, padding: '16px 8px', borderRadius: 16,
+                    background: active ? 'rgba(196, 113, 74, 0.10)' : 'rgba(0,0,0,0.04)',
+                    border: `1.5px solid ${active ? 'rgba(196, 113, 74, 0.3)' : 'transparent'}`,
+                    cursor: 'pointer', fontFamily: 'inherit',
+                    WebkitTapHighlightColor: 'transparent',
+                  }}
+                >
+                  <span style={{ color: active ? 'var(--terracotta)' : 'var(--dark)' }}>
+                    <AnimatedIcon name={item.icon} size={28} play={0} />
+                  </span>
+                  <span style={{
+                    fontSize: 12, fontWeight: active ? 700 : 500,
+                    color: active ? 'var(--terracotta)' : 'var(--dark)',
+                    lineHeight: 1,
+                  }}>{item.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </Sheet>
+      )}
+    </>
   );
 }
 

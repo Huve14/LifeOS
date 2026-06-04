@@ -99,7 +99,7 @@ function createRemoteStore(client: SupabaseClient): SuvedaStore {
         updated_at: new Date().toISOString(),
       });
     },
-    async loadChatMessages(_threadId = 'main') {
+    async loadChatMessages() {
       const { data, error } = await client
         .from('suveda_chat_messages')
         .select('role, text, created_at')
@@ -112,7 +112,7 @@ function createRemoteStore(client: SupabaseClient): SuvedaStore {
 
       return data.map((row) => ({ role: row.role as ChatMessage['role'], text: row.text }));
     },
-    async appendChatMessage(message: ChatMessage, _threadId = 'main') {
+    async appendChatMessage(message: ChatMessage) {
       await client.from('suveda_chat_messages').insert({
         thread_id: getThreadId(),
         role: message.role,
@@ -185,6 +185,7 @@ export function onAuthChange(fn: (user: User | null) => void) {
 }
 
 export async function signUp(email: string, password: string, name: string) {
+  if (!hasConfig) return { data: null, error: new Error('Supabase is not configured.') };
   if (!email || !email.includes('@')) {
     return { data: null, error: new Error('Please enter a valid email address.') };
   }
@@ -205,6 +206,7 @@ export async function signUp(email: string, password: string, name: string) {
 }
 
 export async function signIn(email: string, password: string) {
+  if (!hasConfig) return { data: null, error: new Error('Supabase is not configured.') };
   if (!email || !email.includes('@')) {
     return { data: null, error: new Error('Please enter a valid email address.') };
   }
@@ -216,6 +218,7 @@ export async function signIn(email: string, password: string) {
 }
 
 export async function signOut() {
+  if (!hasConfig) return;
   const client = getAuthClient();
   await client.auth.signOut();
   window.__suvedaUser = null;
@@ -325,7 +328,6 @@ const PHOTO_BUCKET = 'memory-photos';
 
 export async function uploadPhoto(
   file: File,
-  _onProgress?: (pct: number) => void,
 ): Promise<string | null> {
   if (!hasConfig) return null;
   const ext = file.name.split('.').pop() || 'jpg';

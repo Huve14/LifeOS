@@ -14,8 +14,8 @@ import {
 
 beforeEach(() => {
   localStorage.clear();
-  delete (window as any).__suvedaUser;
-  delete (window as any).__suvedaStore;
+  window.__suvedaUser = undefined;
+  window.__suvedaStore = undefined;
 });
 
 describe('initAuth / getCurrentUser', () => {

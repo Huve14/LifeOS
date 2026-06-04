@@ -31,14 +31,13 @@ export function PackingList({ items, onToggle }: PackingListProps) {
 }
 
 export default function Home() {
-  const [items, setItems] = useState<PackingItem[]>(() => samplePacking.map(i => ({ ...i })));
-
-  useEffect(() => {
+  const [items, setItems] = useState<PackingItem[]>(() => {
     const raw = localStorage.getItem('suveda-packing');
     if (raw) {
-      try { setItems(JSON.parse(raw)); } catch { /* safe */ }
+      try { return JSON.parse(raw) as PackingItem[]; } catch { /* safe */ }
     }
-  }, []);
+    return samplePacking.map(i => ({ ...i }));
+  });
 
   useEffect(() => {
     localStorage.setItem('suveda-packing', JSON.stringify(items));
