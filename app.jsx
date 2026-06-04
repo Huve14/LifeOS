@@ -420,23 +420,29 @@ function SuvedaTweaks({ tweaks, setTweak, setView }) {
 }
 
 // ---------- Bottom navigation ----------
-const NAV_ITEMS = [
-  { id: 'home',     label: 'Home',     icon: 'House' },
-  { id: 'packing',  label: 'Packing',   icon: 'Package' },
-  { id: 'docs',     label: 'Documents', icon: 'FileText' },
-  { id: 'tasks',    label: 'Timeline',  icon: 'CalendarDays' },
-  { id: 'budget',   label: 'Budget',    icon: 'Wallet' },
-  { id: 'shopping', label: 'Shopping',  icon: 'ShoppingCart' },
-  { id: 'housing',  label: 'Housing',   icon: 'Building2' },
-  { id: 'memory',   label: 'Memory',    icon: 'Camera' },
-  { id: 'habits',   label: 'Habits',    icon: 'Target' },
-  { id: 'map',      label: 'Map',       icon: 'Map' },
-  { id: 'people',   label: 'People',    icon: 'Users' },
+const PRIMARY_NAV = [
+  { id: 'home',    label: 'Home',      icon: 'House' },
+  { id: 'packing', label: 'Packing',   icon: 'Package' },
+  { id: 'docs',    label: 'Documents', icon: 'FileText' },
+  { id: 'budget',  label: 'Budget',    icon: 'Wallet' },
 ];
+
+const MORE_NAV = [
+  { id: 'tasks',    label: 'Timeline', icon: 'CalendarDays' },
+  { id: 'shopping', label: 'Shopping', icon: 'ShoppingCart' },
+  { id: 'housing',  label: 'Housing',  icon: 'Building2' },
+  { id: 'memory',   label: 'Memory',   icon: 'Camera' },
+  { id: 'habits',   label: 'Habits',   icon: 'Target' },
+  { id: 'map',      label: 'Map',      icon: 'Map' },
+  { id: 'people',   label: 'People',   icon: 'Users' },
+];
+
+const NAV_ITEMS = [...PRIMARY_NAV, ...MORE_NAV];
 
 function BottomNav({ current, onNavigate }) {
   const [isDesktop, setDesktop] = useState(window.innerWidth >= 640);
   const [playTriggers, setPlayTriggers] = useState({});
+  const [moreOpen, setMoreOpen] = useState(false);
 
   useEffect(() => {
     const mq = window.matchMedia('(min-width: 640px)');
@@ -445,80 +451,162 @@ function BottomNav({ current, onNavigate }) {
     return () => mq.removeEventListener('change', onChange);
   }, []);
 
+  const activeMoreItem = MORE_NAV.find(item => item.id === current);
+  const displayItems = isDesktop ? NAV_ITEMS : PRIMARY_NAV;
+
   return (
-    <div
-      style={{
-        position: 'fixed', bottom: 0, left: 0, right: 0,
-        height: isDesktop ? 68 : 80,
-        boxSizing: 'content-box',
-        paddingTop: 0,
-        paddingLeft: isDesktop ? 16 : 4,
-        paddingRight: isDesktop ? 16 : 4,
-        paddingBottom: 'env(safe-area-inset-bottom, 0)',
-        zIndex: 100,
-        background: 'rgba(255,255,255,0.92)',
-        backdropFilter: 'blur(16px)',
-        WebkitBackdropFilter: 'blur(16px)',
-        borderTop: '1px solid var(--line)',
-        display: 'flex', alignItems: 'center',
-        justifyContent: isDesktop ? 'center' : undefined,
-        overflowX: isDesktop ? 'hidden' : 'auto',
-        overflowY: 'hidden',
-        WebkitOverflowScrolling: 'touch',
-        scrollbarWidth: 'none', msOverflowStyle: 'none',
-      }}
-    >
-      <div style={{
-        display: 'flex', alignItems: 'center',
-        justifyContent: isDesktop ? 'space-evenly' : undefined,
-        maxWidth: isDesktop ? 600 : 'none',
-        width: '100%',
-        gap: isDesktop ? 0 : 2,
-      }}>
-        {NAV_ITEMS.map(item => {
-          const active = current === item.id;
-          return (
+    <>
+      <div
+        style={{
+          position: 'fixed', bottom: 0, left: 0, right: 0,
+          height: isDesktop ? 68 : 80,
+          boxSizing: 'content-box',
+          paddingTop: 0,
+          paddingLeft: isDesktop ? 16 : 4,
+          paddingRight: isDesktop ? 16 : 4,
+          paddingBottom: 'env(safe-area-inset-bottom, 0)',
+          zIndex: 100,
+          background: 'rgba(255,255,255,0.92)',
+          backdropFilter: 'blur(16px)',
+          WebkitBackdropFilter: 'blur(16px)',
+          borderTop: '1px solid var(--line)',
+          display: 'flex', alignItems: 'center',
+          justifyContent: isDesktop ? 'center' : undefined,
+          overflowX: isDesktop ? 'hidden' : 'auto',
+          overflowY: 'hidden',
+          WebkitOverflowScrolling: 'touch',
+          scrollbarWidth: 'none', msOverflowStyle: 'none',
+        }}
+      >
+        <div style={{
+          display: 'flex', alignItems: 'center',
+          justifyContent: isDesktop ? 'space-evenly' : undefined,
+          maxWidth: isDesktop ? 600 : 'none',
+          width: '100%',
+          gap: isDesktop ? 0 : 2,
+        }}>
+          {displayItems.map(item => {
+            const active = current === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => {
+                  setPlayTriggers(t => ({ ...t, [item.id]: (t[item.id] || 0) + 1 }));
+                  onNavigate(item.id);
+                }}
+                onMouseEnter={() => setPlayTriggers(t => ({ ...t, [item.id]: (t[item.id] || 0) + 1 }))}
+                style={{
+                  display: 'flex', flexDirection: 'column', alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: isDesktop ? 2 : 3,
+                  padding: isDesktop ? '6px 10px' : '6px 0',
+                  minWidth: isDesktop ? 'auto' : 56,
+                  border: 'none', background: 'none', cursor: 'pointer',
+                  fontFamily: 'inherit', flex: isDesktop ? '0 1 auto' : '1 0 auto',
+                  opacity: active ? 1 : 0.5,
+                  transition: 'opacity 0.15s',
+                  WebkitTapHighlightColor: 'transparent',
+                }}
+              >
+                <span style={{
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  width: isDesktop ? 'auto' : 40, height: isDesktop ? 'auto' : 30,
+                  borderRadius: isDesktop ? 0 : 10,
+                  background: !isDesktop && active ? 'rgba(196, 113, 74, 0.12)' : 'transparent',
+                  color: active ? 'var(--terracotta)' : 'var(--dark)',
+                  transition: 'background 0.15s',
+                }}>
+                  <AnimatedIcon name={item.icon} size={isDesktop ? 22 : 24} play={playTriggers[item.id] || 0} />
+                </span>
+                <span style={{
+                  fontSize: 10, fontWeight: active ? 700 : 500,
+                  color: active ? 'var(--terracotta)' : 'var(--muted)',
+                  letterSpacing: '0.01em', whiteSpace: 'nowrap',
+                  lineHeight: 1,
+                }}>{item.label}</span>
+              </button>
+            );
+          })}
+
+          {!isDesktop && (
             <button
-              key={item.id}
-              onClick={() => {
-                setPlayTriggers(t => ({ ...t, [item.id]: (t[item.id] || 0) + 1 }));
-                onNavigate(item.id);
-              }}
-              onMouseEnter={() => setPlayTriggers(t => ({ ...t, [item.id]: (t[item.id] || 0) + 1 }))}
+              onClick={() => setMoreOpen(o => !o)}
               style={{
                 display: 'flex', flexDirection: 'column', alignItems: 'center',
                 justifyContent: 'center',
-                gap: isDesktop ? 2 : 3,
-                padding: isDesktop ? '6px 10px' : '6px 0',
-                minWidth: isDesktop ? 'auto' : 56,
+                gap: 3,
+                padding: '6px 0',
+                minWidth: 56,
                 border: 'none', background: 'none', cursor: 'pointer',
-                fontFamily: 'inherit', flex: isDesktop ? '0 1 auto' : '1 0 auto',
-                opacity: active ? 1 : 0.5,
+                fontFamily: 'inherit', flex: '1 0 auto',
+                opacity: activeMoreItem || moreOpen ? 1 : 0.5,
                 transition: 'opacity 0.15s',
                 WebkitTapHighlightColor: 'transparent',
               }}
             >
               <span style={{
                 display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                width: isDesktop ? 'auto' : 40, height: isDesktop ? 'auto' : 30,
-                borderRadius: isDesktop ? 0 : 10,
-                background: !isDesktop && active ? 'rgba(196, 113, 74, 0.12)' : 'transparent',
-                color: active ? 'var(--terracotta)' : 'var(--dark)',
+                width: 40, height: 30,
+                borderRadius: 10,
+                background: activeMoreItem ? 'rgba(196, 113, 74, 0.12)' : 'transparent',
+                color: activeMoreItem ? 'var(--terracotta)' : 'var(--dark)',
                 transition: 'background 0.15s',
               }}>
-                <AnimatedIcon name={item.icon} size={isDesktop ? 22 : 24} play={playTriggers[item.id] || 0} />
+                <AnimatedIcon
+                  name={activeMoreItem ? activeMoreItem.icon : 'LayoutGrid'}
+                  size={24}
+                  play={0}
+                />
               </span>
               <span style={{
-                fontSize: 10, fontWeight: active ? 700 : 500,
-                color: active ? 'var(--terracotta)' : 'var(--muted)',
+                fontSize: 10, fontWeight: activeMoreItem ? 700 : 500,
+                color: activeMoreItem ? 'var(--terracotta)' : 'var(--muted)',
                 letterSpacing: '0.01em', whiteSpace: 'nowrap',
                 lineHeight: 1,
-              }}>{item.label}</span>
+              }}>{activeMoreItem ? activeMoreItem.label : 'More'}</span>
             </button>
-          );
-        })}
+          )}
+        </div>
       </div>
-    </div>
+
+      {!isDesktop && (
+        <Sheet open={moreOpen} onClose={() => setMoreOpen(false)} title="More">
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(3, 1fr)',
+            gap: 12,
+            padding: '4px 0 8px',
+          }}>
+            {MORE_NAV.map(item => {
+              const active = current === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => { onNavigate(item.id); setMoreOpen(false); }}
+                  style={{
+                    display: 'flex', flexDirection: 'column', alignItems: 'center',
+                    gap: 8, padding: '16px 8px', borderRadius: 16,
+                    background: active ? 'rgba(196, 113, 74, 0.10)' : 'rgba(0,0,0,0.04)',
+                    border: `1.5px solid ${active ? 'rgba(196, 113, 74, 0.3)' : 'transparent'}`,
+                    cursor: 'pointer', fontFamily: 'inherit',
+                    WebkitTapHighlightColor: 'transparent',
+                  }}
+                >
+                  <span style={{ color: active ? 'var(--terracotta)' : 'var(--dark)' }}>
+                    <AnimatedIcon name={item.icon} size={28} play={0} />
+                  </span>
+                  <span style={{
+                    fontSize: 12, fontWeight: active ? 700 : 500,
+                    color: active ? 'var(--terracotta)' : 'var(--dark)',
+                    lineHeight: 1,
+                  }}>{item.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </Sheet>
+      )}
+    </>
   );
 }
 
