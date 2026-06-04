@@ -134,24 +134,57 @@ function Onboarding({ onDone, initialDate, user }) {
       body: 'Pick a move date so I can build your timeline and remind you about the right things at the right time.',
       cta: 'Set my date',
       content: (
-        <div style={{ marginTop: 18 }}>
-          <input
-            type="date"
-            value={date}
-            onChange={e => setDate(e.target.value)}
-            style={{
-              width: '100%',
-              padding: '14px 16px',
-              border: '1.5px solid var(--line)',
-              borderRadius: 14,
-              background: 'var(--white)',
-              fontSize: 16,
-              fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif',
-              fontWeight: 600,
-              color: 'var(--dark)',
-              outline: 'none',
-            }}
-          />
+        <div style={{
+          marginTop: 18,
+          background: 'var(--white)',
+          borderRadius: 20,
+          padding: '22px 20px',
+          boxShadow: 'var(--shadow-lg)',
+          border: '1px solid var(--line)',
+          maxWidth: 320,
+          margin: '18px auto 0',
+        }}>
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 12,
+            padding: '12px 14px',
+            border: '1.5px solid var(--line)',
+            borderRadius: 14,
+            background: 'var(--cream)',
+          }}>
+            <span style={{ fontSize: 22 }}>📅</span>
+            <input
+              type="date"
+              value={date}
+              onChange={e => setDate(e.target.value)}
+              style={{
+                flex: 1,
+                border: 'none',
+                background: 'transparent',
+                fontSize: 16,
+                fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif',
+                fontWeight: 600,
+                color: 'var(--dark)',
+                outline: 'none',
+                minWidth: 0,
+              }}
+            />
+          </div>
+          {date && (
+            <div style={{
+              marginTop: 14,
+              paddingTop: 14,
+              borderTop: '1px solid var(--line)',
+              display: 'flex', justifyContent: 'space-between',
+              alignItems: 'center',
+            }}>
+              <div style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 500 }}>
+                {Math.ceil((new Date(date + 'T00:00:00') - new Date()) / (1000 * 60 * 60 * 24))} days away
+              </div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--terracotta)' }}>
+                {new Date(date + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+              </div>
+            </div>
+          )}
         </div>
       ),
     },

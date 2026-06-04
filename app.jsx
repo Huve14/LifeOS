@@ -233,7 +233,7 @@ function App() {
       data-density={tweaks.density}
       style={{
         ...appStyle,
-        minHeight: '100%', width: '100%',
+        height: '100%', width: '100%',
         background: 'var(--cream)',
         backgroundImage:
           'radial-gradient(at 20% 0%, rgba(212, 168, 83, 0.10) 0%, transparent 40%),' +
@@ -241,6 +241,7 @@ function App() {
         color: 'var(--dark)',
         position: 'relative',
         paddingTop: 24,
+        paddingBottom: 68,
       }}
     >
       {renderContent()}
@@ -448,7 +449,10 @@ function BottomNav({ current, onNavigate }) {
     <div
       style={{
         position: 'fixed', bottom: 0, left: 0, right: 0,
-        height: 68, zIndex: 100,
+        height: 68,
+        paddingBottom: 'env(safe-area-inset-bottom, 0)',
+        boxSizing: 'content-box',
+        zIndex: 100,
         background: 'rgba(255,255,255,0.88)',
         backdropFilter: 'blur(12px)',
         WebkitBackdropFilter: 'blur(12px)',
@@ -461,7 +465,6 @@ function BottomNav({ current, onNavigate }) {
         scrollbarWidth: 'none', msOverflowStyle: 'none',
         gap: isDesktop ? 0 : 2,
         padding: isDesktop ? '0 16px' : '0 8px',
-        paddingBottom: 'env(safe-area-inset-bottom, 0)',
       }}
     >
       <div style={{
