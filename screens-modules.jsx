@@ -3,7 +3,7 @@
 // ---------- Module page wrapper ----------
 function ModulePage({ title, subtitle, emoji, icon, onBack, children, action }) {
   return (
-    <div className="fade-in" style={{ padding: '14px 18px 100px' }}>
+    <div className="fade-in" style={{ padding: '14px 18px 20px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
         <button
           onClick={onBack}

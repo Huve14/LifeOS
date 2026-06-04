@@ -291,7 +291,7 @@ function Sheet({ open, onClose, title, children, height }) {
           background: 'var(--cream)',
           borderTopLeftRadius: 28, borderTopRightRadius: 28,
           padding: '14px 18px 24px',
-          height: height || 'min(86dvh, 760px)',
+          height: height === 'auto' ? undefined : (height || 'min(86dvh, 760px)'),
           maxHeight: 'calc(100dvh - 16px)',
           overflowY: 'auto',
           display: 'flex', flexDirection: 'column',
@@ -303,7 +303,7 @@ function Sheet({ open, onClose, title, children, height }) {
           borderRadius: 2, margin: '0 auto 14px',
         }} />
         {title && <h2 style={{ fontSize: 22, marginBottom: 14 }}>{title}</h2>}
-        <div style={{ flex: 1, minHeight: 0 }}>{children}</div>
+        <div style={{ flex: height === 'auto' ? undefined : 1, minHeight: 0 }}>{children}</div>
       </div>
     </div>
   );

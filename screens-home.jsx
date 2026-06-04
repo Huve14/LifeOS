@@ -650,7 +650,7 @@ function Dashboard({ state, setState, onModule, onAsk, layout = 'classic', progr
   }
 
   return (
-    <div className="fade-in" style={{ padding: '20px 18px 100px' }}>
+    <div className="fade-in" style={{ padding: '20px 18px 20px' }}>
       {/* Top greeting with Huve's daily check-in */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
         <div>
@@ -965,6 +965,12 @@ function AskHuveSheet({ open, onClose, initialPrompt, context = '' }) {
 
   const isMobile = typeof window !== 'undefined' && window.innerWidth <= 540;
 
+  async function clearChat() {
+    setMessages([]);
+    setHydrated(false);
+    await store?.clearChatMessages?.('main');
+  }
+
   return (
     <Sheet open={open} onClose={onClose} height={isMobile ? '100dvh' : '86dvh'}>
       <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -972,11 +978,42 @@ function AskHuveSheet({ open, onClose, initialPrompt, context = '' }) {
           <div style={{
             width: 44, height: 44, borderRadius: '50%',
             background: 'linear-gradient(135deg, var(--teal) 0%, #1e524f 100%)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22,
-          }}>🌵</div>
-          <div>
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            overflow: 'hidden', padding: 6,
+          }}>
+            <img src="/favicon.svg" alt="Huve" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+          </div>
+          <div style={{ flex: 1 }}>
             <h2 style={{ fontSize: 20 }}>Huve</h2>
-            <div style={{ fontSize: 12, color: 'var(--muted)' }}>Your move-abroad sidekick</div>
+            <div style={{ fontSize: 12, color: 'var(--muted)' }}>Ask me anything about the move</div>
+          </div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            {messages.length > 0 && (
+              <button
+                onClick={clearChat}
+                title="Clear chat"
+                style={{
+                  width: 32, height: 32, borderRadius: '50%',
+                  border: '1px solid var(--line)', background: 'var(--white)',
+                  cursor: 'pointer', fontFamily: 'inherit', fontSize: 11,
+                  fontWeight: 600, color: 'var(--muted)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  WebkitTapHighlightColor: 'transparent',
+                }}
+              >↺</button>
+            )}
+            <button
+              onClick={onClose}
+              title="Close"
+              style={{
+                width: 32, height: 32, borderRadius: '50%',
+                border: '1px solid var(--line)', background: 'var(--white)',
+                cursor: 'pointer', fontFamily: 'inherit', fontSize: 16,
+                color: 'var(--dark)', lineHeight: 1,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                WebkitTapHighlightColor: 'transparent',
+              }}
+            >✕</button>
           </div>
         </div>
 

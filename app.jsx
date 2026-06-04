@@ -570,7 +570,7 @@ function BottomNav({ current, onNavigate }) {
       </div>
 
       {!isDesktop && (
-        <Sheet open={moreOpen} onClose={() => setMoreOpen(false)} title="More">
+        <Sheet open={moreOpen} onClose={() => setMoreOpen(false)} title="More" height="auto">
           <div style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(3, 1fr)',
