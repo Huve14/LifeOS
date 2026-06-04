@@ -14,6 +14,7 @@ type SuvedaStore = {
   saveAppState: (payload: AppSnapshot) => Promise<void>;
   loadChatMessages: (threadId?: string) => Promise<ChatMessage[]>;
   appendChatMessage: (message: ChatMessage, threadId?: string) => Promise<void>;
+  clearChatMessages: (threadId?: string) => Promise<void>;
 };
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL?.trim() ?? '';
@@ -72,6 +73,9 @@ function createFallbackStore(): SuvedaStore {
       const existing = safeLocalRead<ChatMessage[]>(`${LOCAL_CHAT_KEY}:${threadId}`, []);
       safeLocalWrite(`${LOCAL_CHAT_KEY}:${threadId}`, [...existing, message]);
     },
+    async clearChatMessages(threadId = 'main') {
+      safeLocalWrite(`${LOCAL_CHAT_KEY}:${threadId}`, []);
+    },
   };
 }
 
@@ -118,6 +122,12 @@ function createRemoteStore(client: SupabaseClient): SuvedaStore {
         role: message.role,
         text: message.text,
       });
+    },
+    async clearChatMessages() {
+      await client
+        .from('suveda_chat_messages')
+        .delete()
+        .eq('thread_id', getThreadId());
     },
   };
 }

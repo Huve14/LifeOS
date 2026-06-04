@@ -1,0 +1,100 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0.7" y2="1">
+      <stop offset="0%" stop-color="#2A6E6B"/>
+      <stop offset="100%" stop-color="#1E524F"/>
+    </linearGradient>
+    <clipPath id="c">
+      <circle cx="50" cy="50" r="50"/>
+    </clipPath>
+  </defs>
+
+  <!-- Background -->
+  <circle cx="50" cy="50" r="50" fill="url(#bg)"/>
+
+  <!-- Shirt + collar -->
+  <g clip-path="url(#c)">
+    <path d="M -5,100 L -5,78 Q 16,68 34,66 L 42,70 L 50,74 L 58,70 L 66,66 Q 84,68 105,78 L 105,100 Z" fill="#0D0D0D"/>
+    <path d="M 42,70 Q 46,80 50,84 Q 54,80 58,70" fill="none" stroke="#1A1A1A" stroke-width="1.2"/>
+  </g>
+
+  <!-- Neck -->
+  <rect x="44" y="67" width="12" height="10" rx="3" fill="#BF8A52" clip-path="url(#c)"/>
+
+  <!-- Ears -->
+  <ellipse cx="27" cy="57" rx="3.5" ry="5.5" fill="#BF8A52" clip-path="url(#c)"/>
+  <ellipse cx="73" cy="57" rx="3.5" ry="5.5" fill="#BF8A52" clip-path="url(#c)"/>
+  <!-- Ear stud (person's left = our right at x≈27) -->
+  <circle cx="27" cy="62" r="1.8" fill="#D4AF70" clip-path="url(#c)"/>
+
+  <!-- Face -->
+  <ellipse cx="50" cy="55" rx="22" ry="26" fill="#C49060" clip-path="url(#c)"/>
+
+  <!-- Jaw / chin shadow -->
+  <ellipse cx="50" cy="77" rx="16" ry="5" fill="#9E7040" opacity="0.4" clip-path="url(#c)"/>
+
+  <!-- Hair — curly dark mass -->
+  <g clip-path="url(#c)" fill="#16161E">
+    <!-- Side left -->
+    <circle cx="22" cy="52" r="11"/>
+    <circle cx="24" cy="43" r="13"/>
+    <circle cx="27" cy="34" r="12"/>
+    <circle cx="29" cy="26" r="10"/>
+    <!-- Side right -->
+    <circle cx="78" cy="52" r="11"/>
+    <circle cx="76" cy="43" r="13"/>
+    <circle cx="73" cy="34" r="12"/>
+    <circle cx="71" cy="26" r="10"/>
+    <!-- Top dome -->
+    <ellipse cx="50" cy="27" rx="27" ry="22"/>
+    <!-- Top curl clusters -->
+    <circle cx="37" cy="17" r="11"/>
+    <circle cx="50" cy="12" r="12"/>
+    <circle cx="63" cy="17" r="11"/>
+    <!-- Flyaways -->
+    <circle cx="50" cy="5"  r="7"/>
+    <circle cx="36" cy="9"  r="5"/>
+    <circle cx="64" cy="9"  r="5"/>
+    <circle cx="50" cy="18" r="8"/>
+  </g>
+  <!-- Curl highlight/texture -->
+  <g clip-path="url(#c)" fill="#222230" opacity="0.45">
+    <circle cx="43" cy="18" r="6"/>
+    <circle cx="57" cy="15" r="6"/>
+    <circle cx="66" cy="22" r="5"/>
+    <circle cx="35" cy="23" r="5"/>
+    <circle cx="50" cy="22" r="8"/>
+  </g>
+
+  <!-- Eyebrows -->
+  <path d="M 32 45.5 Q 38.5 42 45 44.5" stroke="#0E0E0E" stroke-width="2.1" stroke-linecap="round" fill="none" clip-path="url(#c)"/>
+  <path d="M 55 44.5 Q 61.5 42 68 45.5" stroke="#0E0E0E" stroke-width="2.1" stroke-linecap="round" fill="none" clip-path="url(#c)"/>
+
+  <!-- Left eye -->
+  <ellipse cx="39.5" cy="51.5" rx="6.5" ry="4.5" fill="#EDE7DA" clip-path="url(#c)"/>
+  <circle cx="39.5" cy="51.5" r="4" fill="#1B0D07" clip-path="url(#c)"/>
+  <circle cx="39.5" cy="51.5" r="2.3" fill="#090402" clip-path="url(#c)"/>
+  <circle cx="41"   cy="50"   r="1.2" fill="white" opacity="0.85" clip-path="url(#c)"/>
+  <path d="M 33 51.5 Q 39.5 47 46 51.5" stroke="#111" stroke-width="1.5" fill="none" stroke-linecap="round" clip-path="url(#c)"/>
+
+  <!-- Right eye -->
+  <ellipse cx="60.5" cy="51.5" rx="6.5" ry="4.5" fill="#EDE7DA" clip-path="url(#c)"/>
+  <circle cx="60.5" cy="51.5" r="4" fill="#1B0D07" clip-path="url(#c)"/>
+  <circle cx="60.5" cy="51.5" r="2.3" fill="#090402" clip-path="url(#c)"/>
+  <circle cx="62"   cy="50"   r="1.2" fill="white" opacity="0.85" clip-path="url(#c)"/>
+  <path d="M 54 51.5 Q 60.5 47 67 51.5" stroke="#111" stroke-width="1.5" fill="none" stroke-linecap="round" clip-path="url(#c)"/>
+
+  <!-- Nose -->
+  <path d="M 48 55 Q 46 61 44 64 Q 50 68 56 64 Q 54 61 52 55" fill="#A07040" opacity="0.22" clip-path="url(#c)"/>
+  <ellipse cx="44.5" cy="64" rx="2.5" ry="2" fill="#9A6835" opacity="0.38" clip-path="url(#c)"/>
+  <ellipse cx="55.5" cy="64" rx="2.5" ry="2" fill="#9A6835" opacity="0.38" clip-path="url(#c)"/>
+
+  <!-- Mouth -->
+  <path d="M 43 70.5 Q 50 75 57 70.5" fill="#9A6040" opacity="0.45" clip-path="url(#c)"/>
+  <path d="M 43 70.5 Q 50 74 57 70.5" stroke="#7A4830" stroke-width="1.8" fill="none" stroke-linecap="round" clip-path="url(#c)"/>
+  <path d="M 44 70.5 Q 47 68.5 50 69.5 Q 53 68.5 56 70.5" stroke="#9A5838" stroke-width="1.2" fill="none" stroke-linecap="round" opacity="0.8" clip-path="url(#c)"/>
+
+  <!-- Stubble (goatee) -->
+  <ellipse cx="50" cy="74" rx="9" ry="4.5" fill="#100E08" opacity="0.14" clip-path="url(#c)"/>
+  <ellipse cx="50" cy="71" rx="5"  ry="2"   fill="#100E08" opacity="0.10" clip-path="url(#c)"/>
+</svg>
