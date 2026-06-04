@@ -86,7 +86,7 @@ function MemoryPhotoGrid({
   images = FALLBACK_IMAGES,
   aspectRatio = '3/4',
   maxWidth = 512,
-  gap = 40,
+  gap = 24,
   perspective = 900,
   maxTilt = 70,
   maxBlur = 8,

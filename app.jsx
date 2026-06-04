@@ -401,31 +401,38 @@ function SuvedaTweaks({ tweaks, setTweak, setView }) {
 
 // ---------- Bottom navigation ----------
 const NAV_ITEMS = [
-  { id: 'home',     label: 'Home',     emoji: '🏡' },
-  { id: 'packing',  label: 'Packing',   emoji: '📦' },
-  { id: 'docs',     label: 'Documents', emoji: '📑' },
-  { id: 'tasks',    label: 'Timeline',  emoji: '🗓️' },
-  { id: 'budget',   label: 'Budget',    emoji: '💰' },
-  { id: 'shopping', label: 'Shopping',  emoji: '🛍️' },
-  { id: 'housing',  label: 'Housing',   emoji: '🏠' },
-  { id: 'memory',   label: 'Memory',    emoji: '💭' },
-  { id: 'habits',   label: 'Habits',    emoji: '🎯' },
-  { id: 'map',      label: 'Map',       emoji: '🗺️' },
-  { id: 'people',   label: 'People',    emoji: '👥' },
+  { id: 'home',     label: 'Home',     icon: 'House' },
+  { id: 'packing',  label: 'Packing',   icon: 'Package' },
+  { id: 'docs',     label: 'Documents', icon: 'FileText' },
+  { id: 'tasks',    label: 'Timeline',  icon: 'CalendarDays' },
+  { id: 'budget',   label: 'Budget',    icon: 'Wallet' },
+  { id: 'shopping', label: 'Shopping',  icon: 'ShoppingCart' },
+  { id: 'housing',  label: 'Housing',   icon: 'Building2' },
+  { id: 'memory',   label: 'Memory',    icon: 'Camera' },
+  { id: 'habits',   label: 'Habits',    icon: 'Target' },
+  { id: 'map',      label: 'Map',       icon: 'Map' },
+  { id: 'people',   label: 'People',    icon: 'Users' },
 ];
 
 function BottomNav({ current, onNavigate }) {
   return (
-    <div style={{
-      position: 'fixed', bottom: 0, left: 0, right: 0,
-      height: 68, zIndex: 100,
-      background: 'rgba(255,255,255,0.88)',
-      backdropFilter: 'blur(12px)',
-      WebkitBackdropFilter: 'blur(12px)',
-      borderTop: '1px solid var(--line)',
-      display: 'flex', alignItems: 'center', justifyContent: 'space-around',
-      padding: '0 4px', paddingBottom: 'env(safe-area-inset-bottom, 0)',
-    }}>
+    <div
+      className="nav-scroll-fade"
+      style={{
+        position: 'fixed', bottom: 0, left: 0, right: 0,
+        height: 68, zIndex: 100,
+        background: 'rgba(255,255,255,0.88)',
+        backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
+        borderTop: '1px solid var(--line)',
+        display: 'flex', alignItems: 'center',
+        overflowX: 'auto', overflowY: 'hidden',
+        WebkitOverflowScrolling: 'touch',
+        scrollbarWidth: 'none', msOverflowStyle: 'none',
+        gap: 2, padding: '0 8px',
+        paddingBottom: 'env(safe-area-inset-bottom, 0)',
+      }}
+    >
       {NAV_ITEMS.map(item => {
         const active = current === item.id;
         return (
@@ -434,21 +441,23 @@ function BottomNav({ current, onNavigate }) {
             onClick={() => onNavigate(item.id)}
             style={{
               display: 'flex', flexDirection: 'column', alignItems: 'center',
-              gap: 2, padding: '6px 4px', minWidth: 44,
+              gap: 1, padding: '4px 6px',
               border: 'none', background: 'none', cursor: 'pointer',
-              fontFamily: 'inherit',
+              fontFamily: 'inherit', flex: '0 0 auto',
               opacity: active ? 1 : 0.45,
               transition: 'opacity 0.15s',
             }}
           >
-            <span style={{ fontSize: 22, lineHeight: 1 }}>{item.emoji}</span>
+            <span style={{ display: 'inline-flex', color: active ? 'var(--terracotta)' : 'var(--dark)' }}>
+              <AnimatedIcon name={item.icon} size={20} />
+            </span>
             <span style={{
-              fontSize: 9, fontWeight: 600, color: active ? 'var(--terracotta)' : 'var(--muted)',
-              letterSpacing: '0.02em',
+              fontSize: 8, fontWeight: 600, color: active ? 'var(--terracotta)' : 'var(--muted)',
+              letterSpacing: '0.01em', whiteSpace: 'nowrap',
             }}>{item.label}</span>
             {active && (
               <div style={{
-                width: 4, height: 4, borderRadius: '50%',
+                width: 3, height: 3, borderRadius: '50%',
                 background: 'var(--terracotta)', marginTop: 1,
               }} />
             )}

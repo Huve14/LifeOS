@@ -140,3 +140,14 @@ input, textarea {
 .ai-pulse {
   animation: pulse-ring 2s infinite;
 }
+
+/* Hide scrollbar on bottom nav while keeping it scrollable */
+[data-screen-label="Suveda Move App"] div::-webkit-scrollbar {
+  display: none;
+}
+
+/* Subtle fade edges on scrollable containers */
+.nav-scroll-fade {
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, black 12px, black calc(100% - 12px), transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0%, black 12px, black calc(100% - 12px), transparent 100%);
+}

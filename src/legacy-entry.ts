@@ -114,6 +114,8 @@ async function bootstrap() {
   // @ts-expect-error legacy global JSX modules are injected for compatibility.
   await import('./components/ui/memory-photo-grid.jsx');
   // @ts-expect-error legacy global JSX modules are injected for compatibility.
+  await import('./components/ui/animated-icon.jsx');
+  // @ts-expect-error legacy global JSX modules are injected for compatibility.
   await import('../screens-map.jsx');
   // @ts-expect-error legacy global JSX modules are injected for compatibility.
   await import('../app.jsx');

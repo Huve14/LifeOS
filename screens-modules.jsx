@@ -1,7 +1,7 @@
 // screens-modules.jsx — Packing, Documents, Tasks, Budget, Shopping, Housing
 
 // ---------- Module page wrapper ----------
-function ModulePage({ title, subtitle, emoji, onBack, children, action }) {
+function ModulePage({ title, subtitle, emoji, icon, onBack, children, action }) {
   return (
     <div className="fade-in" style={{ padding: '14px 18px 100px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
@@ -17,7 +17,11 @@ function ModulePage({ title, subtitle, emoji, onBack, children, action }) {
         >‹</button>
         <div style={{ flex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 20 }}>{emoji}</span>
+            {icon ? (
+              <AnimatedIcon name={icon} size={20} style={{ color: 'var(--terracotta)' }} />
+            ) : (
+              <span style={{ fontSize: 20 }}>{emoji}</span>
+            )}
             <h1 style={{ fontSize: 22 }}>{title}</h1>
           </div>
           {subtitle && <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{subtitle}</div>}
@@ -102,7 +106,7 @@ function PackingScreen({ state, setState, onBack, onAsk }) {
     <ModulePage
       title="Packing"
       subtitle={`${packed} of ${totalItems} · ${pct}%`}
-      emoji="📦"
+      icon="Package"
       onBack={onBack}
       action={<Button size="sm" variant="ghost" icon="✨" onClick={() => onAsk(`What might I be forgetting in my ${cur?.label.toLowerCase()}?`, `Suveda's ${cur?.label} packing list: ${cur?.items.map(i => i.name).join(', ')}`)}>AI</Button>}
     >
@@ -267,7 +271,7 @@ function DocumentsScreen({ state, setState, onBack, onAsk }) {
     <ModulePage
       title="Documents"
       subtitle={`${done} of ${state.documents.length} sorted`}
-      emoji="📑"
+      icon="FileText"
       onBack={onBack}
       action={<Button size="sm" variant="ghost" icon="✨" onClick={() => onAsk('What documents do I need to enter UAE on an employment visa?')}>AI</Button>}
     >
@@ -409,7 +413,7 @@ function TasksScreen({ state, setState, onBack }) {
     <ModulePage
       title="Timeline"
       subtitle={`${days} days · ${allDone} of ${state.tasks.length} done`}
-      emoji="🗓️"
+      icon="CalendarDays"
       onBack={onBack}
       action={<Button size="sm" variant="ghost" icon="＋" onClick={() => setAdding(true)}>Add</Button>}
     >
@@ -666,7 +670,7 @@ function BudgetScreen({ state, setState, onBack }) {
     <ModulePage
       title="Budget"
       subtitle={tab === 'monthly' ? `${conv(income).toLocaleString()} ${cur} / mo` : `One-time · ${conv(totalPlanned).toLocaleString()} ${cur}`}
-      emoji="💰"
+      icon="Wallet"
       onBack={onBack}
     >
       {/* Tab toggle */}
@@ -824,7 +828,7 @@ function ShoppingScreen({ state, setState, onBack, onAsk }) {
     <ModulePage
       title="To buy"
       subtitle={`${state.shopping.length} items · ~${total} ZAR`}
-      emoji="🛍️"
+      icon="ShoppingCart"
       onBack={onBack}
       action={<div style={{ display: 'flex', gap: 6 }}>
         <Button size="sm" variant="ghost" icon="🔗" onClick={handleShare}>
@@ -965,7 +969,7 @@ function HousingScreen({ state, setState, onBack, onAsk }) {
     <ModulePage
       title="Housing"
       subtitle={`Al Khalifa City · ${state.housing?.length || 0} saved`}
-      emoji="🏠"
+      icon="Building2"
       onBack={onBack}
       action={
         <div style={{ display: 'flex', gap: 6 }}>
@@ -1140,7 +1144,7 @@ function MemoryScreen({ state, setState, onBack }) {
     <ModulePage
       title="Memory Lane"
       subtitle={`${photos.length} photos · ${ltDone + gbDone} memories`}
-      emoji="💭"
+      icon="Camera"
       onBack={onBack}
       action={
         <div style={{ display: 'flex', gap: 6 }}>
@@ -1180,7 +1184,7 @@ function MemoryScreen({ state, setState, onBack }) {
             <MemoryPhotoGrid images={photos.map(p => p.url)} />
           ) : (
             <div style={{
-              display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6,
+              display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(95px, 1fr))', gap: 6,
             }}>
               {photos.map(p => (
                 <div key={p.id} style={{
@@ -1365,7 +1369,7 @@ function HabitsScreen({ state, setState, onBack }) {
     <ModulePage
       title="Habits"
       subtitle={`${doneToday}/${habits.length} today · ${totalStreak} total streak`}
-      emoji="🎯"
+      icon="Target"
       onBack={onBack}
     >
       {/* Streak summary */}
@@ -1477,7 +1481,7 @@ function ContactsScreen({ state, setState, onBack }) {
     <ModulePage
       title="People"
       subtitle={`${contacts.length} contacts`}
-      emoji="👥"
+      icon="Users"
       onBack={onBack}
     >
       <div style={{ marginBottom: 18, padding: '16px 18px', background: 'var(--white)', borderRadius: 16, boxShadow: 'var(--shadow)', textAlign: 'center' }}>

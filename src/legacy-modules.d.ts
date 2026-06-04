@@ -19,6 +19,8 @@ declare global {
     MapPopup?: any;
     MapControls?: any;
     askHuve?: any;
+    AnimatedIcon?: any;
+    AnimatedNavContainer?: any;
   }
 }
 

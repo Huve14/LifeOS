@@ -327,7 +327,7 @@ function MapScreen({ state, setState, onBack }) {
     <ModulePage
       title="Abu Dhabi Guide"
       subtitle={`${days} days · ${filtered.length} places`}
-      emoji="🗺️"
+      icon="Map"
       onBack={onBack}
       action={
         <Button size="sm" variant="ghost" icon="✨" onClick={() => {
