@@ -46,6 +46,8 @@ const inputStyle = {
 function PackingScreen({ state, setState, onBack, onAsk }) {
   const rooms = state.packing?.rooms || [];
   const [room, setRoom] = React.useState(rooms[0]?.id || '');
+  const [adding, setAdding] = React.useState(false);
+  const [newItem, setNewItem] = React.useState('');
   const cur = rooms.find(r => r.id === room);
   const totalItems = rooms.flatMap(r => r.items || []).length;
   const packed = rooms.flatMap(r => r.items || []).filter(i => i.status === 'packed').length;
