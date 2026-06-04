@@ -241,7 +241,7 @@ function App() {
         color: 'var(--dark)',
         position: 'relative',
         paddingTop: 24,
-        paddingBottom: 'calc(82px + env(safe-area-inset-bottom, 0))',
+        paddingBottom: 'calc(66px + env(safe-area-inset-bottom, 0px) + 16px)',
       }}
     >
       {renderContent()}
@@ -253,7 +253,7 @@ function App() {
           className="ai-pulse"
           style={{
             position: 'fixed',
-            right: 18, bottom: 'calc(env(safe-area-inset-bottom, 0px) + 76px)',
+            right: 18, bottom: 'calc(env(safe-area-inset-bottom, 0px) + 78px)',
             width: 56, height: 56, borderRadius: '50%',
             background: 'linear-gradient(135deg, var(--terracotta) 0%, var(--gold) 100%)',
             color: '#fff', fontSize: 26,
@@ -459,21 +459,21 @@ function BottomNav({ current, onNavigate }) {
       <div
         style={{
           position: 'fixed',
-          bottom: isDesktop ? 0 : 'calc(env(safe-area-inset-bottom, 0px) + 4px)',
+          bottom: 0,
           left: isDesktop ? 0 : 12,
           right: isDesktop ? 0 : 12,
-          height: isDesktop ? 68 : 66,
+          height: isDesktop ? 68 : 'calc(66px + env(safe-area-inset-bottom, 0px))',
           boxSizing: 'border-box',
           paddingLeft: isDesktop ? 16 : 8,
           paddingRight: isDesktop ? 16 : 8,
-          paddingBottom: isDesktop ? 'env(safe-area-inset-bottom, 0)' : 0,
+          paddingBottom: isDesktop ? 'env(safe-area-inset-bottom, 0)' : 'env(safe-area-inset-bottom, 0px)',
           zIndex: 100,
           background: 'rgba(255,255,255,0.94)',
           backdropFilter: 'blur(20px)',
           WebkitBackdropFilter: 'blur(20px)',
           borderTop: isDesktop ? '1px solid var(--line)' : 'none',
           border: isDesktop ? undefined : '1px solid rgba(0,0,0,0.07)',
-          borderRadius: isDesktop ? 0 : 26,
+          borderRadius: isDesktop ? 0 : '26px 26px 16px 16px',
           boxShadow: isDesktop ? 'none' : '0 8px 32px rgba(0,0,0,0.10), 0 2px 8px rgba(0,0,0,0.05)',
           display: 'flex', alignItems: 'center',
           justifyContent: isDesktop ? 'center' : undefined,
