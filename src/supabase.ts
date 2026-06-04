@@ -319,6 +319,77 @@ export async function validateShareToken(token: string): Promise<boolean> {
   return !error && !!data;
 }
 
+// ---------- Storage (photo uploads) ----------
+
+const PHOTO_BUCKET = 'memory-photos';
+
+export async function uploadPhoto(
+  file: File,
+  _onProgress?: (pct: number) => void,
+): Promise<string | null> {
+  if (!hasConfig) return null;
+  const ext = file.name.split('.').pop() || 'jpg';
+  const path = `${getStoreId()}/${Date.now()}.${ext}`;
+  const client = getAuthClient();
+
+  const { data, error } = await client.storage
+    .from(PHOTO_BUCKET)
+    .upload(path, file, {
+      cacheControl: '3600',
+      upsert: false,
+    });
+
+  if (error || !data) {
+    console.error('Upload failed:', error?.message);
+    return null;
+  }
+
+  const { data: { publicUrl } } = client.storage
+    .from(PHOTO_BUCKET)
+    .getPublicUrl(path);
+
+  return publicUrl;
+}
+
+export async function listPhotos(): Promise<string[]> {
+  if (!hasConfig) return [];
+  const client = getAuthClient();
+  const prefix = `${getStoreId()}/`;
+
+  const { data, error } = await client.storage
+    .from(PHOTO_BUCKET)
+    .list(prefix, {
+      sortBy: { column: 'created_at', order: 'desc' },
+    });
+
+  if (error || !data) return [];
+
+  return data
+    .filter(f => f.metadata?.mimetype?.startsWith('image/'))
+    .map(f => {
+      const { data: { publicUrl } } = client.storage
+        .from(PHOTO_BUCKET)
+        .getPublicUrl(`${prefix}${f.name}`);
+      return publicUrl;
+    });
+}
+
+export async function deletePhoto(url: string): Promise<boolean> {
+  if (!hasConfig) return false;
+  const client = getAuthClient();
+
+  // Extract path from public URL
+  const parts = url.split(`${PHOTO_BUCKET}/`);
+  if (parts.length < 2) return false;
+  const path = parts[1].split('?')[0];
+
+  const { error } = await client.storage
+    .from(PHOTO_BUCKET)
+    .remove([path]);
+
+  return !error;
+}
+
 // ---------- Store factory ----------
 
 export function createSuvedaStore() {

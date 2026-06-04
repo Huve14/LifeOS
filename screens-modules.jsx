@@ -1075,8 +1075,12 @@ function HousingScreen({ state, setState, onBack, onAsk }) {
 function MemoryScreen({ state, setState, onBack }) {
   const lastTimes = state.memories?.lastTimes || [];
   const goodbyes = state.memories?.goodbyes || [];
+  const photos = state.memories?.photos || [];
   const ltDone = lastTimes.filter(m => m.done).length;
   const gbDone = goodbyes.filter(g => g.done).length;
+  const [uploading, setUploading] = React.useState(false);
+  const [showPhotos, setShowPhotos] = React.useState(false);
+  const fileRef = React.useRef(null);
 
   function toggle(id, field) {
     setState(s => ({
@@ -1090,13 +1094,166 @@ function MemoryScreen({ state, setState, onBack }) {
     }));
   }
 
+  async function handleUpload(files) {
+    if (!files || !files.length) return;
+    setUploading(true);
+    const urls = [];
+    for (const file of files) {
+      try {
+        const url = await window.__suvedaPhotos?.upload(file);
+        if (url) urls.push({ id: uid(), url, caption: '', createdAt: Date.now() });
+      } catch {}
+    }
+    if (urls.length > 0) {
+      setState(s => ({
+        ...s,
+        memories: {
+          ...s.memories,
+          photos: [...(s.memories?.photos || []), ...urls],
+        },
+      }));
+    }
+    setUploading(false);
+  }
+
+  function removePhoto(id) {
+    setState(s => ({
+      ...s,
+      memories: {
+        ...s.memories,
+        photos: (s.memories?.photos || []).filter(p => p.id !== id),
+      },
+    }));
+  }
+
+  function updateCaption(id, caption) {
+    setState(s => ({
+      ...s,
+      memories: {
+        ...s.memories,
+        photos: (s.memories?.photos || []).map(p => p.id === id ? { ...p, caption } : p),
+      },
+    }));
+  }
+
   return (
     <ModulePage
       title="Memory Lane"
-      subtitle="Before you go"
+      subtitle={`${photos.length} photos · ${ltDone + gbDone} memories`}
       emoji="💭"
       onBack={onBack}
+      action={
+        <div style={{ display: 'flex', gap: 6 }}>
+          <Button size="sm" variant="ghost" icon="📸" onClick={() => fileRef.current?.click()}>
+            {uploading ? 'Uploading…' : 'Add photo'}
+          </Button>
+        </div>
+      }
     >
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        multiple
+        style={{ display: 'none' }}
+        onChange={e => { handleUpload(e.target.files); e.target.value = ''; }}
+      />
+
+      {/* Photo gallery */}
+      {photos.length > 0 && (
+        <div style={{ marginBottom: 20 }}>
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            marginBottom: 12,
+          }}>
+            <SectionHeader title={`📸 Photos  · ${photos.length}`} />
+            <button
+              onClick={() => setShowPhotos(v => !v)}
+              style={{
+                fontSize: 12, fontWeight: 600, color: 'var(--terracotta)',
+                background: 'none', border: 'none', cursor: 'pointer',
+                fontFamily: 'inherit', padding: '4px 12px',
+              }}
+            >{showPhotos ? 'Show grid ↓' : 'Show grid ↓'}</button>
+          </div>
+          {showPhotos ? (
+            <MemoryPhotoGrid images={photos.map(p => p.url)} />
+          ) : (
+            <div style={{
+              display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6,
+            }}>
+              {photos.map(p => (
+                <div key={p.id} style={{
+                  position: 'relative', aspectRatio: '1',
+                  borderRadius: 12, overflow: 'hidden',
+                  background: 'var(--sand)',
+                  cursor: 'pointer',
+                }}
+                  onClick={() => setShowPhotos(true)}
+                  onMouseEnter={e => e.currentTarget.style.opacity = '0.85'}
+                  onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+                >
+                  <img src={p.url} alt={p.caption || 'Memory'} style={{
+                    width: '100%', height: '100%', objectFit: 'cover',
+                  }} />
+                </div>
+              ))}
+              {/* Add more button */}
+              <button
+                onClick={() => fileRef.current?.click()}
+                style={{
+                  aspectRatio: '1', borderRadius: 12,
+                  border: '2px dashed var(--line)',
+                  background: 'none', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 24, color: 'var(--muted)', fontFamily: 'inherit',
+                }}
+              >＋</button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Upload prompt when no photos */}
+      {photos.length === 0 && (
+        <div style={{
+          marginBottom: 20, padding: '30px 20px',
+          background: 'var(--white)',
+          borderRadius: 20, border: '2px dashed var(--line)',
+          textAlign: 'center',
+          cursor: 'pointer',
+        }}
+          onClick={() => fileRef.current?.click()}
+        >
+          <div style={{ fontSize: 40, marginBottom: 8 }}>📸</div>
+          <div style={{ fontFamily: 'DM Sans', fontSize: 15, fontWeight: 700, marginBottom: 4 }}>
+            Upload your memories
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.5 }}>
+            Photos of your favourite spots, the chai shop, Ammachi's kitchen, the park bench.<br />
+            <span style={{ fontWeight: 600, color: 'var(--terracotta)' }}>Tap to add photos</span>
+          </div>
+        </div>
+      )}
+
+      {/* Photo upload bar (shown when user has selected files) */}
+      {uploading && (
+        <div style={{
+          padding: '12px 16px', borderRadius: 12,
+          background: 'var(--sand)', marginBottom: 16,
+          display: 'flex', alignItems: 'center', gap: 10,
+        }}>
+          <div style={{
+            width: 18, height: 18, borderRadius: '50%',
+            border: '2px solid var(--terracotta)',
+            borderTopColor: 'transparent',
+            animation: 'spin 0.6s linear infinite',
+          }} />
+          <span style={{ fontSize: 13, color: 'var(--muted)' }}>Uploading photos…</span>
+        </div>
+      )}
+
+      {/* One last time */}
       <div style={{ marginBottom: 20, padding: '18px 20px', background: 'linear-gradient(135deg, var(--gold)20, var(--terracotta)15)', borderRadius: 20, border: '1px solid var(--line)' }}>
         <div style={{ fontSize: 24, marginBottom: 8 }}>🌅</div>
         <div style={{ fontFamily: 'DM Sans', fontSize: 16, fontWeight: 700, marginBottom: 4 }}>One last time</div>
@@ -1171,12 +1328,11 @@ function MemoryScreen({ state, setState, onBack }) {
         })}
       </div>
 
-      <div style={{ marginTop: 20, padding: '16px 18px', background: 'var(--sand)', borderRadius: 16, textAlign: 'center' }}>
-        <div style={{ fontSize: 28, marginBottom: 6 }}>📸</div>
-        <div style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.5 }}>
-          Take a photo of your favourite spots before you go. The chai shop. Ammachi's kitchen. The park bench.<br />
-          <span style={{ fontWeight: 600, color: 'var(--terracotta)' }}>Abu Dhabi will be home soon — but this place made you.</span>
-        </div>
+      {/* Upload link at bottom */}
+      <div style={{ marginTop: 16 }}>
+        <Button full variant="soft" icon="📸" onClick={() => fileRef.current?.click()}>
+          Upload photos & memories
+        </Button>
       </div>
     </ModulePage>
   );

@@ -14,6 +14,9 @@ import {
   subscribeShoppingItems,
   generateShareToken,
   validateShareToken,
+  uploadPhoto,
+  listPhotos,
+  deletePhoto,
   type SuvedaStore,
 } from './supabase';
 import type { User } from '@supabase/supabase-js';
@@ -68,6 +71,7 @@ window.__suvedaShopping = {
   generateShareToken,
   validateShareToken,
 };
+window.__suvedaPhotos = { upload: uploadPhoto, list: listPhotos, del: deletePhoto };
 
 if (!window.__suvedaDefaults) {
   window.__suvedaDefaults = {
@@ -107,6 +111,8 @@ async function bootstrap() {
   await import('../shared-list.jsx');
   // @ts-expect-error legacy global JSX modules are injected for compatibility.
   await import('./components/ui/map-utils.jsx');
+  // @ts-expect-error legacy global JSX modules are injected for compatibility.
+  await import('./components/ui/memory-photo-grid.jsx');
   // @ts-expect-error legacy global JSX modules are injected for compatibility.
   await import('../screens-map.jsx');
   // @ts-expect-error legacy global JSX modules are injected for compatibility.
