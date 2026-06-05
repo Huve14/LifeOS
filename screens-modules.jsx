@@ -1389,15 +1389,15 @@ function HousingScreen({ state, setState, onBack, onAsk }) {
 
 // ---------- MEMORY LANE (Goodbye module) ----------
 const OUR_STORY_PHOTOS = [
-  { src: '/IMG_8887.jpeg', caption: 'I could look at you forever' },
-  { src: '/IMG_8892.jpeg', caption: 'Always holding on' },
-  { src: '/IMG_8923.jpeg', caption: 'Couldn\'t resist' },
-  { src: '/IMG_8919.jpeg', caption: 'Us before the big move' },
-  { src: '/IMG_8785.jpeg', caption: 'Our ceremony day' },
-  { src: '/IMG_8790.jpeg', caption: 'Making it official' },
-  { src: '/IMG_8798.jpeg', caption: 'Your smile that day' },
-  { src: '/IMG_8960.jpeg', caption: 'We\'re ridiculous' },
-  { src: '/IMG_8962.jpeg', caption: 'My everything' },
+  { src: '/memories-thumb/IMG_8887.jpeg', caption: 'I could look at you forever' },
+  { src: '/memories-thumb/IMG_8892.jpeg', caption: 'Always holding on' },
+  { src: '/memories-thumb/IMG_8923.jpeg', caption: 'Couldn\'t resist' },
+  { src: '/memories-thumb/IMG_8919.jpeg', caption: 'Us before the big move' },
+  { src: '/memories-thumb/IMG_8785.jpeg', caption: 'Our ceremony day' },
+  { src: '/memories-thumb/IMG_8790.jpeg', caption: 'Making it official' },
+  { src: '/memories-thumb/IMG_8798.jpeg', caption: 'Your smile that day' },
+  { src: '/memories-thumb/IMG_8960.jpeg', caption: 'We\'re ridiculous' },
+  { src: '/memories-thumb/IMG_8962.jpeg', caption: 'My everything' },
 ];
 
 function MemoryScreen({ state, setState, onBack }) {
