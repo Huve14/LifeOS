@@ -275,12 +275,11 @@ function Sheet({ open, onClose, title, children, height }) {
     <div
       onClick={onClose}
       style={{
-        position: 'fixed', inset: 0, zIndex: 100,
+        position: 'fixed', inset: 0, zIndex: 200,
         background: 'rgba(30, 30, 30, 0.4)',
         backdropFilter: 'blur(6px)',
         display: 'flex', alignItems: 'flex-end',
         animation: 'fade-in 0.2s ease',
-        padding: '0 0 env(safe-area-inset-bottom)',
       }}
     >
       <div
@@ -290,7 +289,7 @@ function Sheet({ open, onClose, title, children, height }) {
           width: '100%',
           background: 'var(--cream)',
           borderTopLeftRadius: 28, borderTopRightRadius: 28,
-          padding: '14px 18px 24px',
+          padding: '14px 18px calc(20px + env(safe-area-inset-bottom, 0px))',
           height: height === 'auto' ? undefined : (height || 'min(86dvh, 760px)'),
           maxHeight: 'calc(100dvh - 16px)',
           overflowY: 'auto',
