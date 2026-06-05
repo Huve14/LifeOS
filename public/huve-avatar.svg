@@ -1,29 +1,66 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#2A6E6B"/>
-      <stop offset="100%" stop-color="#1A4F4C"/>
+    <linearGradient id="bg" x1="0" y1="0" x2="0.5" y2="1">
+      <stop offset="0%" stop-color="#E6E2DA"/>
+      <stop offset="100%" stop-color="#C8C4BC"/>
     </linearGradient>
     <clipPath id="c"><circle cx="50" cy="50" r="50"/></clipPath>
   </defs>
+
+  <!-- Background — neutral grey like the photo -->
   <circle cx="50" cy="50" r="50" fill="url(#bg)"/>
-  <ellipse cx="50" cy="57" rx="22" ry="26" fill="#C49060" clip-path="url(#c)"/>
-  <path d="M35 54 Q41 50 47 53" stroke="#16100E" stroke-width="3" fill="none" stroke-linecap="round" clip-path="url(#c)"/>
-  <path d="M53 53 Q59 50 65 54" stroke="#16100E" stroke-width="3" fill="none" stroke-linecap="round" clip-path="url(#c)"/>
-  <g clip-path="url(#c)" fill="#18181E">
-    <ellipse cx="22" cy="44" rx="13" ry="19"/>
-    <ellipse cx="78" cy="44" rx="13" ry="19"/>
-    <ellipse cx="50" cy="28" rx="30" ry="23"/>
-    <circle cx="36" cy="15" r="14"/>
-    <circle cx="50" cy="11" r="15"/>
-    <circle cx="64" cy="15" r="14"/>
+
+  <!-- Graduation gown (black) -->
+  <path d="M-5,100 L-5,74 Q14,63 32,61 L40,66 L50,72 L60,66 L68,61 Q86,63 105,74 L105,100 Z" fill="#0D0D0D" clip-path="url(#c)"/>
+
+  <!-- Hood — teal band -->
+  <path d="M14,68 Q50,76 86,68 L86,73 Q50,81 14,73 Z" fill="#2A8B80" clip-path="url(#c)"/>
+  <!-- Hood — maroon inner edge -->
+  <path d="M14,73 Q50,81 86,73 L86,76 Q50,84 14,76 Z" fill="#7A2040" clip-path="url(#c)"/>
+
+  <!-- Shirt collar (white) -->
+  <path d="M44,63 L50,70 L56,63 L54,59 L50,61 L46,59 Z" fill="#DEDAD3" clip-path="url(#c)"/>
+  <!-- Tie (dark grey) -->
+  <path d="M48.5,63 L50,70 L51.5,63 L51,56 L50,57.5 L49,56 Z" fill="#3A3A3A" clip-path="url(#c)"/>
+
+  <!-- Neck -->
+  <rect x="45" y="58" width="10" height="9" rx="3" fill="#BF8C4A" clip-path="url(#c)"/>
+
+  <!-- Face -->
+  <ellipse cx="50" cy="47" rx="18" ry="21" fill="#BF8C4A" clip-path="url(#c)"/>
+
+  <!-- Short dark hair -->
+  <g clip-path="url(#c)" fill="#12100E">
+    <ellipse cx="50" cy="30" rx="18" ry="9"/>
+    <rect x="32" y="28" width="36" height="7"/>
   </g>
-  <ellipse cx="40" cy="62" rx="7.5" ry="5" fill="#180C06" clip-path="url(#c)"/>
-  <ellipse cx="60" cy="62" rx="7.5" ry="5" fill="#180C06" clip-path="url(#c)"/>
-  <circle cx="43" cy="60" r="1.8" fill="rgba(255,255,255,0.55)" clip-path="url(#c)"/>
-  <circle cx="63" cy="60" r="1.8" fill="rgba(255,255,255,0.55)" clip-path="url(#c)"/>
-  <circle cx="47" cy="71" r="2.2" fill="#9A6830" opacity="0.4" clip-path="url(#c)"/>
-  <circle cx="53" cy="71" r="2.2" fill="#9A6830" opacity="0.4" clip-path="url(#c)"/>
-  <path d="M43 76 Q50 81 57 76" stroke="#7A4828" stroke-width="2.2" fill="none" stroke-linecap="round" clip-path="url(#c)"/>
-  <path d="M0,100 L0,89 Q18,81 38,79 L50,85 L62,79 Q82,81 100,89 L100,100 Z" fill="#0D0D0D" clip-path="url(#c)"/>
+
+  <!-- Cap band -->
+  <rect x="34" y="25" width="32" height="7" rx="2" fill="#0A0A0A" clip-path="url(#c)"/>
+  <!-- Mortarboard flat top -->
+  <rect x="22" y="14" width="56" height="13" rx="1" fill="#0A0A0A" clip-path="url(#c)"/>
+  <!-- Subtle top sheen -->
+  <rect x="22" y="14" width="56" height="2.5" rx="1" fill="#1E1E1E" clip-path="url(#c)"/>
+
+  <!-- Tassel cord -->
+  <path d="M77,20 Q79,27 77,37" stroke="#888" stroke-width="1.6" fill="none" stroke-linecap="round" clip-path="url(#c)"/>
+  <circle cx="77" cy="37" r="2.8" fill="#888" clip-path="url(#c)"/>
+
+  <!-- Eyebrows -->
+  <path d="M37 41 Q42 38 47 40" stroke="#120E08" stroke-width="1.8" fill="none" stroke-linecap="round" clip-path="url(#c)"/>
+  <path d="M53 40 Q58 38 63 41" stroke="#120E08" stroke-width="1.8" fill="none" stroke-linecap="round" clip-path="url(#c)"/>
+
+  <!-- Eyes -->
+  <ellipse cx="41" cy="45.5" rx="5" ry="3.5" fill="#120805" clip-path="url(#c)"/>
+  <ellipse cx="59" cy="45.5" rx="5" ry="3.5" fill="#120805" clip-path="url(#c)"/>
+  <circle cx="42.8" cy="44.5" r="1.2" fill="rgba(255,255,255,0.55)" clip-path="url(#c)"/>
+  <circle cx="60.8" cy="44.5" r="1.2" fill="rgba(255,255,255,0.55)" clip-path="url(#c)"/>
+
+  <!-- Nose -->
+  <ellipse cx="46" cy="52" rx="2" ry="1.5" fill="#9A6838" opacity="0.35" clip-path="url(#c)"/>
+  <ellipse cx="54" cy="52" rx="2" ry="1.5" fill="#9A6838" opacity="0.35" clip-path="url(#c)"/>
+
+  <!-- Warm smile -->
+  <path d="M42 57 Q50 64 58 57" stroke="#7A4020" stroke-width="2.2" fill="none" stroke-linecap="round" clip-path="url(#c)"/>
+  <path d="M42 57 Q50 64 58 57 Q52 61.5 48 61.5 Z" fill="#9A5030" opacity="0.35" clip-path="url(#c)"/>
 </svg>
