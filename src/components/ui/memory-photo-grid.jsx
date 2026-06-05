@@ -1,10 +1,6 @@
-import { motion, useScroll, useTransform, useMotionTemplate, useReducedMotion, cubicBezier } from 'framer-motion';
+import { motion, useScroll, useTransform, useMotionTemplate, useReducedMotion } from 'framer-motion';
 
 const { useRef, useMemo, useState, useEffect } = React;
-
-const easeIntoFocus = cubicBezier(0.22, 1, 0.36, 1);
-const easeOutOfFocus = cubicBezier(0, 0, 0.58, 1);
-const focusEase = [easeIntoFocus, easeOutOfFocus];
 
 /* Default placeholder images (Unsplash Abu Dhabi / travel) */
 const FALLBACK_IMAGES = [
@@ -36,28 +32,39 @@ function Tile({ src, side, aspectRatio, maxBlur, maxTilt, perspective, rounded, 
   const reduce = useReducedMotion();
   const sign = side === 'L' ? -1 : 1;
 
-  const blur = useTransform(p, [0, 0.5, 1], [maxBlur, 0, maxBlur], { ease: focusEase });
-  const bright = useTransform(p, [0, 0.5, 1], [0, 1, 0], { ease: focusEase });
-  const contrast = useTransform(p, [0, 0.5, 1], [4, 1, 4], { ease: focusEase });
-  const ty = useTransform(p, [0, 0.5, 1], ['100%', '0%', '-100%'], { ease: focusEase });
-  const tz = useTransform(p, [0, 0.5, 1], [300, 0, 300], { ease: focusEase });
-  const rx = useTransform(p, [0, 0.5, 1], [maxTilt, 0, -maxTilt], { ease: focusEase });
-  const tx = useTransform(p, [0, 0.5, 1], [`${sign * 40}%`, '0%', `${sign * 40}%`], { ease: focusEase });
-  const rot = useTransform(p, [0, 0.5, 1], [-sign * 5, 0, sign * 5], { ease: focusEase });
-  const sk = useTransform(p, [0, 0.5, 1], [sign * 20, 0, -sign * 20], { ease: focusEase });
-  const innerSY = useTransform(p, [0, 0.5, 1], [1.8, 1, 1.8], { ease: focusEase });
-  const filter = useMotionTemplate`blur(${blur}px) brightness(${bright}) contrast(${contrast})`;
+  // Fade via opacity — never go black, smooth enter/exit
+  const opacity = useTransform(p, [0, 0.18, 0.82, 1], [0, 1, 1, 0]);
+
+  // Gentle vertical slide — reduced from 100% to 40%
+  const y = useTransform(p, [0, 0.5, 1], ['40%', '0%', '-40%']);
+
+  // Subtle perspective tilt — reduced from 70° to 22°
+  const rotateX = useTransform(p, [0, 0.5, 1], [maxTilt, 0, -maxTilt]);
+
+  // Small horizontal drift — reduced from 40% to 10%
+  const x = useTransform(p, [0, 0.5, 1], [`${sign * 10}%`, '0%', `${sign * -10}%`]);
+
+  // Slight scale pulse — photo grows as it centres
+  const scale = useTransform(p, [0, 0.5, 1], [0.88, 1, 0.88]);
+
+  // Gentle tilt in plane — reduced from 5° to 3°
+  const rotate = useTransform(p, [0, 0.5, 1], [-sign * 3, 0, sign * 3]);
+
+  // Blur only at extreme edges (not throughout the scroll)
+  const blur = useTransform(p, [0, 0.15, 0.85, 1], [maxBlur, 0, 0, maxBlur]);
+  const filter = useMotionTemplate`blur(${blur}px)`;
+
+  // Inner parallax — background shifts subtly as card scrolls, no scale distortion
+  const innerY = useTransform(p, [0, 1], ['-10%', '10%']);
 
   if (reduce) {
     return (
-      <figure ref={ref} style={{ position: 'relative', zIndex: 10, margin: 0 }}>
-        <div style={{ width: '100%', overflow: 'hidden', aspectRatio, borderRadius: rounded }}>
-          <div style={{
-            position: 'absolute', inset: 0,
-            backgroundSize: 'cover', backgroundPosition: 'center',
-            backgroundImage: `url("${src}")`,
-          }} />
-        </div>
+      <figure ref={ref} style={{ margin: 0, borderRadius: rounded, overflow: 'hidden' }}>
+        <div style={{
+          width: '100%', aspectRatio, overflow: 'hidden', borderRadius: rounded,
+          backgroundSize: 'cover', backgroundPosition: 'center',
+          backgroundImage: `url("${src}")`,
+        }} />
       </figure>
     );
   }
@@ -65,24 +72,25 @@ function Tile({ src, side, aspectRatio, maxBlur, maxTilt, perspective, rounded, 
   return (
     <motion.figure
       ref={ref}
-      style={{ position: 'relative', zIndex: 10, margin: 0, perspective, willChange: 'transform' }}
+      style={{ margin: 0, perspective, willChange: 'auto' }}
     >
       <motion.div
         style={{
           position: 'relative', width: '100%', overflow: 'hidden',
-          willChange: 'filter, transform',
           aspectRatio, borderRadius: rounded,
-          filter, x: tx, y: ty, z: tz, rotate: rot, rotateX: rx, skewX: sk,
+          opacity, y, x, scale, rotate, rotateX, filter,
+          willChange: 'transform, opacity',
+          transformOrigin: 'center center',
         }}
       >
+        {/* Inner div sized larger to allow parallax without white edges */}
         <motion.div
           style={{
-            position: 'absolute', inset: 0,
+            position: 'absolute',
+            top: '-12%', left: 0, right: 0, bottom: '-12%',
             backgroundSize: 'cover', backgroundPosition: 'center',
             backgroundImage: `url("${src}")`,
-            scaleY: innerSY,
-            backfaceVisibility: 'hidden',
-            willChange: 'transform',
+            y: innerY,
           }}
         />
       </motion.div>
@@ -96,18 +104,18 @@ function MemoryPhotoGrid({
   maxWidth = 512,
   gap = 24,
   perspective = 900,
-  maxTilt = 70,
-  maxBlur = 8,
-  rounded = '6px',
+  maxTilt = 22,
+  maxBlur = 5,
+  rounded = '12px',
   className,
 }) {
-  const [cycles, setCycles] = useState(3);
+  const [cycles, setCycles] = useState(2);
   const sentinelRef = useRef(null);
   const wrapperRef = useRef(null);
   const scrollContainerRef = useRef(null);
   const [containerReady, setContainerReady] = useState(false);
+  const imageCount = images.length || FALLBACK_IMAGES.length;
 
-  // Find the actual scrollable ancestor (#root has overflow-y: auto, not window)
   useEffect(() => {
     const parent = getScrollParent(wrapperRef.current) ?? document.getElementById('root');
     if (parent) scrollContainerRef.current = parent;
@@ -118,17 +126,22 @@ function MemoryPhotoGrid({
     const el = sentinelRef.current;
     if (!el) return;
     const obs = new IntersectionObserver(
-      entries => { if (entries.some(e => e.isIntersecting)) setCycles(c => c + 2); },
-      { rootMargin: '1500px 0px 1500px 0px' },
+      entries => {
+        if (entries.some(e => e.isIntersecting)) {
+          setCycles(c => Math.min(c + 1, 5)); // add 1 at a time, cap at 5
+        }
+      },
+      { rootMargin: '500px 0px 500px 0px' },
     );
     obs.observe(el);
     return () => obs.disconnect();
   }, []);
 
+  // Stable keys: key is `cycleIndex-imageIndex` so adding cycles never remounts existing tiles
   const items = useMemo(
     () => images.length > 0
-      ? Array.from({ length: cycles }, () => images).flat()
-      : FALLBACK_IMAGES,
+      ? Array.from({ length: cycles }, (_, c) => images.map((src, i) => ({ src, key: `${c}-${i}` }))).flat()
+      : FALLBACK_IMAGES.map((src, i) => ({ src, key: `0-${i}` })),
     [cycles, images],
   );
 
@@ -138,20 +151,20 @@ function MemoryPhotoGrid({
   );
 
   return (
-    <div ref={wrapperRef} style={{ position: 'relative', width: '100%', ...(className ? {} : {}) }}>
+    <div ref={wrapperRef} style={{ position: 'relative', width: '100%' }}>
       {containerReady && (
         <div style={{
           margin: '0 auto', width: '100%',
-          maxWidth: maxWidth,
+          maxWidth,
           display: 'grid', gridTemplateColumns: '1fr 1fr',
-          gap: gap,
+          gap,
           padding: '0 24px',
-          paddingTop: '20vh', paddingBottom: '20vh',
-          marginTop: '20vh', marginBottom: '10vh',
+          paddingTop: '12vh', paddingBottom: '12vh',
+          marginTop: '8vh', marginBottom: '8vh',
         }}>
-          {items.map((src, i) => (
+          {items.map(({ src, key }, i) => (
             <Tile
-              key={`${i}-${src}`}
+              key={key}
               src={typeof src === 'string' ? src : (src.url || src.src || '')}
               side={i % 2 === 0 ? 'L' : 'R'}
               scrollContainer={scrollContainerRef}
