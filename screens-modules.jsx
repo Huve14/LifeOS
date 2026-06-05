@@ -59,9 +59,9 @@ function PackingScreen({ state, setState, onBack, onAsk }) {
       ...s,
       packing: {
         ...s.packing,
-        rooms: s.packing.rooms.map(r => r.id === room ? {
+        rooms: (s.packing?.rooms || []).map(r => r.id === room ? {
           ...r,
-          items: r.items.map(it => it.id === itemId ? { ...it, status } : it),
+          items: (r.items || []).map(it => it.id === itemId ? { ...it, status } : it),
         } : r),
       },
     }));
@@ -79,9 +79,9 @@ function PackingScreen({ state, setState, onBack, onAsk }) {
       ...s,
       packing: {
         ...s.packing,
-        rooms: s.packing.rooms.map(r => r.id === room ? {
+        rooms: (s.packing?.rooms || []).map(r => r.id === room ? {
           ...r,
-          items: [...r.items, { id: uid(), name, status: 'pending' }],
+          items: [...(r.items || []), { id: uid(), name, status: 'pending' }],
         } : r),
       },
     }));
@@ -94,9 +94,9 @@ function PackingScreen({ state, setState, onBack, onAsk }) {
       ...s,
       packing: {
         ...s.packing,
-        rooms: s.packing.rooms.map(r => r.id === room ? {
+        rooms: (s.packing?.rooms || []).map(r => r.id === room ? {
           ...r,
-          items: r.items.filter(it => it.id !== itemId),
+          items: (r.items || []).filter(it => it.id !== itemId),
         } : r),
       },
     }));
@@ -110,11 +110,11 @@ function PackingScreen({ state, setState, onBack, onAsk }) {
       subtitle={`${packed} of ${totalItems} · ${pct}%`}
       icon="Package"
       onBack={onBack}
-      action={<Button size="sm" variant="ghost" icon="✨" onClick={() => onAsk(`What might I be forgetting in my ${cur?.label.toLowerCase()}?`, `Suveda's ${cur?.label} packing list: ${cur?.items.map(i => i.name).join(', ')}`)}>AI</Button>}
+      action={<Button size="sm" variant="ghost" icon="✨" onClick={() => onAsk(`What might I be forgetting in my ${cur?.label?.toLowerCase()}?`, `Suveda's ${cur?.label} packing list: ${(cur?.items || []).map(i => i.name).join(', ')}`)}>AI</Button>}
     >
       {/* Room tabs */}
       <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 12, marginBottom: 4 }}>
-        {state.packing.rooms.map(r => {
+        {(state.packing?.rooms || []).map(r => {
           const active = r.id === room;
           const done = r.items.filter(i => i.status === 'packed').length;
           const total = r.items.length;
@@ -148,7 +148,7 @@ function PackingScreen({ state, setState, onBack, onAsk }) {
 
       {/* Item list */}
       <Card padding="4px">
-        {cur?.items.map((item, i) => {
+        {cur?.items?.map((item, i) => {
           const isPacked = item.status === 'packed';
           const statusColors = { packed: '#66bb6a', toBuy: 'var(--gold)', missing: 'var(--terracotta)', pending: 'var(--muted)' };
           const statusLabels = { packed: '✓ Packed', toBuy: '🛒 Buy', missing: '❓ Missing', pending: '○ Pending' };
@@ -223,9 +223,9 @@ function PackingScreen({ state, setState, onBack, onAsk }) {
       <div style={{ marginTop: 14, padding: '12px 16px', background: 'var(--white)', borderRadius: 14, boxShadow: 'var(--shadow)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 6 }}>
           <span style={{ fontWeight: 600 }}>{cur?.label}</span>
-          <span style={{ color: 'var(--muted)' }}>{cur?.items.filter(i => i.status === 'packed').length} / {cur?.items.length} done</span>
+          <span style={{ color: 'var(--muted)' }}>{cur?.items?.filter(i => i.status === 'packed').length || 0} / {cur?.items?.length || 0} done</span>
         </div>
-        <ProgressBar value={cur?.items.filter(i => i.status === 'packed').length || 0} total={cur?.items.length || 1} color="var(--terracotta)" height={6} />
+        <ProgressBar value={cur?.items?.filter(i => i.status === 'packed').length || 0} total={cur?.items?.length || 1} color="var(--terracotta)" height={6} />
       </div>
 
       <div style={{ marginTop: 12 }}>
@@ -262,12 +262,12 @@ function DocumentsScreen({ state, setState, onBack, onAsk }) {
   function toggle(id) {
     setState(s => ({
       ...s,
-      documents: s.documents.map(d => d.id === id ? { ...d, status: d.status === 'done' ? 'pending' : 'done' } : d),
+      documents: (s.documents || []).map(d => d.id === id ? { ...d, status: d.status === 'done' ? 'pending' : 'done' } : d),
     }));
   }
 
   function deleteDoc(id) {
-    setState(s => ({ ...s, documents: s.documents.filter(d => d.id !== id) }));
+    setState(s => ({ ...s, documents: (s.documents || []).filter(d => d.id !== id) }));
   }
 
   async function onFileChange(e) {
@@ -419,7 +419,7 @@ function DocumentsScreen({ state, setState, onBack, onAsk }) {
       }}>＋ Add document</button>
 
       {showAdd && (
-        <Modal visible onClose={() => { setShowAdd(false); setNewFileUrl(''); setUploading(false); }}>
+        <Modal open={showAdd} onClose={() => { setShowAdd(false); setNewFileUrl(''); setUploading(false); }}>
           <div style={{ padding: 20 }}>
             <h2 style={{ fontSize: 18, marginBottom: 16 }}>Add document</h2>
             <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Name</label>
@@ -476,7 +476,7 @@ function TasksScreen({ state, setState, onBack }) {
   function toggle(id) {
     setState(s => ({
       ...s,
-      tasks: s.tasks.map(t => t.id === id ? { ...t, status: t.status === 'done' ? 'pending' : 'done' } : t),
+      tasks: (s.tasks || []).map(t => t.id === id ? { ...t, status: t.status === 'done' ? 'pending' : 'done' } : t),
     }));
   }
 
@@ -485,7 +485,7 @@ function TasksScreen({ state, setState, onBack }) {
     if (!text) return;
     setState(s => ({
       ...s,
-      tasks: [...s.tasks, { id: uid(), text, status: 'pending', when: newWhen }],
+      tasks: [...(s.tasks || []), { id: uid(), text, status: 'pending', when: newWhen }],
     }));
     setNewTask('');
     setAdding(false);
@@ -494,7 +494,7 @@ function TasksScreen({ state, setState, onBack }) {
   function removeTask(id) {
     setState(s => ({
       ...s,
-      tasks: s.tasks.filter(t => t.id !== id),
+      tasks: (s.tasks || []).filter(t => t.id !== id),
     }));
   }
 
@@ -686,8 +686,9 @@ function BudgetScreen({ state, setState, onBack }) {
   const FX = 4.5;
   const cur = showZAR ? 'ZAR' : 'AED';
   const conv = (v) => showZAR ? Math.round(v * FX) : v;
-  const totalPlanned = state.budget.categories.reduce((a, c) => a + c.planned, 0);
-  const totalSpent = state.budget.categories.reduce((a, c) => a + c.spent, 0);
+  const cats = state.budget?.categories || [];
+  const totalPlanned = cats.reduce((a, c) => a + (c.planned || 0), 0);
+  const totalSpent = cats.reduce((a, c) => a + (c.spent || 0), 0);
   const fx = state.budget.fxToUSD || 0.272;
 
   function addMonthlyCategory() {
@@ -748,7 +749,7 @@ function BudgetScreen({ state, setState, onBack }) {
       ...s,
       budget: {
         ...s.budget,
-        categories: s.budget.categories.map(c =>
+        categories: (s.budget?.categories || []).map(c =>
           c.id === catId ? { ...c, spent: Math.max(0, Math.min(c.planned, c.spent + delta)) } : c
         ),
       },
@@ -939,7 +940,7 @@ function BudgetScreen({ state, setState, onBack }) {
             </div>
           </Card>
 
-          {state.budget.categories.map(c => {
+          {cats.map(c => {
             const isSABIS = ['visa', 'deposit'].includes(c.id);
             const isDefault = ['shipping', 'visa', 'deposit', 'buffer'].includes(c.id);
             return (
@@ -1025,14 +1026,15 @@ function ShoppingScreen({ state, setState, onBack, onAsk }) {
   const [newName, setNewName] = React.useState('');
   const [newCat, setNewCat] = React.useState('Essentials');
   const [newPrice, setNewPrice] = React.useState('');
-  const cats = ['all', ...new Set(state.shopping.map(s => s.cat))];
-  const list = filter === 'all' ? state.shopping : state.shopping.filter(s => s.cat === filter);
-  const total = state.shopping.reduce((a, s) => a + (s.price || 0), 0);
+  const items = state.shopping || [];
+  const cats = ['all', ...new Set(items.map(s => s.cat))];
+  const list = filter === 'all' ? items : items.filter(s => s.cat === filter);
+  const total = items.reduce((a, s) => a + (s.price || 0), 0);
 
   function toggle(id) {
     setState(s => ({
       ...s,
-      shopping: s.shopping.map(it => it.id === id ? { ...it, status: it.status === 'packed' ? 'toBuy' : 'packed' } : it),
+      shopping: (s.shopping || []).map(it => it.id === id ? { ...it, status: it.status === 'packed' ? 'toBuy' : 'packed' } : it),
     }));
   }
 
@@ -1074,7 +1076,7 @@ function ShoppingScreen({ state, setState, onBack, onAsk }) {
   return (
     <ModulePage
       title="To buy"
-      subtitle={`${state.shopping.length} items · ~${total} ZAR`}
+      subtitle={`${items.length} items · ~${total} ZAR`}
       icon="ShoppingCart"
       onBack={onBack}
       action={<div style={{ display: 'flex', gap: 6 }}>
@@ -1115,7 +1117,7 @@ function ShoppingScreen({ state, setState, onBack, onAsk }) {
                 }}>{item.name}</div>
                 <div style={{ display: 'flex', gap: 8, fontSize: 11, color: 'var(--muted)', marginTop: 3 }}>
                   <span>{item.cat}</span>
-                  {item.price && <><span>·</span><span>{item.price} ZAR</span></>}
+                  {item.price != null && <><span>·</span><span>{item.price} ZAR</span></>}
                 </div>
               </div>
               {item.status !== 'packed' && <Badge status={item.status} size="sm" />}
@@ -1736,10 +1738,11 @@ function HabitsScreen({ state, setState, onBack }) {
       habits: (s.habits || []).map(h => {
         if (h.id !== id) return h;
         const already = h.lastDone === today;
-        const newStreak = already ? h.streak - 1 : (h.streak || 0) + 1;
+        const curStreak = h.streak || 0;
+        const newStreak = already ? Math.max(0, curStreak - 1) : curStreak + 1;
         return {
           ...h,
-          streak: Math.max(0, newStreak),
+          streak: newStreak,
           lastDone: already ? '' : today,
         };
       }),

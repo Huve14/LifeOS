@@ -416,8 +416,8 @@ function MapScreen({ state, setState, onBack }) {
       onBack={onBack}
       action={
         <Button size="sm" variant="ghost" icon="✨" onClick={() => {
-          const best = ABU_DHABI_LOCATIONS.find(l => l.id === 'louvre' || l.id === 'grand-mosque');
-          if (best) setSelected(best);
+          const pick = ABU_DHABI_LOCATIONS[Math.floor(Math.random() * ABU_DHABI_LOCATIONS.length)];
+          if (pick) setSelected(pick);
         }}>Suggest</Button>
       }
     >

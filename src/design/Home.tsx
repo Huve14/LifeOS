@@ -32,7 +32,8 @@ export function PackingList({ items, onToggle }: PackingListProps) {
 
 export default function Home() {
   const [items, setItems] = useState<PackingItem[]>(() => {
-    const raw = localStorage.getItem('suveda-packing');
+    let raw: string | null = null;
+    try { raw = localStorage.getItem('suveda-packing'); } catch { /* safe */ }
     if (raw) {
       try { return JSON.parse(raw) as PackingItem[]; } catch { /* safe */ }
     }
@@ -40,7 +41,7 @@ export default function Home() {
   });
 
   useEffect(() => {
-    localStorage.setItem('suveda-packing', JSON.stringify(items));
+    try { localStorage.setItem('suveda-packing', JSON.stringify(items)); } catch { /* safe */ }
   }, [items]);
 
   function toggle(id: string) {
