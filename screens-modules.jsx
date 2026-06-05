@@ -1569,6 +1569,23 @@ const OUR_STORY_PHOTOS = [
   { src: '/memories-thumb/IMG_8798.jpeg', caption: 'Your smile that day' },
   { src: '/memories-thumb/IMG_8960.jpeg', caption: 'We\'re ridiculous' },
   { src: '/memories-thumb/IMG_8962.jpeg', caption: 'My everything' },
+  { src: '/memories-thumb/IMG_8519.jpeg', caption: 'The day it all began' },
+  { src: '/memories-thumb/IMG_8450.jpeg', caption: 'Always stealing kisses' },
+  { src: '/memories-thumb/IMG_0107.jpeg', caption: 'My favourite place, with you' },
+  { src: '/memories-thumb/IMG_1357.jpeg', caption: 'My favourite version of you' },
+  { src: '/memories-thumb/IMG_0796.jpeg', caption: 'Just us, always' },
+  { src: '/memories-thumb/IMG_8095.jpeg', caption: 'That smile could stop time' },
+  { src: '/memories-thumb/IMG_6701.jpeg', caption: 'Getting ready to steal the night' },
+  { src: '/memories-thumb/IMG_3342.jpeg', caption: 'You love everything you meet' },
+  { src: '/memories-thumb/IMG_2331.jpeg', caption: 'Your birthday glow' },
+  { src: '/memories-thumb/IMG_1751.jpeg', caption: 'Never letting you go' },
+  { src: '/memories-thumb/IMG_0152.jpeg', caption: 'Even casual, you take my breath away' },
+  { src: '/memories-thumb/ac94a93e-992d-46c0-803d-8828f47742cc.jpeg', caption: 'Our song came on' },
+  { src: '/memories-thumb/c4f16d90-0d6a-4600-b7b6-9ef810527818.jpeg', caption: 'Caught you laughing' },
+  { src: '/memories-thumb/798f70e7-f10a-46fb-8b9d-dd3bddd30f9f.jpeg', caption: 'The little pout I love' },
+  { src: '/memories-thumb/09b9ab63-2c4c-401d-8440-0d93b5d90df8.jpeg', caption: 'You make anything look stunning' },
+  { src: '/memories-thumb/2c8b60a8-0a75-469f-be23-bd2f4b8844aa.jpeg', caption: 'You never miss' },
+  { src: '/memories-thumb/57f105c5-9938-43d9-b862-6f3c2a53077b.jpeg', caption: 'Can\'t stop staring' },
 ];
 
 function MemoryScreen({ state, setState, onBack }) {
