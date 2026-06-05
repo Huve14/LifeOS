@@ -670,22 +670,11 @@ function Dashboard({ state, setState, onModule, onAsk, layout = 'classic', progr
             }}
             title="Export data"
           >📥</button>
-          <div style={{
-            width: 44, height: 44, borderRadius: '50%', overflow: 'hidden',
-            background: 'linear-gradient(135deg, var(--terracotta) 0%, var(--gold) 100%)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: 'var(--shadow)',
-          }}>
-            <svg viewBox="0 0 200 170" width="38" height="38">
-              <rect width="200" height="170" rx="0" fill="none"/>
-              <circle cx="150" cy="46" r="19" fill="#FAF7F2" opacity="0.9"/>
-              <circle cx="150" cy="46" r="19" fill="none" stroke="#fff" stroke-width="1" opacity="0.3"/>
-              <g><rect x="67" y="110" width="66" height="9" fill="#B9851F"/><ellipse cx="100" cy="119" rx="33" ry="10.5" fill="#B9851F"/><ellipse cx="100" cy="110" rx="33" ry="10.5" fill="#FAF7F2" opacity="0.9"/></g>
-              <g><rect x="67" y="96" width="66" height="9" fill="#B9851F"/><ellipse cx="100" cy="105" rx="33" ry="10.5" fill="#B9851F"/><ellipse cx="100" cy="96" rx="33" ry="10.5" fill="#FAF7F2" opacity="0.9"/></g>
-              <g><rect x="67" y="82" width="66" height="9" fill="#B9851F"/><ellipse cx="100" cy="91" rx="33" ry="10.5" fill="#B9851F"/><ellipse cx="100" cy="82" rx="33" ry="10.5" fill="#FAF7F2" opacity="0.9"/></g>
-              <path d="M0 150 C 30 132 60 134 80 142 C 96 148 112 150 128 144 C 150 136 168 138 200 132 L 200 170 L 0 170 Z" fill="#1E524F" opacity="0.4"/>
-            </svg>
-          </div>
+          <img
+            src="/logo-mark.svg"
+            width="44" height="44" alt="Suveda"
+            style={{ borderRadius: 12, boxShadow: 'var(--shadow)', display: 'block' }}
+          />
         </div>
       </div>
 
