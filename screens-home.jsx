@@ -976,7 +976,7 @@ function AskHuveSheet({ open, onClose, initialPrompt, context = '' }) {
       <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14, flexShrink: 0 }}>
           <img
-            src="/huve-avatar.svg"
+            src="/huve-avatar.jpg"
             alt="Huve"
             style={{ width: 44, height: 44, borderRadius: '50%', flexShrink: 0 }}
           />
