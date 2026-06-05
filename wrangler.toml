@@ -1,4 +1,4 @@
-name = "suveda-proxy"
+name = "life-hs"
 main = "worker/index.js"
 compatibility_date = "2025-01-01"
 
