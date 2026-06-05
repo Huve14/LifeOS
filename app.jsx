@@ -261,7 +261,7 @@ function App() {
             boxShadow: '0 8px 24px -6px rgba(196, 113, 74, 0.55), 0 4px 10px rgba(0,0,0,0.1)',
             zIndex: 50, border: 'none', cursor: 'pointer',
           }}
-        ><img src="/huve-avatar.svg" width="42" height="42" alt="Huve" style={{ borderRadius: '50%' }} /></button>
+        ><img src="/huve-avatar.jpg" width="42" height="42" alt="Huve" style={{ borderRadius: '50%' }} /></button>
       )}
 
       {/* Bottom navigation (hidden during onboarding) */}
