@@ -1,6 +1,6 @@
-# Suveda · Moving to Abu Dhabi
+Moving Abroad
 
-A warm, opinionated companion for moving abroad — built for Suveda's move from South Africa to Al Khalifa City, Abu Dhabi.
+A warm, opinionated companion for moving abroad — built for Users move from South Africa to Al Khalifa City, Abu Dhabi.
 
 ## Features
 
