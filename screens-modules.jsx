@@ -1388,6 +1388,18 @@ function HousingScreen({ state, setState, onBack, onAsk }) {
 }
 
 // ---------- MEMORY LANE (Goodbye module) ----------
+const OUR_STORY_PHOTOS = [
+  { src: '/IMG_8887.jpeg', caption: 'I could look at you forever' },
+  { src: '/IMG_8892.jpeg', caption: 'Always holding on' },
+  { src: '/IMG_8923.jpeg', caption: 'Couldn\'t resist' },
+  { src: '/IMG_8919.jpeg', caption: 'Us before the big move' },
+  { src: '/IMG_8785.jpeg', caption: 'Our ceremony day' },
+  { src: '/IMG_8790.jpeg', caption: 'Making it official' },
+  { src: '/IMG_8798.jpeg', caption: 'Your smile that day' },
+  { src: '/IMG_8960.jpeg', caption: 'We\'re ridiculous' },
+  { src: '/IMG_8962.jpeg', caption: 'My everything' },
+];
+
 function MemoryScreen({ state, setState, onBack }) {
   const lastTimes = state.memories?.lastTimes || [];
   const goodbyes = state.memories?.goodbyes || [];
@@ -1396,6 +1408,7 @@ function MemoryScreen({ state, setState, onBack }) {
   const gbDone = goodbyes.filter(g => g.done).length;
   const [uploading, setUploading] = React.useState(false);
   const [showPhotos, setShowPhotos] = React.useState(false);
+  const [showFilmReel, setShowFilmReel] = React.useState(false);
   const fileRef = React.useRef(null);
 
   function toggle(id, field) {
@@ -1455,7 +1468,7 @@ function MemoryScreen({ state, setState, onBack }) {
   return (
     <ModulePage
       title="Memory Lane"
-      subtitle={`${photos.length} photos · ${ltDone + gbDone} memories`}
+      subtitle={`${OUR_STORY_PHOTOS.length + photos.length} photos · ${ltDone + gbDone} memories`}
       icon="Camera"
       onBack={onBack}
       action={
@@ -1474,6 +1487,62 @@ function MemoryScreen({ state, setState, onBack }) {
         style={{ display: 'none' }}
         onChange={e => { handleUpload(e.target.files); e.target.value = ''; }}
       />
+
+      {/* Our Story — permanent couple photos */}
+      <div style={{ marginBottom: 28 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+          <SectionHeader title="Our Story" />
+          <button
+            onClick={() => setShowFilmReel(v => !v)}
+            style={{
+              fontSize: 12, fontWeight: 600, color: 'var(--terracotta)',
+              background: 'none', border: 'none', cursor: 'pointer',
+              fontFamily: 'inherit', padding: '4px 12px',
+            }}
+          >{showFilmReel ? 'Close film ↑' : 'Play as film reel ↓'}</button>
+        </div>
+        <p style={{ margin: '0 0 12px', fontSize: 13, color: 'var(--muted)', lineHeight: 1.5 }}>
+          The moments that made us, us.
+        </p>
+
+        {showFilmReel ? (
+          <MemoryPhotoGrid images={OUR_STORY_PHOTOS.map(p => p.src)} />
+        ) : (
+          <div style={{
+            display: 'flex', gap: 10,
+            overflowX: 'auto', scrollbarWidth: 'none',
+            WebkitOverflowScrolling: 'touch',
+            margin: '0 -20px', padding: '4px 20px 8px',
+          }}>
+            {OUR_STORY_PHOTOS.map((photo, i) => (
+              <div
+                key={i}
+                style={{
+                  flexShrink: 0, width: 148,
+                  borderRadius: 16, overflow: 'hidden',
+                  position: 'relative',
+                  boxShadow: '0 4px 16px rgba(0,0,0,0.14)',
+                  cursor: 'pointer',
+                }}
+                onClick={() => setShowFilmReel(true)}
+              >
+                <img
+                  src={photo.src}
+                  alt={photo.caption}
+                  style={{ width: '100%', height: 196, objectFit: 'cover', display: 'block' }}
+                />
+                <div style={{
+                  position: 'absolute', bottom: 0, left: 0, right: 0,
+                  background: 'linear-gradient(transparent, rgba(10,28,26,0.72))',
+                  padding: '28px 10px 10px',
+                  color: 'white', fontSize: 11, fontWeight: 500, lineHeight: 1.4,
+                  fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif',
+                }}>{photo.caption}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Photo gallery */}
       {photos.length > 0 && (
