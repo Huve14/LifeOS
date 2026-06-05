@@ -32,7 +32,7 @@ describe('store', () => {
     const state = await loadState();
     expect(state.envelopes.length).toBe(5);
     expect(state.incomeEntries.length).toBe(1);
-    expect(state.incomeEntries[0].source).toBe('M2M Salary');
+    expect(state.incomeEntries[0].source).toBe('SABIS Salary');
     expect(state.incomeEntries[0].amount).toBe(8800);
     expect(state.periods[0].currency).toBe('AED');
   });
