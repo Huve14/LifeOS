@@ -45,26 +45,22 @@ export function seedState(): BudgetState {
     schemaVersion: CURRENT_SCHEMA_VERSION,
     activePeriodId: 'period-1',
     periods: [
-      { id: 'period-1', label: `${y}-${m}`, startDate, endDate, currency: 'ZAR', currencySymbol: 'R' },
+      { id: 'period-1', label: `${y}-${m}`, startDate, endDate, currency: 'AED', currencySymbol: 'د.إ' },
     ],
     incomeEntries: [
-      { id: 'income-1', source: 'M2M Salary', amount: 28000, received: true, periodId: 'period-1' },
+      { id: 'income-1', source: 'M2M Salary', amount: 8800, received: true, periodId: 'period-1' },
     ],
     envelopes: [
-      { id: 'env-1', name: 'Rent & Bond', icon: '🏠', allocated: 9500, spent: 0, rollover: 0, rolloverEnabled: false, periodId: 'period-1' },
-      { id: 'env-2', name: 'Groceries', icon: '🛒', allocated: 3000, spent: 0, rollover: 0, rolloverEnabled: false, periodId: 'period-1' },
-      { id: 'env-3', name: 'Transport', icon: '🚗', allocated: 2000, spent: 0, rollover: 0, rolloverEnabled: false, periodId: 'period-1' },
-      { id: 'env-4', name: 'Utilities', icon: '⚡', allocated: 1500, spent: 0, rollover: 0, rolloverEnabled: false, periodId: 'period-1' },
-      { id: 'env-5', name: 'UAE Relocation Fund', icon: '✈️', allocated: 5000, spent: 0, rollover: 0, rolloverEnabled: true, periodId: 'period-1' },
-      { id: 'env-6', name: 'Emergency Fund', icon: '🛡️', allocated: 2000, spent: 0, rollover: 0, rolloverEnabled: true, periodId: 'period-1' },
-      { id: 'env-7', name: 'ClearScan Development', icon: '💻', allocated: 3000, spent: 0, rollover: 0, rolloverEnabled: true, periodId: 'period-1' },
-      { id: 'env-8', name: 'Personal/Leisure', icon: '🎮', allocated: 1500, spent: 0, rollover: 0, rolloverEnabled: false, periodId: 'period-1' },
-      { id: 'env-9', name: 'Education & Certs', icon: '📚', allocated: 1200, spent: 0, rollover: 0, rolloverEnabled: false, periodId: 'period-1' },
+      { id: 'env-1', name: 'Utilities + Internet', icon: '⚡', allocated: 500, spent: 0, rollover: 0, rolloverEnabled: false, periodId: 'period-1' },
+      { id: 'env-2', name: 'Food & Groceries', icon: '🍽️', allocated: 1200, spent: 0, rollover: 0, rolloverEnabled: false, periodId: 'period-1' },
+      { id: 'env-3', name: 'Life & Fun', icon: '🎮', allocated: 700, spent: 0, rollover: 0, rolloverEnabled: false, periodId: 'period-1' },
+      { id: 'env-4', name: 'Savings', icon: '💰', allocated: 1500, spent: 0, rollover: 0, rolloverEnabled: true, periodId: 'period-1' },
+      { id: 'env-5', name: 'First-month buffer', icon: '🌙', allocated: 2500, spent: 0, rollover: 0, rolloverEnabled: false, periodId: 'period-1' },
     ],
     transactions: [],
     savingsGoals: [],
     exchangeRates: [
-      { fromCurrency: 'ZAR', toCurrency: 'AED', rate: 0.205, isEstimated: true, lastUpdated: new Date().toISOString() },
+      { fromCurrency: 'AED', toCurrency: 'ZAR', rate: 4.878, isEstimated: true, lastUpdated: new Date().toISOString() },
     ],
   };
 }

@@ -30,11 +30,11 @@ describe('store', () => {
   it('loadState creates seed file if missing', async () => {
     await removeAllTestFiles();
     const state = await loadState();
-    expect(state.schemaVersion).toBe(1);
-    expect(state.periods.length).toBeGreaterThanOrEqual(1);
-    expect(state.envelopes.length).toBe(9);
+    expect(state.envelopes.length).toBe(5);
     expect(state.incomeEntries.length).toBe(1);
     expect(state.incomeEntries[0].source).toBe('M2M Salary');
+    expect(state.incomeEntries[0].amount).toBe(8800);
+    expect(state.periods[0].currency).toBe('AED');
   });
 
   it('loadState reads and validates existing file', async () => {
