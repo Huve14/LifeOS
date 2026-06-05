@@ -667,14 +667,16 @@ function TasksScreen({ state, setState, onBack }) {
 const MONTHLY_BUDGET = window.MONTHLY_BUDGET;
 
 function BudgetScreen({ state, setState, onBack }) {
-  const [tab, setTab] = React.useState('monthly');
+  const [tab, setTab] = React.useState('overview');
   const monthly = state.budget.monthly || MONTHLY_BUDGET;
   const income = state.budget.monthlyIncome || 8800;
   const totalFixed = monthly.filter(c => c.fixed).reduce((a, c) => a + (c.planned || 0), 0);
   const totalSpentMonthly = monthly.reduce((a, c) => a + (c.spent || 0), 0);
   const totalPlannedMonthly = monthly.reduce((a, c) => a + (c.planned || 0), 0);
   const remainingMonthly = income - totalSpentMonthly;
-  const savingsPct = Math.round(((monthly.find(c => c.id === 'savings')?.planned || 1500) / income) * 100);
+  const savingsCat = monthly.find(c => c.id === 'savings');
+  const savingsPlanned = savingsCat?.planned || 1500;
+  const savingsPct = Math.round((savingsPlanned / income) * 100);
 
   const [showZAR, setShowZAR] = React.useState(false);
   const [addingMonthly, setAddingMonthly] = React.useState(false);
@@ -687,9 +689,20 @@ function BudgetScreen({ state, setState, onBack }) {
   const cur = showZAR ? 'ZAR' : 'AED';
   const conv = (v) => showZAR ? Math.round(v * FX) : v;
   const cats = state.budget?.categories || [];
-  const totalPlanned = cats.reduce((a, c) => a + (c.planned || 0), 0);
-  const totalSpent = cats.reduce((a, c) => a + (c.spent || 0), 0);
-  const fx = state.budget.fxToUSD || 0.272;
+  const totalMovePlanned = cats.reduce((a, c) => a + (c.planned || 0), 0);
+  const totalMoveSpent = cats.reduce((a, c) => a + (c.spent || 0), 0);
+  const movePct = totalMovePlanned > 0 ? Math.round((totalMoveSpent / totalMovePlanned) * 100) : 0;
+
+  const spentPct = income > 0 ? Math.round((totalSpentMonthly / income) * 100) : 0;
+  const remainingPct = income > 0 ? Math.round(((income - totalSpentMonthly) / income) * 100) : 0;
+  const totalBudgeted = monthly.reduce((a, c) => a + (c.planned || 0), 0);
+  const unallocated = income - totalBudgeted;
+  const healthScore = (() => {
+    if (totalSpentMonthly > income) return { label: 'Over budget', color: 'var(--terracotta)', pct: 25 };
+    if (savingsPct >= 15) return { label: 'Great', color: '#66bb6a', pct: 90 };
+    if (savingsPct >= 10) return { label: 'Good', color: 'var(--gold)', pct: 70 };
+    return { label: 'Low savings', color: 'var(--terracotta)', pct: 40 };
+  })();
 
   function addMonthlyCategory() {
     const label = newLabel.trim();
@@ -720,7 +733,7 @@ function BudgetScreen({ state, setState, onBack }) {
       ...s,
       budget: {
         ...s.budget,
-        categories: [...s.budget.categories, {
+        categories: [...(s.budget?.categories || []), {
           id: uid(), label, emoji: newEmoji, planned: parseInt(newPlanned) || 0, spent: 0,
         }],
       },
@@ -731,7 +744,7 @@ function BudgetScreen({ state, setState, onBack }) {
   function removeMoveCategory(id) {
     setState(s => ({
       ...s,
-      budget: { ...s.budget, categories: s.budget.categories.filter(c => c.id !== id) },
+      budget: { ...s.budget, categories: (s.budget?.categories || []).filter(c => c.id !== id) },
     }));
   }
 
@@ -756,11 +769,16 @@ function BudgetScreen({ state, setState, onBack }) {
     }));
   }
 
-  const ringSvg = (pct, color) => {
-    const r = 40, circ = 2 * Math.PI * r;
+  function getTopCategories(limit) {
+    return [...monthly].sort((a, b) => b.planned - a.planned).slice(0, limit);
+  }
+
+  const ringSvg = (pct, color, size = 100) => {
+    const r = size === 100 ? 40 : 32;
+    const circ = 2 * Math.PI * r;
     const dash = (pct / 100) * circ;
     return (
-      <svg width="100" height="100" viewBox="0 0 100 100">
+      <svg width={size} height={size} viewBox="0 0 100 100">
         <circle cx="50" cy="50" r={r} fill="none" stroke="var(--cream)" strokeWidth="8" />
         <circle cx="50" cy="50" r={r} fill="none" stroke={color} strokeWidth="8"
           strokeDasharray={`${dash} ${circ - dash}`}
@@ -771,9 +789,27 @@ function BudgetScreen({ state, setState, onBack }) {
     );
   };
 
+  const metricCard = (label, value, sub, accent) => (
+    <div style={{
+      flex: 1, background: accent || 'var(--white)', borderRadius: 16, padding: '14px 16px',
+      boxShadow: 'var(--shadow)', border: '1px solid var(--line)',
+    }}>
+      <div style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600, marginBottom: 4 }}>{label}</div>
+      <div style={{ fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif', fontSize: 20, fontWeight: 800, color: 'var(--dark)', lineHeight: 1.1 }}>{value}</div>
+      {sub && <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>{sub}</div>}
+    </div>
+  );
+
+  const sectionTitle = (text) => (
+    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--dark)', marginTop: 18, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+      <div style={{ width: 3, height: 16, borderRadius: 2, background: 'var(--terracotta)' }} />
+      {text}
+    </div>
+  );
+
   const catRow = (c, tweakFn, onRemove) => {
     const pct = c.planned > 0 ? Math.round(((c.spent || 0) / c.planned) * 100) : 0;
-    const over = c.spent >= c.planned;
+    const over = c.spent >= c.planned && c.planned > 0;
     const remaining = (c.planned || 0) - (c.spent || 0);
     return (
       <div key={c.id} style={{
@@ -844,24 +880,296 @@ function BudgetScreen({ state, setState, onBack }) {
     </Card>
   );
 
+  const overviewContent = (
+    <>
+      {/* Hero income card */}
+      <div style={{
+        background: 'linear-gradient(135deg, var(--teal) 0%, #1e524f 100%)', borderRadius: 20,
+        padding: '20px 22px', marginBottom: 14, color: '#fff',
+        boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+      }}>
+        <div style={{ fontSize: 11, opacity: 0.8, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Monthly income</div>
+        <div style={{ fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif', fontWeight: 800, fontSize: 36, lineHeight: 1.1, marginTop: 2 }}>
+          {conv(income).toLocaleString()}
+          <span style={{ fontSize: 16, opacity: 0.7, marginLeft: 6, fontWeight: 600 }}>{cur}</span>
+        </div>
+        <div style={{ fontSize: 12, opacity: 0.7, marginTop: 2 }}>
+          SABIS salary {(income * 4.5).toLocaleString()} ZAR
+        </div>
+        <div style={{ display: 'flex', gap: 16, marginTop: 14, fontSize: 12 }}>
+          <div style={{ background: 'rgba(255,255,255,0.12)', borderRadius: 10, padding: '8px 14px', flex: 1 }}>
+            <div style={{ opacity: 0.7 }}>Spent</div>
+            <div style={{ fontWeight: 700, fontSize: 15 }}>{conv(totalSpentMonthly).toLocaleString()} {cur}</div>
+          </div>
+          <div style={{ background: 'rgba(255,255,255,0.12)', borderRadius: 10, padding: '8px 14px', flex: 1 }}>
+            <div style={{ opacity: 0.7 }}>Remaining</div>
+            <div style={{ fontWeight: 700, fontSize: 15, color: remainingMonthly > 0 ? '#a5d6a7' : '#ef9a9a' }}>
+              {conv(remainingMonthly).toLocaleString()} {cur}
+            </div>
+          </div>
+          <div style={{ background: 'rgba(255,255,255,0.12)', borderRadius: 10, padding: '8px 14px', flex: 1 }}>
+            <div style={{ opacity: 0.7 }}>Savings</div>
+            <div style={{ fontWeight: 700, fontSize: 15 }}>{savingsPct}%</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Health score row */}
+      <div style={{ display: 'flex', gap: 12, marginBottom: 6 }}>
+        <div style={{
+          flex: 1, background: 'var(--white)', borderRadius: 16, padding: 16,
+          boxShadow: 'var(--shadow)', display: 'flex', alignItems: 'center', gap: 14,
+        }}>
+          {ringSvg(healthScore.pct, healthScore.color, 80)}
+          <div>
+            <div style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600 }}>Budget health</div>
+            <div style={{ fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif', fontSize: 18, fontWeight: 800, color: healthScore.color }}>{healthScore.label}</div>
+            <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 1 }}>{spentPct}% spent</div>
+          </div>
+        </div>
+        <div style={{
+          flex: 1, background: 'var(--white)', borderRadius: 16, padding: 16,
+          boxShadow: 'var(--shadow)',
+        }}>
+          <div style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600 }}>Move progress</div>
+          <div style={{ fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif', fontSize: 22, fontWeight: 800, color: 'var(--terracotta)', marginTop: 2 }}>
+            {movePct}%
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 1 }}>
+            {conv(totalMoveSpent).toLocaleString()} / {conv(totalMovePlanned).toLocaleString()} {cur}
+          </div>
+        </div>
+      </div>
+
+      {/* Monthly breakdown */}
+      {sectionTitle('Monthly overview')}
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        {metricCard('Budgeted', `${conv(totalBudgeted).toLocaleString()} ${cur}`, `${monthly.length} categories`)}
+        {metricCard('Spent', `${conv(totalSpentMonthly).toLocaleString()} ${cur}`, `${spentPct}% of income`)}
+        {metricCard('Remaining', `${conv(remainingMonthly).toLocaleString()} ${cur}`,
+          unallocated > 0 ? `${conv(unallocated).toLocaleString()} ${cur} unallocated` : undefined,
+          remainingMonthly > 0 ? undefined : '#fef2f2')}
+      </div>
+
+      {/* Savings & move combined */}
+      {sectionTitle('At a glance')}
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        {metricCard('Annual income', `${conv(income * 12).toLocaleString()} ${cur}`, `${(income * 12 * 4.5).toLocaleString()} ZAR`)}
+        {metricCard('Annual savings', `${conv(savingsPlanned * 12).toLocaleString()} ${cur}`, `${savingsPct}% rate`)}
+        {metricCard('Move total', `${conv(totalMovePlanned).toLocaleString()} ${cur}`, `${cats.length} items`)}
+      </div>
+
+      {/* Top categories */}
+      {monthly.length > 0 && sectionTitle('Top monthly categories')}
+      {getTopCategories(4).map(c => (
+        <div key={c.id} style={{
+          display: 'flex', alignItems: 'center', gap: 10,
+          padding: '10px 14px', background: 'var(--white)', borderRadius: 12,
+          boxShadow: 'var(--shadow)', marginBottom: 6, border: '1px solid var(--line)',
+        }}>
+          <div style={{
+            width: 36, height: 36, borderRadius: 10,
+            background: 'var(--sand)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 16, flexShrink: 0,
+          }}>{c.emoji}</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+              <span style={{ fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif', fontSize: 13, fontWeight: 600 }}>{c.label}</span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: (c.spent || 0) > c.planned ? 'var(--terracotta)' : 'var(--dark)' }}>
+                {conv(c.spent || 0).toLocaleString()}
+                <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 500 }}> / {conv(c.planned).toLocaleString()}</span>
+              </span>
+            </div>
+            <div style={{ marginTop: 4 }}>
+              <ProgressBar value={c.spent || 0} total={c.planned || 1} color="var(--teal)" height={4} />
+            </div>
+          </div>
+        </div>
+      ))}
+
+      {/* Quick actions */}
+      {sectionTitle('Quick actions')}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 4 }}>
+        <button onClick={() => { setTab('monthly'); setAddingMonthly(true); }} style={{
+          flex: 1, padding: '10px 0', borderRadius: 12, border: '1px solid var(--line)',
+          background: 'var(--white)', fontFamily: 'inherit', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+          color: 'var(--dark)',
+        }}>＋ Monthly category</button>
+        <button onClick={() => { setTab('move'); setAddingMove(true); }} style={{
+          flex: 1, padding: '10px 0', borderRadius: 12, border: '1px solid var(--line)',
+          background: 'var(--white)', fontFamily: 'inherit', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+          color: 'var(--dark)',
+        }}>＋ Move item</button>
+        <button onClick={() => setShowZAR(v => !v)} style={{
+          padding: '10px 14px', borderRadius: 12, border: '1px solid var(--line)',
+          background: 'var(--white)', fontFamily: 'inherit', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+          color: showZAR ? 'var(--terracotta)' : 'var(--teal)',
+        }}>{showZAR ? '🇿🇦' : '🇦🇪'}</button>
+      </div>
+
+      {/* SABIS info */}
+      <Card padding="14px" style={{ background: 'var(--sand)', border: '1px solid var(--line)', marginTop: 10 }}>
+        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--dark)', marginBottom: 4 }}>🏫 SABIS covers</div>
+        <div style={{ fontSize: 12, lineHeight: 1.5, color: 'var(--muted)' }}>
+          Housing (Rent), Health Insurance, Transport — all handled by your employer.
+        </div>
+      </Card>
+    </>
+  );
+
+  const monthlyContent = (
+    <>
+      <Card padding="14px" style={{ background: 'var(--teal)', color: '#fff', border: 'none', marginBottom: 16 }}>
+        <div style={{ fontSize: 12, fontWeight: 600, opacity: 0.9, marginBottom: 2 }}>SABIS covers</div>
+        <div style={{ fontSize: 13, lineHeight: 1.5, opacity: 0.85 }}>
+          Housing (Rent), Health Insurance, Transport — all handled by your employer.
+        </div>
+      </Card>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 18, marginBottom: 18 }}>
+        <div style={{ position: 'relative', flexShrink: 0 }}>
+          {ringSvg(spentPct, 'var(--teal)')}
+          <div style={{
+            position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+            textAlign: 'center',
+          }}>
+            <div style={{ fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif', fontSize: 18, fontWeight: 800, color: 'var(--dark)' }}>{conv(income).toLocaleString()}</div>
+            <div style={{ fontSize: 9, color: 'var(--muted)', fontWeight: 600 }}>{cur}</div>
+          </div>
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>Monthly income</div>
+          <div style={{ fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif', fontSize: 22, fontWeight: 800, color: 'var(--teal)', marginTop: 2 }}>{conv(income).toLocaleString()} {cur}</div>
+          <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
+            ≈ {(income * 4.5).toLocaleString()} ZAR · {(income * 0.27).toLocaleString()} USD
+          </div>
+          <div style={{ display: 'flex', gap: 16, marginTop: 8, fontSize: 12 }}>
+            <div><span style={{ fontWeight: 700 }}>Fixed:</span> {conv(totalFixed).toLocaleString()} {cur}</div>
+            <div><span style={{ fontWeight: 700 }}>Left:</span> <span style={{ color: remainingMonthly > 0 ? '#66bb6a' : 'var(--terracotta)' }}>{conv(remainingMonthly).toLocaleString()} {cur}</span></div>
+          </div>
+        </div>
+      </div>
+
+      {monthly.map(c => catRow(c, tweakMonthly, removeMonthlyCategory))}
+
+      {addingMonthly && addForm(addMonthlyCategory)}
+      <div style={{ marginTop: 14 }}>
+        <Button full variant="soft" icon="＋" onClick={() => { setAddingMonthly(true); setAddingMove(false); }}>Add category</Button>
+      </div>
+    </>
+  );
+
+  const moveContent = (
+    <>
+      <Card padding="20px" style={{ background: 'linear-gradient(135deg, var(--teal) 0%, #1e524f 100%)', color: '#fff', border: 'none', marginBottom: 16 }}>
+        <div style={{ fontSize: 12, opacity: 0.85, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Move checklist</div>
+        <div style={{ fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif', fontWeight: 800, fontSize: 36, lineHeight: 1, marginTop: 4 }}>
+          {conv(totalMoveSpent).toLocaleString()}
+          <span style={{ fontSize: 16, opacity: 0.7, marginLeft: 6, fontWeight: 600 }}>{cur}</span>
+        </div>
+        <div style={{ fontSize: 12, opacity: 0.8, marginTop: 4 }}>
+          of {conv(totalMovePlanned).toLocaleString()} {cur}
+        </div>
+        <div style={{ marginTop: 14 }}>
+          <ProgressBar value={totalMoveSpent} total={totalMovePlanned} color="var(--gold)" height={8} />
+        </div>
+      </Card>
+
+      {cats.map(c => {
+        const isSABIS = ['visa', 'deposit'].includes(c.id);
+        const isDefault = ['shipping', 'visa', 'deposit', 'buffer'].includes(c.id);
+        return (
+          <div key={c.id} style={{
+            background: 'var(--white)', borderRadius: 16, padding: '14px 16px',
+            boxShadow: 'var(--shadow)', marginBottom: 10,
+            border: isSABIS ? '1px solid var(--teal)' : '1px solid var(--line)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{
+                width: 40, height: 40, borderRadius: 12,
+                background: isSABIS ? 'var(--teal)' : 'var(--sand)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 20, flexShrink: 0,
+              }}>
+                {isSABIS ? '✅' : c.emoji}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                  <div>
+                    <span style={{ fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif', fontSize: 14, fontWeight: 700 }}>{c.label}</span>
+                    {isSABIS && (
+                      <span style={{
+                        marginLeft: 8, fontSize: 10, fontWeight: 700, padding: '2px 8px',
+                        borderRadius: 999, background: 'var(--teal)', color: '#fff',
+                      }}>SABIS</span>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: isSABIS ? 'var(--teal)' : 'var(--dark)' }}>
+                      {conv(c.planned).toLocaleString()} {cur}
+                    </div>
+                    {!isDefault && (
+                      <button onClick={() => removeMoveCategory(c.id)} style={{
+                        fontSize: 12, padding: '2px', border: 'none', background: 'none',
+                        cursor: 'pointer', color: 'var(--muted)', fontFamily: 'inherit', opacity: 0.4,
+                      }}>✕</button>
+                    )}
+                  </div>
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
+                  {isSABIS ? 'Covered by SABIS' : `${conv(c.spent).toLocaleString()} ${cur} spent`}
+                </div>
+                <div style={{ marginTop: 6 }}>
+                  <ProgressBar value={isSABIS ? c.planned : (c.spent || 0)} total={c.planned || 1} color={isSABIS ? 'var(--teal)' : 'var(--gold)'} height={6} />
+                </div>
+              </div>
+            </div>
+            {!isSABIS && (
+              <div style={{ display: 'flex', gap: 6, marginTop: 10, justifyContent: 'flex-end' }}>
+                <button onClick={() => tweakMove(c.id, -100)} style={{
+                  width: 28, height: 28, borderRadius: 8, border: 'none',
+                  background: 'var(--sand)', fontSize: 16, fontWeight: 700, color: 'var(--muted)',
+                  cursor: 'pointer', fontFamily: 'inherit',
+                }}>−</button>
+                <button onClick={() => tweakMove(c.id, 100)} style={{
+                  width: 28, height: 28, borderRadius: 8, border: 'none',
+                  background: 'var(--terracotta)', color: '#fff', fontSize: 16, fontWeight: 700,
+                  cursor: 'pointer', fontFamily: 'inherit',
+                }}>＋</button>
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      {addingMove && addForm(addMoveCategory)}
+      <div style={{ marginTop: 14 }}>
+        <Button full variant="soft" icon="＋" onClick={() => { setAddingMove(true); setAddingMonthly(false); }}>Add move item</Button>
+      </div>
+    </>
+  );
+
+  const tabLabels = [
+    { id: 'overview', label: `📊 Overview` },
+    { id: 'monthly', label: `📆 Monthly · ${conv(income).toLocaleString()} ${cur}` },
+    { id: 'move', label: `✈️ Move · ${conv(totalMovePlanned).toLocaleString()} ${cur}` },
+  ];
+
   return (
     <ModulePage
       title="Budget"
-      subtitle={tab === 'monthly' ? `${conv(income).toLocaleString()} ${cur} / mo` : `${conv(totalPlanned).toLocaleString()} ${cur}`}
+      subtitle={tab === 'overview' ? `Income ${conv(income).toLocaleString()} ${cur}/mo · ${savingsPct}% saved` : ''}
       icon="Wallet"
       onBack={onBack}
     >
-      <div style={{ display: 'flex', gap: 4, background: 'var(--sand)', borderRadius: 12, padding: 3, marginBottom: 8 }}>
-        {[
-          { id: 'monthly', label: `📆 Monthly · ${conv(income).toLocaleString()} ${cur}` },
-          { id: 'move', label: `✈️ Move · ${conv(totalPlanned).toLocaleString()} ${cur}` },
-        ].map(t => (
+      <div style={{ display: 'flex', gap: 3, background: 'var(--sand)', borderRadius: 12, padding: 3, marginBottom: 14, overflow: 'auto' }}>
+        {tabLabels.map(t => (
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
             style={{
-              flex: 1, padding: '10px 0', borderRadius: 10, border: 'none',
-              fontFamily: 'inherit', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+              flex: 1, padding: '10px 6px', borderRadius: 10, border: 'none',
+              fontFamily: 'inherit', fontSize: 11, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap',
               background: tab === t.id ? 'var(--white)' : 'transparent',
               color: tab === t.id ? 'var(--dark)' : 'var(--muted)',
               boxShadow: tab === t.id ? 'var(--shadow)' : 'none',
@@ -871,148 +1179,9 @@ function BudgetScreen({ state, setState, onBack }) {
         ))}
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
-        <button onClick={() => setShowZAR(v => !v)} style={{
-          padding: '6px 14px', borderRadius: 8, border: '1px solid var(--line)',
-          background: 'var(--white)', fontFamily: 'inherit', fontSize: 11, fontWeight: 700,
-          cursor: 'pointer', color: showZAR ? 'var(--terracotta)' : 'var(--teal)',
-        }}>
-          {showZAR ? '🇿🇦 ZAR' : '🇦🇪 AED'} · tap to swap
-        </button>
-      </div>
-
-      {tab === 'monthly' ? (
-        <>
-          <Card padding="14px" style={{ background: 'var(--teal)', color: '#fff', border: 'none', marginBottom: 16 }}>
-            <div style={{ fontSize: 12, fontWeight: 600, opacity: 0.9, marginBottom: 2 }}>SABIS covers</div>
-            <div style={{ fontSize: 13, lineHeight: 1.5, opacity: 0.85 }}>
-              Housing (Rent), Health Insurance, Transport — all handled by your employer. The categories below are your personal spending.
-            </div>
-          </Card>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 18, marginBottom: 18 }}>
-            <div style={{ position: 'relative', flexShrink: 0 }}>
-              {ringSvg(Math.round((totalSpentMonthly / income) * 100), 'var(--teal)')}
-              <div style={{
-                position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
-                textAlign: 'center',
-              }}>
-                <div style={{ fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif', fontSize: 18, fontWeight: 800, color: 'var(--dark)' }}>{conv(income).toLocaleString()}</div>
-                <div style={{ fontSize: 9, color: 'var(--muted)', fontWeight: 600 }}>{cur}</div>
-              </div>
-            </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>Monthly income</div>
-              <div style={{ fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif', fontSize: 22, fontWeight: 800, color: 'var(--teal)', marginTop: 2 }}>{conv(income).toLocaleString()} {cur}</div>
-              {!showZAR && <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
-                ≈ {(income * 4.5).toLocaleString()} ZAR · {(income * 0.27).toLocaleString()} USD
-              </div>}
-              {showZAR && <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
-                ≈ {Math.round(income).toLocaleString()} AED · {(income * 0.27).toLocaleString()} USD
-              </div>}
-              <div style={{ display: 'flex', gap: 16, marginTop: 8, fontSize: 12 }}>
-                <div><span style={{ fontWeight: 700 }}>Fixed:</span> {conv(totalFixed).toLocaleString()} {cur}</div>
-                <div><span style={{ fontWeight: 700 }}>Left:</span> <span style={{ color: remainingMonthly > 0 ? '#66bb6a' : 'var(--terracotta)' }}>{conv(remainingMonthly).toLocaleString()} {cur}</span></div>
-              </div>
-            </div>
-          </div>
-
-          {monthly.map(c => catRow(c, tweakMonthly, removeMonthlyCategory))}
-
-          {addingMonthly && addForm(addMonthlyCategory)}
-          <div style={{ marginTop: 14 }}>
-            <Button full variant="soft" icon="＋" onClick={() => { setAddingMonthly(true); setAddingMove(false); }}>Add category</Button>
-          </div>
-        </>
-      ) : (
-        <>
-          <Card padding="20px" style={{ background: 'linear-gradient(135deg, var(--teal) 0%, #1e524f 100%)', color: '#fff', border: 'none', marginBottom: 16 }}>
-            <div style={{ fontSize: 12, opacity: 0.85, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Move checklist</div>
-            <div style={{ fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif', fontWeight: 800, fontSize: 36, lineHeight: 1, marginTop: 4 }}>
-              {conv(totalSpent).toLocaleString()}
-              <span style={{ fontSize: 16, opacity: 0.7, marginLeft: 6, fontWeight: 600 }}>{cur}</span>
-            </div>
-            <div style={{ fontSize: 12, opacity: 0.8, marginTop: 4 }}>
-              of {conv(totalPlanned).toLocaleString()} {cur}
-            </div>
-            <div style={{ marginTop: 14 }}>
-              <ProgressBar value={totalSpent} total={totalPlanned} color="var(--gold)" height={8} />
-            </div>
-          </Card>
-
-          {cats.map(c => {
-            const isSABIS = ['visa', 'deposit'].includes(c.id);
-            const isDefault = ['shipping', 'visa', 'deposit', 'buffer'].includes(c.id);
-            return (
-              <div key={c.id} style={{
-                background: 'var(--white)', borderRadius: 16, padding: '14px 16px',
-                boxShadow: 'var(--shadow)', marginBottom: 10,
-                border: isSABIS ? '1px solid var(--teal)' : '1px solid var(--line)',
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <div style={{
-                    width: 40, height: 40, borderRadius: 12,
-                    background: isSABIS ? 'var(--teal)' : 'var(--sand)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 20, flexShrink: 0,
-                  }}>
-                    {isSABIS ? '✅' : c.emoji}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                      <div>
-                        <span style={{ fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif', fontSize: 14, fontWeight: 700 }}>{c.label}</span>
-                        {isSABIS && (
-                          <span style={{
-                            marginLeft: 8, fontSize: 10, fontWeight: 700, padding: '2px 8px',
-                            borderRadius: 999, background: 'var(--teal)', color: '#fff',
-                          }}>SABIS</span>
-                        )}
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: isSABIS ? 'var(--teal)' : 'var(--dark)' }}>
-                          {conv(c.planned).toLocaleString()} {cur}
-                        </div>
-                        {!isDefault && (
-                          <button onClick={() => removeMoveCategory(c.id)} style={{
-                            fontSize: 12, padding: '2px', border: 'none', background: 'none',
-                            cursor: 'pointer', color: 'var(--muted)', fontFamily: 'inherit', opacity: 0.4,
-                          }}>✕</button>
-                        )}
-                      </div>
-                    </div>
-                    <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
-                      {isSABIS ? 'Covered by SABIS' : `${conv(c.spent).toLocaleString()} ${cur} spent`}
-                    </div>
-                    <div style={{ marginTop: 6 }}>
-                      <ProgressBar value={isSABIS ? c.planned : (c.spent || 0)} total={c.planned || 1} color={isSABIS ? 'var(--teal)' : 'var(--gold)'} height={6} />
-                    </div>
-                  </div>
-                </div>
-                {!isSABIS && (
-                  <div style={{ display: 'flex', gap: 6, marginTop: 10, justifyContent: 'flex-end' }}>
-                    <button onClick={() => tweakMove(c.id, -100)} style={{
-                      width: 28, height: 28, borderRadius: 8, border: 'none',
-                      background: 'var(--sand)', fontSize: 16, fontWeight: 700, color: 'var(--muted)',
-                      cursor: 'pointer', fontFamily: 'inherit',
-                    }}>−</button>
-                    <button onClick={() => tweakMove(c.id, 100)} style={{
-                      width: 28, height: 28, borderRadius: 8, border: 'none',
-                      background: 'var(--terracotta)', color: '#fff', fontSize: 16, fontWeight: 700,
-                      cursor: 'pointer', fontFamily: 'inherit',
-                    }}>＋</button>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-
-          {addingMove && addForm(addMoveCategory)}
-          <div style={{ marginTop: 14 }}>
-            <Button full variant="soft" icon="＋" onClick={() => { setAddingMove(true); setAddingMonthly(false); }}>Add move item</Button>
-          </div>
-        </>
-      )}
+      {tab === 'overview' && overviewContent}
+      {tab === 'monthly' && monthlyContent}
+      {tab === 'move' && moveContent}
     </ModulePage>
   );
 }
