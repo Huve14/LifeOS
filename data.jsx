@@ -91,11 +91,8 @@ const SEED = {
     fxToUSD: 0.272,
     monthlyIncome: 8800,
     monthly: [...MONTHLY_BUDGET.map(c => ({...c}))],
-    total: 32000,
+    total: 2500,
     categories: [
-      { id: 'shipping', label: 'Shipping & boxes', emoji: '📦', planned: 3500,  spent: 0 },
-      { id: 'visa',     label: 'Visa & docs',      emoji: '📑', planned: 2200,  spent: 0 },
-      { id: 'deposit',  label: 'Housing deposit',  emoji: '🏠', planned: 12000, spent: 0 },
       { id: 'buffer',   label: 'First-month buffer', emoji: '🌙', planned: 2500, spent: 0 },
     ],
   },
