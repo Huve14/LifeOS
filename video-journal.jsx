@@ -65,7 +65,7 @@ const journalStore = {
   },
 
   setPending(entries) {
-    this.pending = entries;
+    this.pending = entries.filter(e => e.kind === 'video-note');
     this.emit();
   },
 
@@ -780,8 +780,8 @@ function PendingCard({ entry }) {
 
       {!uploading && (
         <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-          <Button size="sm" onClick={() => api.videoNotes.retryEntry(entry.id)}>Try again</Button>
-          <Button size="sm" variant="ghost" onClick={() => api.videoNotes.discardEntry(entry.id)}>
+          <Button size="sm" onClick={() => api.sync.retryEntry(entry.id)}>Try again</Button>
+          <Button size="sm" variant="ghost" onClick={() => api.sync.discardEntry(entry.id)}>
             Discard
           </Button>
         </div>

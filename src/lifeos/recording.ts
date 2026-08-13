@@ -106,6 +106,57 @@ export function captureConstraints(facingMode: 'user' | 'environment'): MediaStr
   };
 }
 
+// ---------- Audio only, for prompt voice notes ----------
+
+/** Voice notes are meant to be short. No floor, since a sentence is fine. */
+export const AUDIO_MAX_SECONDS = 90;
+
+export const AUDIO_MIME_CANDIDATES = [
+  'audio/webm;codecs=opus',
+  'audio/webm',
+  'audio/mp4;codecs=mp4a.40.2',
+  'audio/mp4',
+];
+
+export function pickAudioMimeType(
+  isSupported: (type: string) => boolean = (type) =>
+    typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(type),
+): string | null {
+  for (const candidate of AUDIO_MIME_CANDIDATES) {
+    try {
+      if (isSupported(candidate)) return candidate;
+    } catch {
+      // Some engines throw rather than returning false.
+    }
+  }
+  return null;
+}
+
+export function audioExtensionForMime(mime: string): string {
+  return mime.includes('mp4') ? 'm4a' : 'webm';
+}
+
+export const AUDIO_CONSTRAINTS: MediaStreamConstraints = {
+  audio: { echoCancellation: true, noiseSuppression: true },
+  video: false,
+};
+
+export function audioRecorderOptions(mimeType: string) {
+  return { mimeType, audioBitsPerSecond: AUDIO_BITS_PER_SECOND };
+}
+
+export function voicePath(authorId: string, clientId: string, mimeType: string): string {
+  return `${authorId}/${clientId}.${audioExtensionForMime(mimeType)}`;
+}
+
+export function supportsAudioRecording(): boolean {
+  return (
+    typeof navigator !== 'undefined' &&
+    typeof navigator.mediaDevices?.getUserMedia === 'function' &&
+    typeof MediaRecorder !== 'undefined'
+  );
+}
+
 export function supportsRecording(): boolean {
   return (
     typeof navigator !== 'undefined' &&

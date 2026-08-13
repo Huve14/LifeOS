@@ -6,7 +6,9 @@
 import * as members from './members';
 import * as net from './net';
 import * as outbox from './outbox';
+import * as prompts from './prompts';
 import * as recording from './recording';
+import * as sync from './sync';
 import * as time from './time';
 import * as videoNotes from './videoNotes';
 
@@ -14,7 +16,9 @@ export const lifeos = {
   members,
   net,
   outbox,
+  prompts,
   recording,
+  sync,
   time,
   videoNotes,
 };

@@ -1,9 +1,12 @@
 // Offline outbox.
 //
-// A recording is written here before any network call happens, so closing the
-// app, losing wifi or a service worker update cannot lose a clip. The queue
-// survives restarts because it lives in IndexedDB, which unlike localStorage
-// can hold a Blob.
+// Every write in the shared surfaces lands here before any network call, so
+// closing the app, losing wifi or a service worker update cannot lose a video
+// note or a prompt answer. The queue survives restarts because it lives in
+// IndexedDB, which unlike localStorage can hold binary.
+//
+// This module is storage only. Sending is in sync.ts, which dispatches on the
+// entry kind, so the queue does not need to know what any given write means.
 //
 // Entries are keyed by the device-generated client id, which is also what the
 // storage path and the row's unique constraint are built from. That makes the
@@ -21,18 +24,25 @@ const STORE = 'outbox';
 
 export type OutboxStatus = 'queued' | 'uploading' | 'failed';
 
-export type OutboxEntry = {
+export type OutboxKind = 'video-note' | 'prompt-answer';
+
+type BaseEntry = {
   id: string;
-  kind: 'video-note';
   status: OutboxStatus;
   createdAt: number;
   attempts: number;
   lastError: string | null;
   /** 0 to 1, for the progress bar on the pending card. */
   progress: number;
-  bytes: ArrayBuffer;
-  /** Cached so the pending card can show a size without rebuilding the blob. */
+  /** Media payload, if the write carries one. Null for a text-only answer. */
+  bytes: ArrayBuffer | null;
+  /** Cached so a pending card can show a size without rebuilding the blob. */
   size: number;
+};
+
+export type VideoNoteEntry = BaseEntry & {
+  kind: 'video-note';
+  bytes: ArrayBuffer;
   posterBytes: ArrayBuffer | null;
   meta: {
     durationSeconds: number;
@@ -44,17 +54,40 @@ export type OutboxEntry = {
   };
 };
 
+export type PromptAnswerEntry = BaseEntry & {
+  kind: 'prompt-answer';
+  meta: {
+    /** Calendar date the prompt belongs to, in the prompt's anchor zone. */
+    promptDate: string;
+    body: string;
+    /** Null when the answer is text only. */
+    mimeType: string | null;
+    durationSeconds: number | null;
+  };
+};
+
+export type OutboxEntry = VideoNoteEntry | PromptAnswerEntry;
+
 type Listener = (entries: OutboxEntry[]) => void;
 
 const listeners = new Set<Listener>();
 
-/** Rebuild the recording for upload. */
-export function entryBlob(entry: OutboxEntry): Blob {
+export function isVideoNote(entry: OutboxEntry): entry is VideoNoteEntry {
+  return entry.kind === 'video-note';
+}
+
+export function isPromptAnswer(entry: OutboxEntry): entry is PromptAnswerEntry {
+  return entry.kind === 'prompt-answer';
+}
+
+/** Rebuild the media payload for upload. Null when there is none. */
+export function entryBlob(entry: OutboxEntry): Blob | null {
+  if (!entry.bytes || !entry.meta.mimeType) return null;
   return new Blob([entry.bytes], { type: entry.meta.mimeType });
 }
 
 export function entryPoster(entry: OutboxEntry): Blob | null {
-  if (!entry.posterBytes) return null;
+  if (!isVideoNote(entry) || !entry.posterBytes) return null;
   return new Blob([entry.posterBytes], { type: 'image/jpeg' });
 }
 
@@ -154,18 +187,41 @@ export async function putEntry(entry: OutboxEntry): Promise<void> {
   await notify();
 }
 
-export async function updateEntry(id: string, patch: Partial<OutboxEntry>): Promise<OutboxEntry | null> {
+/**
+ * Only the progress fields are patchable. The payload and its meta are fixed
+ * at queue time, so a retry always sends exactly what was recorded.
+ */
+export type OutboxPatch = Partial<
+  Pick<OutboxEntry, 'status' | 'progress' | 'attempts' | 'lastError'>
+>;
+
+export async function updateEntry(id: string, patch: OutboxPatch): Promise<OutboxEntry | null> {
   const existing = await getEntry(id);
   if (!existing) return null;
-  const next = { ...existing, ...patch };
+  const next = { ...existing, ...patch } as OutboxEntry;
   await run('readwrite', (store) => store.put(next) as IDBRequest<IDBValidKey>);
   await notify();
   return next;
 }
 
 export async function deleteEntry(id: string): Promise<void> {
+  lastProgress.delete(id);
   await run('readwrite', (store) => store.delete(id) as IDBRequest<undefined>);
   await notify();
+}
+
+const lastProgress = new Map<string, number>();
+
+/**
+ * Throttled, because every write re-reads the entry to patch it, and an entry
+ * carries the whole recording. Updating on each byte would mean shuttling
+ * megabytes through IndexedDB to move a progress bar.
+ */
+export async function updateProgress(id: string, fraction: number): Promise<void> {
+  const previous = lastProgress.get(id) ?? -1;
+  if (fraction < 1 && fraction - previous < 0.05) return;
+  lastProgress.set(id, fraction);
+  await updateEntry(id, { progress: fraction });
 }
 
 export async function countPending(): Promise<number> {

@@ -204,6 +204,7 @@ function App() {
       people:  <ContactsScreen state={state} setState={setState} onBack={() => setView('home')} />,
       map:     <MapScreen state={state} setState={setState} onBack={() => setView('home')} />,
       journal: <VideoJournalScreen onBack={() => setView('home')} />,
+      prompt:  <DailyPromptScreen onBack={() => setView('home')} />,
     };
     return screens[view] || screens.home;
   }
@@ -405,6 +406,7 @@ function SuvedaTweaks({ tweaks, setTweak, setView }) {
             { id: 'shopping',   label: '🛍️ Shopping' },
             { id: 'housing',    label: '🏠 Housing' },
             { id: 'journal',    label: '🎥 Video' },
+            { id: 'prompt',     label: '💬 Prompt' },
             { id: 'memory',     label: '💭 Memory' },
             { id: 'habits',     label: '🎯 Habits' },
             { id: 'map',        label: '🗺️ Map' },
@@ -437,6 +439,7 @@ const PRIMARY_NAV = [
 
 const MORE_NAV = [
   { id: 'journal',  label: 'Video',    icon: 'Video' },
+  { id: 'prompt',   label: 'Prompt',   icon: 'MessageCircle' },
   { id: 'tasks',    label: 'Timeline', icon: 'CalendarDays' },
   { id: 'shopping', label: 'Shopping', icon: 'ShoppingCart' },
   { id: 'housing',  label: 'Housing',  icon: 'Building2' },
@@ -447,6 +450,19 @@ const MORE_NAV = [
 ];
 
 const NAV_ITEMS = [...PRIMARY_NAV, ...MORE_NAV];
+
+// Which nav entries currently have something waiting.
+function navNeedsAttention(id, unwatched, promptWaiting) {
+  if (id === 'journal') return unwatched > 0;
+  if (id === 'prompt') return promptWaiting;
+  return false;
+}
+
+function moreNeedsAttention(current, unwatched, promptWaiting) {
+  const journal = unwatched > 0 && current !== 'journal';
+  const prompt = promptWaiting && current !== 'prompt';
+  return journal || prompt;
+}
 
 // Small dot for "there is something waiting here".
 function NavDot({ show, offset = 4 }) {
@@ -466,6 +482,7 @@ function BottomNav({ current, onNavigate }) {
   const [playTriggers, setPlayTriggers] = useState({});
   const [moreOpen, setMoreOpen] = useState(false);
   const unwatched = useUnwatchedCount();
+  const promptWaiting = useUnansweredToday();
 
   useEffect(() => {
     const mq = window.matchMedia('(min-width: 640px)');
@@ -550,7 +567,7 @@ function BottomNav({ current, onNavigate }) {
                   letterSpacing: '0.01em', whiteSpace: 'nowrap',
                   lineHeight: 1,
                 }}>{item.label}</span>
-                <NavDot show={item.id === 'journal' && unwatched > 0} />
+                <NavDot show={navNeedsAttention(item.id, unwatched, promptWaiting)} />
               </button>
             );
           })}
@@ -590,7 +607,7 @@ function BottomNav({ current, onNavigate }) {
                 letterSpacing: '0.01em', whiteSpace: 'nowrap',
                 lineHeight: 1,
               }}>{activeMoreItem ? activeMoreItem.label : 'More'}</span>
-              <NavDot show={unwatched > 0 && current !== 'journal'} />
+              <NavDot show={moreNeedsAttention(current, unwatched, promptWaiting)} />
             </button>
           )}
         </div>
@@ -628,7 +645,7 @@ function BottomNav({ current, onNavigate }) {
                     color: active ? 'var(--terracotta)' : 'var(--dark)',
                     lineHeight: 1,
                   }}>{item.label}</span>
-                  <NavDot show={item.id === 'journal' && unwatched > 0} offset={8} />
+                  <NavDot show={navNeedsAttention(item.id, unwatched, promptWaiting)} offset={8} />
                 </button>
               );
             })}

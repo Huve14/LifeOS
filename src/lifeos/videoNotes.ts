@@ -7,18 +7,18 @@
 
 import { getAuthClient, hasConfig } from '../supabase';
 import { currentUserId } from './members';
-import { isOnline, onNetworkChange, setBusy, withRetry } from './net';
+import { withRetry } from './net';
 import {
-  deleteEntry,
   entryBlob,
   entryPoster,
-  listEntries,
   putEntry,
-  resetStalled,
   updateEntry,
+  updateProgress,
   type OutboxEntry,
+  type VideoNoteEntry,
 } from './outbox';
 import { baseMime, posterPath, storagePath } from './recording';
+import { flushOutbox, registerSender, subscribeSent } from './sync';
 import { removeFiles, signedUrl, uploadFile } from './upload';
 
 export const BUCKET = 'video-notes';
@@ -145,11 +145,11 @@ export type QueueArgs = {
  * Put a finished recording on the queue. Awaits only the local write, so the
  * UI can close the recorder as soon as the bytes are safe on the device.
  */
-export async function queueVideoNote(args: QueueArgs): Promise<OutboxEntry> {
+export async function queueVideoNote(args: QueueArgs): Promise<VideoNoteEntry> {
   const bytes = await args.blob.arrayBuffer();
-  const posterBytes = args.poster ? await args.poster.arrayBuffer() : null;
+  const posterBytes = await args.poster?.arrayBuffer() ?? null;
 
-  const entry: OutboxEntry = {
+  const entry: VideoNoteEntry = {
     id: args.clientId,
     kind: 'video-note',
     status: 'queued',
@@ -175,9 +175,13 @@ export async function queueVideoNote(args: QueueArgs): Promise<OutboxEntry> {
   return entry;
 }
 
-async function sendEntry(entry: OutboxEntry): Promise<void> {
+async function sendEntry(queued: OutboxEntry): Promise<void> {
+  const entry = queued as VideoNoteEntry;
   const authorId = currentUserId();
   if (!authorId) throw new Error('Not signed in');
+
+  const blob = entryBlob(entry);
+  if (!blob) throw new Error('The recording is missing from this device');
 
   const path = storagePath(authorId, entry.id, entry.meta.mimeType);
   const posterBlob = entryPoster(entry);
@@ -186,11 +190,11 @@ async function sendEntry(entry: OutboxEntry): Promise<void> {
   await uploadFile({
     bucket: BUCKET,
     path,
-    blob: entryBlob(entry),
+    blob,
     contentType: baseMime(entry.meta.mimeType),
     onProgress: (fraction) => {
       // Reserve the last slice of the bar for the poster and the row insert.
-      void updateEntry(entry.id, { progress: fraction * 0.9 });
+      void updateProgress(entry.id, fraction * 0.9);
     },
   });
 
@@ -231,52 +235,7 @@ async function sendEntry(entry: OutboxEntry): Promise<void> {
   if (error) throw error;
 }
 
-let flushing = false;
-
-/**
- * Drains the queue oldest first, one at a time so two clips do not fight for
- * the same connection. Failures stay queued with the error attached; they are
- * retried on the next flush rather than being dropped.
- */
-export async function flushOutbox(): Promise<void> {
-  if (flushing || !hasConfig || !isOnline() || !currentUserId()) return;
-  flushing = true;
-  setBusy(true);
-
-  try {
-    const entries = await listEntries();
-    for (const entry of entries) {
-      if (!isOnline()) break;
-      if (entry.status === 'uploading') continue;
-
-      await updateEntry(entry.id, { status: 'uploading', lastError: null });
-      try {
-        await sendEntry(entry);
-        await deleteEntry(entry.id);
-        notifyNotesChanged();
-      } catch (error) {
-        await updateEntry(entry.id, {
-          status: 'failed',
-          attempts: entry.attempts + 1,
-          progress: 0,
-          lastError: error instanceof Error ? error.message : 'Upload failed',
-        });
-      }
-    }
-  } finally {
-    flushing = false;
-    setBusy(false);
-  }
-}
-
-export async function retryEntry(id: string): Promise<void> {
-  await updateEntry(id, { status: 'queued', lastError: null, progress: 0 });
-  void flushOutbox();
-}
-
-export async function discardEntry(id: string): Promise<void> {
-  await deleteEntry(id);
-}
+registerSender('video-note', sendEntry);
 
 export async function deleteVideoNote(note: VideoNote): Promise<boolean> {
   if (!hasConfig) return false;
@@ -301,13 +260,14 @@ export function notifyNotesChanged(): void {
 }
 
 /**
- * Local changes and remote inserts both land here, so the timeline has one
- * refresh path whether the clip came from this device or the other one.
+ * Local changes, queue sends and remote inserts all land here, so the timeline
+ * has one refresh path whether the clip came from this device or the other one.
  */
 export function subscribeVideoNotes(onChange: () => void): () => void {
   if (typeof window === 'undefined') return () => {};
 
   window.addEventListener(NOTES_CHANGED, onChange);
+  const unsubscribeSent = subscribeSent('video-note', onChange);
 
   let removeChannel = () => {};
   if (hasConfig) {
@@ -327,15 +287,7 @@ export function subscribeVideoNotes(onChange: () => void): () => void {
 
   return () => {
     window.removeEventListener(NOTES_CHANGED, onChange);
+    unsubscribeSent();
     removeChannel();
   };
-}
-
-/** Called once at startup: requeue anything interrupted, then try to drain. */
-export async function initVideoNotes(): Promise<void> {
-  await resetStalled();
-  onNetworkChange((online) => {
-    if (online) void flushOutbox();
-  });
-  void flushOutbox();
 }
