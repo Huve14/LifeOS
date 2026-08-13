@@ -6,7 +6,11 @@
 -- else. Adding a row is the only way to grant access; there is no client path
 -- that can insert one.
 --
--- BEFORE RUNNING: edit the two emails in the seed block at the bottom.
+-- The seed block at the bottom matches accounts by email. If either account
+-- signed up through the app's name-only flow, its address will be a synthetic
+-- one like name@suveda.app rather than the real inbox. Check with:
+--   select id, email from auth.users order by created_at;
+-- and adjust the seed before running if the addresses do not match.
 
 create table if not exists public.lifeos_members (
   user_id uuid primary key references auth.users (id) on delete cascade,
@@ -89,8 +93,8 @@ select
   coalesce(nullif(u.raw_user_meta_data ->> 'name', ''), split_part(u.email, '@', 1)),
   v.time_zone
 from (values
-  ('huve14@gmail.com',      'Africa/Johannesburg'),
-  ('partner@example.com',   'Asia/Dubai')
+  ('huve14@gmail.com',  'Africa/Johannesburg'),
+  ('suvedap@gmail.com', 'Asia/Dubai')
 ) as v (email, time_zone)
 join auth.users u on lower(u.email) = lower(v.email)
 on conflict (user_id) do nothing;
