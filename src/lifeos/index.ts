@@ -10,6 +10,7 @@ import * as prompts from './prompts';
 import * as recording from './recording';
 import * as sync from './sync';
 import * as time from './time';
+import * as trips from './trips';
 import * as videoNotes from './videoNotes';
 
 export const lifeos = {
@@ -20,6 +21,7 @@ export const lifeos = {
   recording,
   sync,
   time,
+  trips,
   videoNotes,
 };
 

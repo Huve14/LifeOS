@@ -16,6 +16,8 @@ declare global {
     /** A service worker update arrived while busy; reload once it clears. */
     __lifeosPendingReload?: boolean;
     VideoJournalScreen?: any;
+    DailyPromptScreen?: any;
+    TripBoardScreen?: any;
     __suvedaPhotos?: {
       upload: (file: File, onProgress?: (pct: number) => void) => Promise<string | null>;
       list: () => Promise<string[]>;

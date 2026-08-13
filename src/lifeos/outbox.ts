@@ -24,7 +24,7 @@ const STORE = 'outbox';
 
 export type OutboxStatus = 'queued' | 'uploading' | 'failed';
 
-export type OutboxKind = 'video-note' | 'prompt-answer';
+export type OutboxKind = 'video-note' | 'prompt-answer' | 'trip-item';
 
 type BaseEntry = {
   id: string;
@@ -66,7 +66,35 @@ export type PromptAnswerEntry = BaseEntry & {
   };
 };
 
-export type OutboxEntry = VideoNoteEntry | PromptAnswerEntry;
+/**
+ * A create, an edit and a delete are all the same shape here: the full row as
+ * it should end up, upserted on client_id, or removed if deleted is set. That
+ * keeps a retry idempotent whichever of the three it was.
+ */
+export type TripItemEntry = BaseEntry & {
+  kind: 'trip-item';
+  bytes: null;
+  meta: {
+    tripId: string;
+    deleted: boolean;
+    row: TripItemRow;
+  };
+};
+
+export type TripItemRow = {
+  category: string;
+  title: string;
+  starts_at: string | null;
+  ends_at: string | null;
+  cost_amount: number | null;
+  cost_currency: string;
+  booking_ref: string;
+  status: string;
+  notes: string;
+  url: string;
+};
+
+export type OutboxEntry = VideoNoteEntry | PromptAnswerEntry | TripItemEntry;
 
 type Listener = (entries: OutboxEntry[]) => void;
 
@@ -80,10 +108,16 @@ export function isPromptAnswer(entry: OutboxEntry): entry is PromptAnswerEntry {
   return entry.kind === 'prompt-answer';
 }
 
+export function isTripItem(entry: OutboxEntry): entry is TripItemEntry {
+  return entry.kind === 'trip-item';
+}
+
 /** Rebuild the media payload for upload. Null when there is none. */
 export function entryBlob(entry: OutboxEntry): Blob | null {
-  if (!entry.bytes || !entry.meta.mimeType) return null;
-  return new Blob([entry.bytes], { type: entry.meta.mimeType });
+  if (!entry.bytes) return null;
+  const mimeType = 'mimeType' in entry.meta ? entry.meta.mimeType : null;
+  if (!mimeType) return null;
+  return new Blob([entry.bytes], { type: mimeType });
 }
 
 export function entryPoster(entry: OutboxEntry): Blob | null {

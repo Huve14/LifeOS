@@ -205,6 +205,7 @@ function App() {
       map:     <MapScreen state={state} setState={setState} onBack={() => setView('home')} />,
       journal: <VideoJournalScreen onBack={() => setView('home')} />,
       prompt:  <DailyPromptScreen onBack={() => setView('home')} />,
+      trip:    <TripBoardScreen onBack={() => setView('home')} />,
     };
     return screens[view] || screens.home;
   }
@@ -407,6 +408,7 @@ function SuvedaTweaks({ tweaks, setTweak, setView }) {
             { id: 'housing',    label: '🏠 Housing' },
             { id: 'journal',    label: '🎥 Video' },
             { id: 'prompt',     label: '💬 Prompt' },
+            { id: 'trip',       label: '🧳 Trip' },
             { id: 'memory',     label: '💭 Memory' },
             { id: 'habits',     label: '🎯 Habits' },
             { id: 'map',        label: '🗺️ Map' },
@@ -440,6 +442,7 @@ const PRIMARY_NAV = [
 const MORE_NAV = [
   { id: 'journal',  label: 'Video',    icon: 'Video' },
   { id: 'prompt',   label: 'Prompt',   icon: 'MessageCircle' },
+  { id: 'trip',     label: 'Trip',     icon: 'Luggage' },
   { id: 'tasks',    label: 'Timeline', icon: 'CalendarDays' },
   { id: 'shopping', label: 'Shopping', icon: 'ShoppingCart' },
   { id: 'housing',  label: 'Housing',  icon: 'Building2' },

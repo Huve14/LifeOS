@@ -131,6 +131,8 @@ async function bootstrap() {
   // @ts-expect-error legacy global JSX modules are injected for compatibility.
   await import('../daily-prompt.jsx');
   // @ts-expect-error legacy global JSX modules are injected for compatibility.
+  await import('../trip-board.jsx');
+  // @ts-expect-error legacy global JSX modules are injected for compatibility.
   await import('../app.jsx');
 
   // Mount the app root after all modules are loaded.
