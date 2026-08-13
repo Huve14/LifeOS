@@ -306,6 +306,7 @@ function RecorderSheet({ open, onClose }) {
     recorderRef.current = recorder;
     recorder.start(1000);
     api.net.setBusy(true);
+    void api.native.tap('medium');
 
     elapsedRef.current = 0;
     setElapsed(0);
@@ -323,6 +324,7 @@ function RecorderSheet({ open, onClose }) {
   function stopRecording() {
     const recorder = recorderRef.current;
     if (!recorder || recorder.state === 'inactive') return;
+    void api.native.tap('light');
     try { recorder.stop(); } catch { /* already stopped */ }
   }
 
@@ -356,6 +358,7 @@ function RecorderSheet({ open, onClose }) {
         caption: caption.trim(),
         clientId: clientIdRef.current,
       });
+      void api.native.notifyHaptic('success');
       resetToSetup();
       onClose();
     } catch (err) {

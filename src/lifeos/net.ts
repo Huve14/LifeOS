@@ -2,7 +2,16 @@
 // assumed to be on hotel or school wifi, so retry and backoff are the default
 // rather than an error path.
 
+import { nativeOnline } from './native';
+
+/**
+ * navigator.onLine reports true on a wifi network with no route out, which is
+ * the hotel captive portal case exactly. On device the native signal is
+ * authoritative; in a browser it is all we have.
+ */
 export function isOnline(): boolean {
+  const native = nativeOnline();
+  if (native !== null) return native;
   if (typeof navigator === 'undefined') return true;
   return navigator.onLine !== false;
 }

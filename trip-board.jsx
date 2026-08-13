@@ -194,6 +194,7 @@ function ItemSheet({ open, trip, item, onClose }) {
           url: form.url.trim(),
         },
       );
+      void api.native.tap('light');
       onClose();
     } catch (err) {
       setError(err?.message || 'Could not save this');

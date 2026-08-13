@@ -66,6 +66,74 @@ const DEFAULT_TWEAKS = window.__suvedaDefaults || {
   dark: false,
 };
 
+// Face ID gate. Only ever active in the native app with the lock switched on;
+// in a browser lockAvailability reports unavailable and this renders nothing.
+function useAppLock() {
+  const api = window.__lifeos;
+  const [state, setState] = useState('checking'); // checking | open | locked
+
+  const attempt = useCallback(async () => {
+    const result = await api?.lock.unlock('Unlock LifeOS');
+    if (result === 'unlocked' || result === 'unavailable') {
+      api?.lock.markUnlocked();
+      setState('open');
+    } else {
+      setState('locked');
+    }
+  }, [api]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function check() {
+      const enabled = await api?.lock.isLockEnabled();
+      if (cancelled) return;
+      if (!enabled) { setState('open'); return; }
+      await attempt();
+    }
+
+    void check();
+
+    // Re-lock after a spell in the background, not on every glance away.
+    const onResume = () => {
+      void (async () => {
+        const enabled = await api?.lock.isLockEnabled();
+        if (enabled && api?.lock.needsUnlock()) setState('locked');
+      })();
+    };
+    window.addEventListener('lifeos:resumed', onResume);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('lifeos:resumed', onResume);
+    };
+  }, [api, attempt]);
+
+  return { state, attempt };
+}
+
+function LockScreen({ onUnlock }) {
+  return (
+    <div style={{
+      minHeight: '100%', width: '100%',
+      display: 'flex', flexDirection: 'column',
+      alignItems: 'center', justifyContent: 'center', gap: 18,
+      background: 'var(--cream)', padding: '40px 24px',
+    }}>
+      <div style={{
+        width: 72, height: 72, borderRadius: 24,
+        background: 'linear-gradient(135deg, var(--terracotta) 0%, var(--gold) 100%)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontSize: 32,
+      }}>🔒</div>
+      <h1 style={{ fontSize: 20 }}>LifeOS is locked</h1>
+      <p style={{ fontSize: 14, color: 'var(--muted)', textAlign: 'center', maxWidth: 280, lineHeight: 1.5 }}>
+        Unlock to see your notes and answers.
+      </p>
+      <Button onClick={onUnlock}>Unlock</Button>
+    </div>
+  );
+}
+
 function App() {
   // Shared shopping list route — handle both hash (#shared/TOKEN) and path (/s/TOKEN) formats.
   // Path format catches cases where the old SW intercepts /s/ and serves index.html.
@@ -93,6 +161,8 @@ function App() {
     });
     return unsub;
   }, []);
+
+  const lock = useAppLock();
 
   // App state
   const [view, setView] = useState(null); // null=loading | onboarding | home | packing | docs | tasks | budget | shopping | housing
@@ -160,6 +230,21 @@ function App() {
     lastPctRef.current = completed;
   }, [state]);
 
+  // A tapped notification names the screen it was about.
+  useEffect(() => {
+    function onOpenScreen(event) {
+      const screen = event.detail?.screen;
+      if (screen) setView(screen);
+    }
+    window.addEventListener('lifeos:open-screen', onOpenScreen);
+    return () => window.removeEventListener('lifeos:open-screen', onOpenScreen);
+  }, []);
+
+  // Keep the native status bar legible against the app background.
+  useEffect(() => {
+    void window.__lifeos?.native.setStatusBarForTheme(tweaks.dark);
+  }, [tweaks.dark]);
+
   // Map accent tweak to CSS variable
   const accentMap = {
     terracotta: 'var(--terracotta)',
@@ -213,7 +298,11 @@ function App() {
   // Derive user info for display
   const displayName = user?.user_metadata?.name || user?.email?.split('@')[0] || 'User';
 
-  if (!authReady || !storageReady) {
+  if (lock.state === 'locked') {
+    return <LockScreen onUnlock={lock.attempt} />;
+  }
+
+  if (!authReady || !storageReady || lock.state === 'checking') {
     return (
       <div style={{
         minHeight: '100%', width: '100%',
@@ -480,6 +569,67 @@ function NavDot({ show, offset = 4 }) {
   );
 }
 
+function FaceIdRow() {
+  const api = window.__lifeos;
+  const [label, setLabel] = useState(null);
+  const [enabled, setEnabled] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const availability = await api?.lock.lockAvailability();
+      if (cancelled || !availability?.available) return;
+      setLabel(availability.label);
+      setEnabled(await api.lock.isLockEnabled());
+    })();
+    return () => { cancelled = true; };
+  }, [api]);
+
+  if (!label) return null;
+
+  async function toggle() {
+    const next = !enabled;
+    // Prove it works before switching it on, so nobody locks themselves out.
+    if (next) {
+      const result = await api.lock.unlock(`Turn on ${label}`);
+      if (result !== 'unlocked') return;
+      api.lock.markUnlocked();
+    }
+    await api.lock.setLockEnabled(next);
+    setEnabled(next);
+    void api.native.tap('light');
+  }
+
+  return (
+    <button
+      onClick={toggle}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 10, width: '100%',
+        padding: '14px 4px', marginTop: 8, borderTop: '1px solid var(--line)',
+        background: 'none', border: 'none', borderTopWidth: 1, borderTopStyle: 'solid',
+        cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
+      }}
+    >
+      <span style={{ fontSize: 18 }}>🔒</span>
+      <span style={{ flex: 1, fontSize: 14, fontWeight: 600, color: 'var(--dark)' }}>
+        Require {label}
+      </span>
+      <span style={{
+        width: 44, height: 26, borderRadius: 999, flexShrink: 0,
+        background: enabled ? 'var(--teal)' : 'var(--line)',
+        display: 'flex', alignItems: 'center',
+        padding: 3, transition: 'background 0.18s',
+      }}>
+        <span style={{
+          width: 20, height: 20, borderRadius: '50%', background: '#fff',
+          transform: enabled ? 'translateX(18px)' : 'translateX(0)',
+          transition: 'transform 0.18s',
+        }} />
+      </span>
+    </button>
+  );
+}
+
 function BottomNav({ current, onNavigate }) {
   const [isDesktop, setDesktop] = useState(window.innerWidth >= 640);
   const [playTriggers, setPlayTriggers] = useState({});
@@ -653,6 +803,7 @@ function BottomNav({ current, onNavigate }) {
               );
             })}
           </div>
+          <FaceIdRow />
         </Sheet>
       )}
     </>

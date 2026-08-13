@@ -202,6 +202,7 @@ function VoiceRecorder({ value, onChange }) {
       recorderRef.current = recorder;
       recorder.start(1000);
       api.net.setBusy(true);
+      void api.native.tap('medium');
 
       elapsedRef.current = 0;
       setElapsed(0);
@@ -360,6 +361,7 @@ function Composer({ promptDate, onSubmitted }) {
         mimeType: voice?.mimeType ?? null,
         clientId: api.recording.newClientId(),
       });
+      void api.native.notifyHaptic('success');
       setBody('');
       setVoice(null);
       onSubmitted();

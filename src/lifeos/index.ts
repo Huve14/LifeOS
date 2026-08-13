@@ -3,10 +3,13 @@
 // window.__suvedaShopping: one namespace object, assigned before the .jsx
 // modules load.
 
+import * as lock from './lock';
 import * as members from './members';
+import * as native from './native';
 import * as net from './net';
 import * as outbox from './outbox';
 import * as prompts from './prompts';
+import * as push from './push';
 import * as recording from './recording';
 import * as sync from './sync';
 import * as time from './time';
@@ -14,10 +17,13 @@ import * as trips from './trips';
 import * as videoNotes from './videoNotes';
 
 export const lifeos = {
+  lock,
   members,
+  native,
   net,
   outbox,
   prompts,
+  push,
   recording,
   sync,
   time,

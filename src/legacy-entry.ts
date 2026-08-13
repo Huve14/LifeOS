@@ -20,7 +20,9 @@ import {
   type SuvedaStore,
 } from './supabase';
 import { installLifeOS } from './lifeos';
-import { initSync } from './lifeos/sync';
+import { initSync, flushOutbox } from './lifeos/sync';
+import { initNative } from './lifeos/native';
+import { registerPush } from './lifeos/push';
 import type { User } from '@supabase/supabase-js';
 
 declare global {
@@ -96,6 +98,26 @@ async function bootstrap() {
 
   // Requeue anything interrupted last session, then drain in the background.
   void initSync();
+
+  // Native shell, when running as the iOS app. No-ops in a browser.
+  void initNative({
+    onResume: () => {
+      void flushOutbox();
+      window.dispatchEvent(new CustomEvent('lifeos:resumed'));
+    },
+    // iOS grants a short window before suspending. Spend it finishing an
+    // upload rather than losing the progress.
+    onBackground: () => flushOutbox(),
+    onNetworkChange: (online) => {
+      window.dispatchEvent(new CustomEvent(online ? 'online' : 'offline'));
+      if (online) void flushOutbox();
+    },
+  });
+
+  void registerPush((data) => {
+    // Deep link from a tapped notification into the screen it was about.
+    window.dispatchEvent(new CustomEvent('lifeos:open-screen', { detail: data }));
+  });
 
   // Load the legacy modules in the same order they were included in index.html.
   // @ts-expect-error legacy global JSX modules are injected for compatibility.

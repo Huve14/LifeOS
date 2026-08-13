@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+	  development for local Xcode builds, production for TestFlight and the
+	  App Store. Xcode rewrites this when the Push Notifications capability is
+	  added through the UI; it is committed so the capability is not lost if
+	  the project is regenerated.
+	-->
+	<key>aps-environment</key>
+	<string>development</string>
+</dict>
+</plist>
