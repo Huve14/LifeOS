@@ -20,6 +20,8 @@ type SuvedaStore = {
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL?.trim() ?? '';
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim() ?? '';
 const hasConfig = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
+
+export { SUPABASE_URL, SUPABASE_ANON_KEY, hasConfig };
 const LOCAL_STATE_KEY = 'suveda:app-state';
 const LOCAL_CHAT_KEY = 'suveda:chat-main';
 
@@ -139,7 +141,7 @@ let authInitialized = false;
 
 const authListeners: Array<(user: User | null) => void> = [];
 
-function getAuthClient(): SupabaseClient {
+export function getAuthClient(): SupabaseClient {
   if (!authClient) {
     authClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       auth: {

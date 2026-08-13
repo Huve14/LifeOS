@@ -4,10 +4,18 @@ declare module '*.jsx' {
   export default value;
 }
 
+import type { LifeOS } from './lifeos';
+
 declare global {
   interface Window {
     __SUVEDA_MOUNTED?: boolean;
     __mapLibreMap?: any;
+    __lifeos?: LifeOS;
+    /** Set while a recording, upload or call is in flight. */
+    __lifeosBusy?: boolean;
+    /** A service worker update arrived while busy; reload once it clears. */
+    __lifeosPendingReload?: boolean;
+    VideoJournalScreen?: any;
     __suvedaPhotos?: {
       upload: (file: File, onProgress?: (pct: number) => void) => Promise<string | null>;
       list: () => Promise<string[]>;

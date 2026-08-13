@@ -2,9 +2,15 @@
 
 const { useState, useEffect, useMemo, useRef, useCallback } = React;
 
-// Force SW update on page load — reloads if new version available
+// Force SW update on page load — reloads if new version available.
+// Deferred while a recording, upload or call is in flight, otherwise an update
+// can destroy a clip that has not reached the server yet.
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (window.__lifeosBusy) {
+      window.__lifeosPendingReload = true;
+      return;
+    }
     window.location.reload();
   });
 }
@@ -197,6 +203,7 @@ function App() {
       habits:  <HabitsScreen state={state} setState={setState} onBack={() => setView('home')} />,
       people:  <ContactsScreen state={state} setState={setState} onBack={() => setView('home')} />,
       map:     <MapScreen state={state} setState={setState} onBack={() => setView('home')} />,
+      journal: <VideoJournalScreen onBack={() => setView('home')} />,
     };
     return screens[view] || screens.home;
   }
@@ -397,6 +404,7 @@ function SuvedaTweaks({ tweaks, setTweak, setView }) {
             { id: 'budget',     label: '💰 Budget' },
             { id: 'shopping',   label: '🛍️ Shopping' },
             { id: 'housing',    label: '🏠 Housing' },
+            { id: 'journal',    label: '🎥 Video' },
             { id: 'memory',     label: '💭 Memory' },
             { id: 'habits',     label: '🎯 Habits' },
             { id: 'map',        label: '🗺️ Map' },
@@ -428,6 +436,7 @@ const PRIMARY_NAV = [
 ];
 
 const MORE_NAV = [
+  { id: 'journal',  label: 'Video',    icon: 'Video' },
   { id: 'tasks',    label: 'Timeline', icon: 'CalendarDays' },
   { id: 'shopping', label: 'Shopping', icon: 'ShoppingCart' },
   { id: 'housing',  label: 'Housing',  icon: 'Building2' },
@@ -439,10 +448,24 @@ const MORE_NAV = [
 
 const NAV_ITEMS = [...PRIMARY_NAV, ...MORE_NAV];
 
+// Small dot for "there is something waiting here".
+function NavDot({ show, offset = 4 }) {
+  if (!show) return null;
+  return (
+    <span style={{
+      position: 'absolute', top: offset, right: offset,
+      width: 9, height: 9, borderRadius: '50%',
+      background: 'var(--terracotta)',
+      border: '2px solid var(--white)',
+    }} />
+  );
+}
+
 function BottomNav({ current, onNavigate }) {
   const [isDesktop, setDesktop] = useState(window.innerWidth >= 640);
   const [playTriggers, setPlayTriggers] = useState({});
   const [moreOpen, setMoreOpen] = useState(false);
+  const unwatched = useUnwatchedCount();
 
   useEffect(() => {
     const mq = window.matchMedia('(min-width: 640px)');
@@ -499,6 +522,7 @@ function BottomNav({ current, onNavigate }) {
                 }}
                 onMouseEnter={() => setPlayTriggers(t => ({ ...t, [item.id]: (t[item.id] || 0) + 1 }))}
                 style={{
+                  position: 'relative',
                   display: 'flex', flexDirection: 'column', alignItems: 'center',
                   justifyContent: 'center',
                   gap: isDesktop ? 2 : 4,
@@ -526,6 +550,7 @@ function BottomNav({ current, onNavigate }) {
                   letterSpacing: '0.01em', whiteSpace: 'nowrap',
                   lineHeight: 1,
                 }}>{item.label}</span>
+                <NavDot show={item.id === 'journal' && unwatched > 0} />
               </button>
             );
           })}
@@ -534,6 +559,7 @@ function BottomNav({ current, onNavigate }) {
             <button
               onClick={() => setMoreOpen(o => !o)}
               style={{
+                position: 'relative',
                 display: 'flex', flexDirection: 'column', alignItems: 'center',
                 justifyContent: 'center',
                 gap: 4,
@@ -564,6 +590,7 @@ function BottomNav({ current, onNavigate }) {
                 letterSpacing: '0.01em', whiteSpace: 'nowrap',
                 lineHeight: 1,
               }}>{activeMoreItem ? activeMoreItem.label : 'More'}</span>
+              <NavDot show={unwatched > 0 && current !== 'journal'} />
             </button>
           )}
         </div>
@@ -584,6 +611,7 @@ function BottomNav({ current, onNavigate }) {
                   key={item.id}
                   onClick={() => { onNavigate(item.id); setMoreOpen(false); }}
                   style={{
+                    position: 'relative',
                     display: 'flex', flexDirection: 'column', alignItems: 'center',
                     gap: 8, padding: '16px 8px', borderRadius: 16,
                     background: active ? 'rgba(196, 113, 74, 0.10)' : 'rgba(0,0,0,0.04)',
@@ -600,6 +628,7 @@ function BottomNav({ current, onNavigate }) {
                     color: active ? 'var(--terracotta)' : 'var(--dark)',
                     lineHeight: 1,
                   }}>{item.label}</span>
+                  <NavDot show={item.id === 'journal' && unwatched > 0} offset={8} />
                 </button>
               );
             })}

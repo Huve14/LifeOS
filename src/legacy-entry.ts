@@ -19,6 +19,8 @@ import {
   deletePhoto,
   type SuvedaStore,
 } from './supabase';
+import { installLifeOS } from './lifeos';
+import { initVideoNotes } from './lifeos/videoNotes';
 import type { User } from '@supabase/supabase-js';
 
 declare global {
@@ -73,6 +75,7 @@ window.__suvedaShopping = {
   validateShareToken,
 };
 window.__suvedaPhotos = { upload: uploadPhoto, list: listPhotos, del: deletePhoto };
+installLifeOS();
 
 if (!window.__suvedaDefaults) {
   window.__suvedaDefaults = {
@@ -90,6 +93,9 @@ if (!window.__suvedaDefaults) {
 async function bootstrap() {
   // Initialize auth before anything else (restores persisted session).
   await initAuth();
+
+  // Requeue any upload interrupted last session, then drain in the background.
+  void initVideoNotes();
 
   // Load the legacy modules in the same order they were included in index.html.
   // @ts-expect-error legacy global JSX modules are injected for compatibility.
@@ -120,6 +126,8 @@ async function bootstrap() {
   await import('./components/ui/glass-calendar.jsx');
   // @ts-expect-error legacy global JSX modules are injected for compatibility.
   await import('../screens-map.jsx');
+  // @ts-expect-error legacy global JSX modules are injected for compatibility.
+  await import('../video-journal.jsx');
   // @ts-expect-error legacy global JSX modules are injected for compatibility.
   await import('../app.jsx');
 
