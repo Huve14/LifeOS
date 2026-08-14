@@ -602,7 +602,7 @@ function CallScreen({
   return (
     <div className={`call-screen${busy || live ? ' is-active' : ''}`}>
       <ModulePage
-        title="Call"
+        title="Calls"
         subtitle={live
           ? (remoteCount > 0
             ? `${remoteCount + 1} ${remoteCount === 1 ? 'person' : 'people'} in the room`
@@ -659,6 +659,16 @@ function CallScreen({
               Audio call
             </Button>
           </div>
+          {!standalone && (
+            <button type="button" className="call-video-note-option" onClick={onRecordInstead}>
+              <span className="call-video-note-icon"><AnimatedIcon name="Video" size={21} play={0} /></span>
+              <span className="call-video-note-copy">
+                <strong>Send a video note</strong>
+                <small>Record a message they can watch whenever they are ready.</small>
+              </span>
+              <span className="call-video-note-arrow" aria-hidden="true">›</span>
+            </button>
+          )}
           {state === 'ended' && (
             <div style={{ marginTop: 12, color: 'var(--muted)', fontSize: 11 }}>Call ended</div>
           )}

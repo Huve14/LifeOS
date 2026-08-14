@@ -28,8 +28,15 @@ describe('Life OS preferences', () => {
 
   it('moves home sections without losing any sections', () => {
     const moved = moveHomeSection(DEFAULT_PREFERENCES, 'connection', -1);
-    expect(moved.slice(0, 2)).toEqual(['connection', 'priorities']);
+    expect(moved.slice(0, 3)).toEqual(['overview', 'connection', 'priorities']);
     expect(new Set(moved).size).toBe(HOME_SECTION_IDS.length);
+  });
+
+  it('moves the richer overview above priorities for accounts using the old default order', () => {
+    const migrated = preparePreferences({
+      homeOrder: ['priorities', 'connection', 'overview', 'snapshots', 'games', 'settling', 'wellbeing', 'assistant', 'tools'],
+    });
+    expect(migrated.homeOrder.slice(0, 3)).toEqual(['overview', 'priorities', 'connection']);
   });
 
   it('swaps duplicate dock choices instead of removing a slot', () => {

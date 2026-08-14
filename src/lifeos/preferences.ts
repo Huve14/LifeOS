@@ -1,7 +1,7 @@
 export const HOME_SECTION_IDS = [
+  'overview',
   'priorities',
   'connection',
-  'overview',
   'snapshots',
   'games',
   'settling',
@@ -30,6 +30,11 @@ export type Density = 'comfortable' | 'compact';
 export type CornerStyle = 'soft' | 'round' | 'square';
 export type MotionStyle = 'full' | 'gentle' | 'reduced';
 export type TextSize = 'standard' | 'large';
+
+const LEGACY_HOME_SECTION_ORDER: HomeSectionId[] = [
+  'priorities', 'connection', 'overview', 'snapshots', 'games',
+  'settling', 'wellbeing', 'assistant', 'tools',
+];
 
 export type LifeOSPreferences = {
   palette: PaletteId;
@@ -74,7 +79,10 @@ function uniqueAllowed<T extends string>(value: unknown, allowed: readonly T[]):
 
 export function preparePreferences(value: unknown): LifeOSPreferences {
   const input = value && typeof value === 'object' ? value as Partial<LifeOSPreferences> : {};
-  const ordered = uniqueAllowed<HomeSectionId>(input.homeOrder, HOME_SECTION_IDS);
+  const savedOrder = uniqueAllowed<HomeSectionId>(input.homeOrder, HOME_SECTION_IDS);
+  const usesLegacyDefault = savedOrder.length === LEGACY_HOME_SECTION_ORDER.length
+    && LEGACY_HOME_SECTION_ORDER.every((sectionId, index) => savedOrder[index] === sectionId);
+  const ordered = usesLegacyDefault ? [...HOME_SECTION_IDS] : savedOrder;
   const homeOrder = [...ordered, ...HOME_SECTION_IDS.filter(id => !ordered.includes(id))];
   const hiddenHomeSections = uniqueAllowed<HomeSectionId>(input.hiddenHomeSections, HOME_SECTION_IDS);
   const storedNav = uniqueAllowed<QuickNavId>(input.quickNav, QUICK_NAV_IDS).slice(0, 3);
@@ -112,7 +120,7 @@ export const LIFE_MODE_PRESETS: Record<string, Partial<LifeOSPreferences>> = {
     density: 'comfortable',
     motion: 'gentle',
     hiddenHomeSections: ['overview', 'snapshots', 'games', 'settling', 'tools'],
-    homeOrder: ['priorities', 'wellbeing', 'connection', 'overview', 'snapshots', 'games', 'settling', 'tools'],
+    homeOrder: ['overview', 'priorities', 'wellbeing', 'connection', 'snapshots', 'games', 'settling', 'tools'],
     quickNav: ['notes', 'call', 'habits'],
     activePreset: 'calm',
   },
@@ -121,7 +129,7 @@ export const LIFE_MODE_PRESETS: Record<string, Partial<LifeOSPreferences>> = {
     density: 'comfortable',
     motion: 'full',
     hiddenHomeSections: [],
-    homeOrder: ['settling', 'snapshots', 'priorities', 'tools', 'overview', 'connection', 'wellbeing', 'games'],
+    homeOrder: ['settling', 'snapshots', 'overview', 'priorities', 'tools', 'connection', 'wellbeing', 'games'],
     quickNav: ['map', 'trip', 'notes'],
     activePreset: 'explorer',
   },
@@ -130,7 +138,7 @@ export const LIFE_MODE_PRESETS: Record<string, Partial<LifeOSPreferences>> = {
     density: 'comfortable',
     motion: 'gentle',
     hiddenHomeSections: ['overview', 'settling'],
-    homeOrder: ['connection', 'games', 'wellbeing', 'priorities', 'snapshots', 'tools', 'overview', 'settling'],
+    homeOrder: ['connection', 'games', 'wellbeing', 'overview', 'priorities', 'snapshots', 'tools', 'settling'],
     quickNav: ['call', 'games', 'notes'],
     activePreset: 'connected',
   },

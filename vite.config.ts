@@ -15,7 +15,9 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      injectRegister: 'inline',
+      // Registration is handled by src/pwa.ts so the installed app can check
+      // again when it is reopened, focused, or comes back online.
+      injectRegister: false,
       includeAssets: ['favicon.svg', 'icons/*.png'],
       manifest: {
         name: 'Life OS',
@@ -43,6 +45,11 @@ export default defineConfig({
         ],
       },
       workbox: {
+        // Activate each deployed release immediately and take control of open
+        // PWA windows. The client waits for controllerchange before refreshing.
+        skipWaiting: true,
+        clientsClaim: true,
+        cleanupOutdatedCaches: true,
         // Keep the offline shell dependable without forcing a phone to
         // download Maps, LiveKit, games, 3D art and every feature at install.
         // Optional feature chunks are cached the first time they are opened.

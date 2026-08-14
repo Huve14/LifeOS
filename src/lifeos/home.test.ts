@@ -5,6 +5,7 @@ import {
   getDailyMode,
   getDailyPhrase,
   getHomePriorities,
+  getLifeGlance,
   getJourneyPhase,
   getMoneySnapshot,
 } from './home';
@@ -144,5 +145,28 @@ describe('home snapshots', () => {
     expect(model.setupTotal).toBe(5);
     expect(model.contactCount).toBe(1);
     expect(model.homePhotoCount).toBe(1);
+  });
+
+  it('builds an actionable life-at-a-glance summary from live user data', () => {
+    const glance = getLifeGlance({
+      ...state,
+      tasks: [
+        { id: 'late', text: 'Renew parking', dueDate: '2026-08-13', status: 'pending' },
+        { id: 'today', text: 'Call the bank', dueDate: '2026-08-14', status: 'pending' },
+        { id: 'done', text: 'Buy groceries', dueDate: '2026-08-12', status: 'done' },
+      ],
+    }, new Date(2026, 7, 14, 12));
+
+    expect(glance).toMatchObject({
+      openTasks: 2,
+      dueToday: 1,
+      overdue: 1,
+      nextTaskTitle: 'Renew parking',
+      nextTaskTiming: '1 day overdue',
+      documentsPending: 2,
+      habitsDone: 1,
+      habitsTotal: 2,
+    });
+    expect(glance.score).toBe(38);
   });
 });

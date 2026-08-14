@@ -2,19 +2,6 @@
 
 const { useState, useEffect, useMemo, useRef, useCallback } = React;
 
-// Force SW update on page load — reloads if new version available.
-// Deferred while a recording, upload or call is in flight, otherwise an update
-// can destroy a clip that has not reached the server yet.
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (window.__lifeosBusy) {
-      window.__lifeosPendingReload = true;
-      return;
-    }
-    window.location.reload();
-  });
-}
-
 function createSeedState(tweaks) {
   return {
     moveDate: tweaks.moveDate,
@@ -877,10 +864,9 @@ function LifeOSTweaks({ tweaks, setTweak, setView }) {
             { id: 'shopping',   label: '🛍️ Shopping' },
             { id: 'housing',    label: '🏠 Housing' },
             { id: 'notes',      label: '📓 Journal' },
-            { id: 'journal',    label: '🎥 Video' },
             { id: 'prompt',     label: '💬 Prompt' },
             { id: 'trip',       label: '🧳 Trip' },
-            { id: 'call',       label: '📞 Call' },
+            { id: 'call',       label: '📞 Calls & video' },
             { id: 'games',      label: '🎲 Games' },
             { id: 'space',      label: '💞 Pairing' },
             { id: 'memory',     label: '💭 Memory' },
@@ -1438,14 +1424,13 @@ const NAV_CATALOG = [
   { id: 'map',     label: 'Map',       icon: 'Map' },
   { id: 'docs',    label: 'Docs',      icon: 'FileText' },
   { id: 'budget',  label: 'Budget',    icon: 'Wallet' },
-  { id: 'call',     label: 'Call',      icon: 'Phone' },
+  { id: 'call',     label: 'Calls',     icon: 'Phone' },
   { id: 'notes',    label: 'Journal',  icon: 'NotebookPen' },
   { id: 'games',    label: 'Games',    icon: 'Gamepad2' },
   { id: 'trip',     label: 'Trip',     icon: 'Luggage' },
   { id: 'habits',   label: 'Habits',   icon: 'Target' },
   { id: 'people',   label: 'People',   icon: 'Users' },
   { id: 'settings', label: 'Settings', icon: 'Settings' },
-  { id: 'journal',  label: 'Video',    icon: 'Video' },
   { id: 'packing',  label: 'Packing',  icon: 'Package' },
   { id: 'prompt',   label: 'Prompt',   icon: 'MessageCircle' },
   { id: 'tasks',    label: 'Timeline', icon: 'CalendarDays' },
@@ -1461,15 +1446,19 @@ const QUICK_NAV_OPTIONS = NAV_CATALOG.filter(item => (
 
 // Which nav entries currently have something waiting.
 function navNeedsAttention(id, unwatched, promptWaiting) {
-  if (id === 'journal') return unwatched > 0;
+  if (id === 'call') return unwatched > 0;
   if (id === 'prompt') return promptWaiting;
   return false;
 }
 
 function moreNeedsAttention(current, unwatched, promptWaiting) {
-  const journal = unwatched > 0 && current !== 'journal';
+  const journal = unwatched > 0 && current !== 'journal' && current !== 'call';
   const prompt = promptWaiting && current !== 'prompt';
   return journal || prompt;
+}
+
+function navItemIsActive(itemId, current) {
+  return itemId === current || (itemId === 'call' && current === 'journal');
 }
 
 // Small dot for "there is something waiting here".
@@ -1566,14 +1555,14 @@ function BottomNav({ current, onNavigate, preferences }) {
     };
   }, [preferences]);
 
-  const activeMoreItem = moreNav.find(item => item.id === current);
+  const activeMoreItem = moreNav.find(item => navItemIsActive(item.id, current));
 
   return (
     <>
       <nav className="bottom-nav" aria-label="Main navigation">
         <div className="bottom-nav-inner">
           {primaryNav.map(item => {
-            const active = current === item.id;
+            const active = navItemIsActive(item.id, current);
             return (
               <button
                 key={item.id}
@@ -1624,7 +1613,7 @@ function BottomNav({ current, onNavigate, preferences }) {
       <Sheet open={moreOpen} onClose={() => setMoreOpen(false)} title="More" height="auto" lightweight>
           <div className="bottom-nav-more-grid">
             {moreNav.map(item => {
-              const active = current === item.id;
+              const active = navItemIsActive(item.id, current);
               return (
                 <button
                   key={item.id}

@@ -10,19 +10,6 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
     <title>Life OS · Life in Abu Dhabi</title>
-    <script>
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.addEventListener('controllerchange', () => {
-          // Deferred while a recording or upload is in flight; the app reloads
-          // once it clears. See setBusy() in src/lifeos/net.ts.
-          if (window.__lifeosBusy) {
-            window.__lifeosPendingReload = true;
-            return;
-          }
-          window.location.reload();
-        });
-      }
-    </script>
   </head>
   <body>
     <div id="root"></div>

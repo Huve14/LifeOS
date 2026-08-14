@@ -1139,17 +1139,76 @@ function PriorityRow({ action, onOpen, onComplete }) {
   );
 }
 
-function SetupMetric({ metric, onOpen }) {
-  const pct = metric.total > 0 ? Math.round((metric.done / metric.total) * 100) : 0;
+function LifeGlance({ glance, money, onOpen }) {
+  const scoreLabel = glance.score >= 80
+    ? 'In a strong rhythm'
+    : glance.score >= 55
+      ? 'Momentum is building'
+      : glance.score > 0
+        ? 'A few gentle wins away'
+        : 'A fresh place to begin';
+  const taskSignal = glance.overdue > 0
+    ? `${glance.overdue} ${glance.overdue === 1 ? 'item needs' : 'items need'} attention`
+    : glance.dueToday > 0
+      ? `${glance.dueToday} ${glance.dueToday === 1 ? 'task' : 'tasks'} planned today`
+      : glance.openTasks > 0
+        ? `${glance.openTasks} open ${glance.openTasks === 1 ? 'task' : 'tasks'}`
+        : 'Your calendar is clear';
+  const remaining = new Intl.NumberFormat('en-AE', { maximumFractionDigits: 0 }).format(Math.abs(money.remaining));
+  const moneyTitle = money.income > 0
+    ? `${remaining} ${money.currency} ${money.remaining >= 0 ? 'left' : 'over'}`
+    : 'Build your monthly plan';
+  const moneyDetail = money.income > 0
+    ? `${money.spentPercent}% of monthly income used`
+    : 'Add income and everyday costs';
+  const documentDetail = glance.documentsTotal > 0
+    ? `${glance.documentsTotal - glance.documentsPending}/${glance.documentsTotal} safely organised`
+    : 'Add the documents you reach for';
+  const habitDetail = glance.habitsTotal > 0
+    ? `${glance.habitsDone}/${glance.habitsTotal} checked in today`
+    : 'Create one gentle daily anchor';
+
   return (
-    <button className="home-setup-metric" onClick={() => onOpen(metric.module)}>
-      <div className="home-metric-topline">
-        <span>{metric.label}</span>
-        <strong>{metric.total > 0 ? `${metric.done}/${metric.total}` : '—'}</strong>
+    <div className="home-glance-board">
+      <button type="button" className="home-glance-lead" onClick={() => onOpen('tasks')}>
+        <div className="home-glance-ring" style={{ '--glance-progress': `${glance.score}%` }}>
+          <span><strong>{glance.score}%</strong><small>in rhythm</small></span>
+        </div>
+        <div className="home-glance-lead-copy">
+          <span className="home-glance-kicker">YOUR MOMENTUM</span>
+          <strong>{scoreLabel}</strong>
+          <p>{taskSignal}. This reflects your tasks, documents and daily routines—not a judgement, just a useful pulse.</p>
+          <span className="home-glance-link">Review your day <i aria-hidden="true">→</i></span>
+        </div>
+      </button>
+
+      <div className="home-glance-grid">
+        <button type="button" className={`home-glance-card home-glance-calendar${glance.overdue > 0 ? ' needs-attention' : ''}`} onClick={() => onOpen('tasks')}>
+          <span className="home-glance-card-top"><i aria-hidden="true">◷</i><small>UP NEXT</small><b>{glance.overdue > 0 ? 'Attention' : glance.nextTaskTiming}</b></span>
+          <strong>{glance.nextTaskTitle}</strong>
+          <span>{glance.nextTaskTiming}</span>
+        </button>
+
+        <button type="button" className={`home-glance-card home-glance-money${money.remaining < 0 ? ' needs-attention' : ''}`} onClick={() => onOpen('budget')}>
+          <span className="home-glance-card-top"><i aria-hidden="true">◒</i><small>MONTHLY MONEY</small><b>{money.income > 0 ? `${money.spentPercent}% used` : 'Set up'}</b></span>
+          <strong>{moneyTitle}</strong>
+          <span>{moneyDetail}</span>
+          {money.income > 0 && <HomeProgress value={money.spent} total={money.income} color="var(--terracotta)" />}
+        </button>
+
+        <button type="button" className="home-glance-card home-glance-habits" onClick={() => onOpen('habits')}>
+          <span className="home-glance-card-top"><i aria-hidden="true">✓</i><small>DAILY RHYTHM</small><b>{glance.habitsDone}/{glance.habitsTotal}</b></span>
+          <strong>{glance.habitsDone === glance.habitsTotal && glance.habitsTotal > 0 ? 'Today is complete' : 'Keep the basics kind'}</strong>
+          <span>{habitDetail}</span>
+        </button>
+
+        <button type="button" className={`home-glance-card home-glance-docs${glance.documentsPending > 0 ? ' has-open-items' : ''}`} onClick={() => onOpen('docs')}>
+          <span className="home-glance-card-top"><i aria-hidden="true">▤</i><small>PRIVATE VAULT</small><b>{glance.documentsPending} open</b></span>
+          <strong>{glance.documentsPending > 0 ? `${glance.documentsPending} ${glance.documentsPending === 1 ? 'document' : 'documents'} to review` : 'Everything is organised'}</strong>
+          <span>{documentDetail}</span>
+        </button>
       </div>
-      <HomeProgress value={metric.done} total={metric.total} color={metric.color} />
-      <small>{metric.total > 0 ? `${pct}% complete` : 'Set it up'}</small>
-    </button>
+    </div>
   );
 }
 
@@ -1415,7 +1474,7 @@ function Dashboard({
 
   const model = window.__lifeos.home.buildHomeModel(state, clockNow);
   const connection = window.__lifeos.home.getConnectionSnapshot(clockNow);
-  const { journey, dailyMode, phrase, priorities, metrics, money, todayKey } = model;
+  const { journey, dailyMode, phrase, priorities, glance, money, todayKey } = model;
   const [whyNote, setWhyNote] = React.useState(state.whyNote || '');
   const [whyNote2, setWhyNote2] = React.useState(state.whyNote2 || '');
   const [showExport, setShowExport] = React.useState(false);
@@ -1529,6 +1588,15 @@ function Dashboard({
 
       <DailyModeSelector value={dailyMode} onChange={setDailyMode} style={{ order: -1 }} />
 
+      <section className="home-section home-glance-section" style={homeSectionStyle('overview')}>
+        <HomeSectionHeader
+          eyebrow="Everyday overview"
+          title="Your life at a glance"
+          action={<button className="home-text-button" onClick={() => onModule('settings')}>Customize</button>}
+        />
+        <LifeGlance glance={glance} money={money} onOpen={onModule} />
+      </section>
+
       <section className="home-section" style={homeSectionStyle('priorities')}>
         <HomeSectionHeader
           eyebrow="Today"
@@ -1545,13 +1613,6 @@ function Dashboard({
       <section className="home-section home-everyday-grid" style={homeSectionStyle('connection')}>
         <ConnectionBridge connection={connection} onOpen={onModule} />
         <DailyPhraseCard phrase={phrase} onAsk={onAsk} />
-      </section>
-
-      <section className="home-section" style={homeSectionStyle('overview')}>
-        <HomeSectionHeader eyebrow="Everyday overview" title="Your life at a glance" />
-        <div className="home-metrics-grid">
-          {metrics.map(metric => <SetupMetric key={metric.id} metric={metric} onOpen={onModule} />)}
-        </div>
       </section>
 
       <section className="home-section home-snapshot-grid" style={homeSectionStyle('snapshots')}>

@@ -49,6 +49,7 @@ type StatusItem = {
   text?: string;
   note?: string;
   when?: string;
+  dueDate?: string;
   status?: string;
   emoji?: string;
 };
@@ -105,6 +106,21 @@ export type MoneySnapshot = {
   spentPercent: number;
 };
 
+export type HomeGlance = {
+  score: number;
+  completed: number;
+  total: number;
+  openTasks: number;
+  dueToday: number;
+  overdue: number;
+  nextTaskTitle: string;
+  nextTaskTiming: string;
+  documentsPending: number;
+  documentsTotal: number;
+  habitsDone: number;
+  habitsTotal: number;
+};
+
 export type HomeModel = {
   journey: JourneyPhase;
   dailyMode: DailyMode;
@@ -112,6 +128,7 @@ export type HomeModel = {
   phrase: DailyPhrase;
   priorities: HomeAction[];
   metrics: HomeMetric[];
+  glance: HomeGlance;
   money: MoneySnapshot;
   setupDone: number;
   setupTotal: number;
@@ -399,6 +416,64 @@ export function getHomeMetrics(state: HomeState, now = new Date()): HomeMetric[]
   ];
 }
 
+function taskDueTime(task: StatusItem): number | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(task.dueDate || '')) return null;
+  const parsed = new Date(`${task.dueDate}T12:00:00`);
+  return Number.isNaN(parsed.getTime()) ? null : parsed.getTime();
+}
+
+function taskTiming(task: StatusItem, now: Date): string {
+  const dueTime = taskDueTime(task);
+  if (dueTime === null) return task.when || 'Add a date';
+
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12).getTime();
+  const difference = Math.round((dueTime - today) / 86_400_000);
+  if (difference < -1) return `${Math.abs(difference)} days overdue`;
+  if (difference === -1) return '1 day overdue';
+  if (difference === 0) return 'Due today';
+  if (difference === 1) return 'Due tomorrow';
+
+  const dueDate = new Date(dueTime);
+  if (difference < 7) return `Due ${dueDate.toLocaleDateString('en-GB', { weekday: 'long' })}`;
+  return `Due ${dueDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`;
+}
+
+export function getLifeGlance(state: HomeState, now = new Date()): HomeGlance {
+  const today = dateKey(now);
+  const documents = state.documents ?? [];
+  const tasks = state.tasks ?? [];
+  const habits = state.habits ?? [];
+  const pendingTasks = tasks
+    .filter((task) => task.status !== 'done')
+    .map((task, index) => ({ task, index, dueTime: taskDueTime(task) }))
+    .sort((a, b) => {
+      if (a.dueTime !== null && b.dueTime !== null) return a.dueTime - b.dueTime;
+      if (a.dueTime !== null) return -1;
+      if (b.dueTime !== null) return 1;
+      return a.index - b.index;
+    });
+  const nextTask = pendingTasks[0]?.task;
+  const completed = documents.filter((item) => item.status === 'done').length
+    + tasks.filter((item) => item.status === 'done').length
+    + habits.filter((habit) => habit.lastDone === today).length;
+  const total = documents.length + tasks.length + habits.length;
+
+  return {
+    score: total > 0 ? Math.round((completed / total) * 100) : 0,
+    completed,
+    total,
+    openTasks: pendingTasks.length,
+    dueToday: pendingTasks.filter(({ task }) => task.dueDate === today || (!task.dueDate && task.when === 'Today')).length,
+    overdue: pendingTasks.filter(({ dueTime }) => dueTime !== null && dueTime < new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12).getTime()).length,
+    nextTaskTitle: nextTask?.text || nextTask?.name || 'Your plan is clear',
+    nextTaskTiming: nextTask ? taskTiming(nextTask, now) : 'Nothing urgent is waiting',
+    documentsPending: documents.filter((item) => item.status !== 'done').length,
+    documentsTotal: documents.length,
+    habitsDone: habits.filter((habit) => habit.lastDone === today).length,
+    habitsTotal: habits.length,
+  };
+}
+
 export function getMoneySnapshot(state: HomeState): MoneySnapshot {
   const monthly = state.budget?.monthly ?? [];
   const income = state.budget?.monthlyIncome ?? 0;
@@ -425,6 +500,7 @@ export function buildHomeModel(state: HomeState, now = new Date()): HomeModel {
     phrase: getDailyPhrase(now),
     priorities: getHomePriorities(state, now),
     metrics,
+    glance: getLifeGlance(state, now),
     money: getMoneySnapshot(state),
     setupDone: setupMetrics.reduce((sum, metric) => sum + metric.done, 0),
     setupTotal: setupMetrics.reduce((sum, metric) => sum + metric.total, 0),
