@@ -6,13 +6,13 @@
 import * as call from './call';
 import * as ice from './ice';
 import * as lock from './lock';
-import * as members from './members';
 import * as native from './native';
 import * as net from './net';
 import * as outbox from './outbox';
 import * as prompts from './prompts';
 import * as push from './push';
 import * as recording from './recording';
+import * as spaces from './spaces';
 import * as sync from './sync';
 import * as time from './time';
 import * as trips from './trips';
@@ -22,13 +22,13 @@ export const lifeos = {
   call,
   ice,
   lock,
-  members,
   native,
   net,
   outbox,
   prompts,
   push,
   recording,
+  spaces,
   sync,
   time,
   trips,

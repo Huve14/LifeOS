@@ -9,10 +9,23 @@ export const ABU_DHABI = 'Asia/Dubai';
 
 export type Zone = { zone: string; label: string };
 
-export const ZONES: Zone[] = [
-  { zone: JOHANNESBURG, label: 'Johannesburg' },
-  { zone: ABU_DHABI, label: 'Abu Dhabi' },
-];
+/**
+ * Whose clocks to show. Set from the profiles in the current space, so a solo
+ * user sees one clock and a couple sees both. Starts as the device's own zone
+ * rather than anything hardcoded, so a new account is never shown someone
+ * else's city.
+ */
+let zones: Zone[] = [];
+
+export function setZones(next: Zone[]): void {
+  zones = next.filter((z) => z.zone);
+}
+
+export function getZones(): Zone[] {
+  if (zones.length > 0) return zones;
+  const own = localZone();
+  return [{ zone: own, label: own.split('/').pop()?.replace(/_/g, ' ') ?? own }];
+}
 
 /** The reader's own time zone, falling back to Johannesburg. */
 export function localZone(): string {
@@ -42,12 +55,20 @@ export function formatClock(value: string | number | Date, zone: string): string
  * leads: "14:32 Johannesburg · 16:32 Abu Dhabi".
  */
 export function formatDualClock(value: string | number | Date, readerZone = localZone()): string {
-  const ordered = [...ZONES].sort((a, b) => {
+  const ordered = [...getZones()].sort((a, b) => {
     if (a.zone === readerZone) return -1;
     if (b.zone === readerZone) return 1;
     return 0;
   });
-  return ordered.map((z) => `${formatClock(value, z.zone)} ${z.label}`).join(' · ');
+
+  // One clock when there is only one person, or when both are in the same
+  // zone. Repeating the same time twice would be noise.
+  const unique = ordered.filter(
+    (z, i) => ordered.findIndex((o) => formatClock(value, o.zone) === formatClock(value, z.zone)) === i,
+  );
+  if (unique.length <= 1) return formatClock(value, ordered[0]?.zone ?? readerZone);
+
+  return unique.map((z) => `${formatClock(value, z.zone)} ${z.label}`).join(' · ');
 }
 
 /** Calendar day in a zone as YYYY-MM-DD. en-CA gives that ordering directly. */

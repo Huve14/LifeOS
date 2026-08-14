@@ -11,7 +11,7 @@
 
 import { PushNotifications, type Token } from '@capacitor/push-notifications';
 import { getAuthClient, hasConfig } from '../supabase';
-import { currentUserId } from './members';
+import { currentUserId } from './spaces';
 import { isNative, platform } from './native';
 
 export type PushStatus = 'unsupported' | 'denied' | 'granted';

@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import {
   ABU_DHABI,
   JOHANNESBURG,
@@ -9,6 +9,7 @@ import {
   formatDualClock,
   formatDuration,
   groupByDay,
+  setZones,
 } from './time';
 
 describe('formatClock', () => {
@@ -24,6 +25,25 @@ describe('formatClock', () => {
 });
 
 describe('formatDualClock', () => {
+  beforeEach(() => {
+    setZones([
+      { zone: JOHANNESBURG, label: 'Johannesburg' },
+      { zone: ABU_DHABI, label: 'Abu Dhabi' },
+    ]);
+  });
+
+  it('shows one clock when there is nobody to compare against', () => {
+    setZones([{ zone: JOHANNESBURG, label: 'Johannesburg' }]);
+    expect(formatDualClock('2026-08-13T12:32:00Z', JOHANNESBURG)).toBe('14:32');
+  });
+
+  it('collapses to one clock when both people are in the same zone', () => {
+    setZones([
+      { zone: JOHANNESBURG, label: 'Johannesburg' },
+      { zone: 'Africa/Maputo', label: 'Maputo' },
+    ]);
+    expect(formatDualClock('2026-08-13T12:32:00Z', JOHANNESBURG)).toBe('14:32');
+  });
   it("puts the reader's own zone first", () => {
     const at = '2026-08-13T12:32:00Z';
     expect(formatDualClock(at, ABU_DHABI)).toBe('16:32 Abu Dhabi · 14:32 Johannesburg');

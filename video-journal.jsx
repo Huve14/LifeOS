@@ -43,8 +43,8 @@ const journalStore = {
     this.emit();
 
     try {
-      const member = await api.members.currentMember();
-      if (!member) {
+      const ready = await api.spaces.hasSpace();
+      if (!ready) {
         this.status = 'denied';
         this.emit();
         return;
@@ -570,7 +570,7 @@ function PlayerSheet({ note, open, onClose }) {
   useEffect(() => {
     if (!note) return;
     let cancelled = false;
-    api?.members.displayNameFor(note.author_id).then(name => {
+    api?.spaces.displayNameFor(note.author_id).then(name => {
       if (!cancelled) setAuthorName(name);
     });
     return () => { cancelled = true; };
@@ -814,16 +814,18 @@ function VideoJournalScreen({ onBack }) {
 
   useEffect(() => {
     let cancelled = false;
-    api?.members.loadMembers().then(members => {
+    api?.spaces.loadSpace().then(space => {
       if (cancelled) return;
       const map = {};
-      members.forEach(m => { map[m.user_id] = m.display_name; });
+      [space.me, space.partner].forEach(p => {
+        if (p) map[p.user_id] = p.display_name;
+      });
       setNames(map);
     });
     return () => { cancelled = true; };
   }, [api, store.status]);
 
-  const myId = api?.members.currentUserId();
+  const myId = api?.spaces.currentUserId();
 
   const groups = useMemo(
     () => api?.time.groupByDay(store.notes, n => n.recorded_at) ?? [],
@@ -862,9 +864,9 @@ function VideoJournalScreen({ onBack }) {
 
       {store.status === 'denied' && (
         <EmptyState
-          emoji="🔒"
-          title="This account is not on the list"
-          body="The video journal is limited to two accounts. Sign in with the right one, or add this account to lifeos_members."
+          emoji="⏳"
+          title="Still setting up"
+          body="Your space has not finished loading. Check your connection and try again."
         />
       )}
 

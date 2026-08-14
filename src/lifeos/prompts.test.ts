@@ -1,8 +1,9 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import {
   PROMPT_COUNT,
   PROMPT_EPOCH,
-  PROMPT_ZONE,
+  getPromptZone,
+  setPromptZone,
   bothAnswered,
   promptDateFor,
   promptForDate,
@@ -11,8 +12,16 @@ import {
 import { ABU_DHABI } from './time';
 
 describe('prompt day anchor', () => {
-  it('is anchored to Abu Dhabi so both of us get the same question', () => {
-    expect(PROMPT_ZONE).toBe(ABU_DHABI);
+  beforeEach(() => setPromptZone(ABU_DHABI));
+
+  it('uses whatever zone the space anchored on', () => {
+    expect(getPromptZone()).toBe(ABU_DHABI);
+  });
+
+  it('can be re-anchored, so a space in one zone is not stuck on another', () => {
+    setPromptZone('Europe/London');
+    expect(getPromptZone()).toBe('Europe/London');
+    setPromptZone(ABU_DHABI);
   });
 
   it('rolls over at 20:00 UTC, which is midnight in Abu Dhabi', () => {

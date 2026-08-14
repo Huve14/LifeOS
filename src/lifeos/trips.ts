@@ -8,7 +8,7 @@
 // tradeoff; anything cleverer would cost more than it saves.
 
 import { getAuthClient, hasConfig } from '../supabase';
-import { currentUserId } from './members';
+import { currentUserId } from './spaces';
 import {
   putEntry,
   type OutboxEntry,

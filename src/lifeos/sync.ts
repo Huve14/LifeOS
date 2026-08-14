@@ -4,7 +4,7 @@
 // network again. Each surface registers a sender for its own entry kind, so
 // adding a queued write does not mean adding another retry loop.
 
-import { currentUserId } from './members';
+import { currentUserId } from './spaces';
 import { hasConfig } from '../supabase';
 import { isOnline, onNetworkChange, setBusy } from './net';
 import {

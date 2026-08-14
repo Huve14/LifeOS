@@ -11,7 +11,7 @@
 // of the two options.
 
 import { getAuthClient, hasConfig } from '../supabase';
-import { currentUserId } from './members';
+import { currentUserId } from './spaces';
 import {
   entryBlob,
   putEntry,
@@ -24,7 +24,21 @@ import { flushOutbox, registerSender, subscribeSent } from './sync';
 import { ABU_DHABI, dayKey } from './time';
 import { removeFiles, signedUrl, uploadFile } from './upload';
 
-export const PROMPT_ZONE = ABU_DHABI;
+/**
+ * "Today" has to mean one thing for two people in different zones, so the
+ * prompt day is anchored to a single zone that both devices agree on. It is
+ * set from the space, picking the member whose id sorts first so both sides
+ * compute the same anchor without asking the server. Solo, it is your own.
+ */
+let promptZone = ABU_DHABI;
+
+export function setPromptZone(zone: string): void {
+  if (zone) promptZone = zone;
+}
+
+export function getPromptZone(): string {
+  return promptZone;
+}
 export const VOICE_BUCKET = 'voice-notes';
 export const PROMPT_COUNT = 365;
 
@@ -59,7 +73,7 @@ export type AnsweredDate = {
 
 /** The calendar date the prompt belongs to, in the anchor zone. */
 export function promptDateFor(now: Date = new Date()): string {
-  return dayKey(now, PROMPT_ZONE);
+  return dayKey(now, promptZone);
 }
 
 function daysBetween(fromIso: string, toIso: string): number {

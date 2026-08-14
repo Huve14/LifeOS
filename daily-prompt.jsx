@@ -42,8 +42,8 @@ const promptStore = {
     this.emit();
 
     try {
-      const member = await api.members.currentMember();
-      if (!member) {
+      const ready = await api.spaces.hasSpace();
+      if (!ready) {
         this.status = 'denied';
         this.emit();
         return;
@@ -122,7 +122,7 @@ function useUnansweredToday() {
   const store = usePrompts();
   const api = lifeosApi();
   if (store.status !== 'ready' || !store.today) return false;
-  const myId = api?.members.currentUserId();
+  const myId = api?.spaces.currentUserId();
   const { saved, queued } = store.mineFor(store.today, myId);
   return !saved && !queued;
 }
@@ -414,7 +414,7 @@ function Composer({ promptDate, onSubmitted }) {
 function DayCard({ date, expanded, onToggle, isToday }) {
   const api = lifeosApi();
   const store = promptStore;
-  const myId = api?.members.currentUserId();
+  const myId = api?.spaces.currentUserId();
 
   const prompt = api?.prompts.promptForDate(store.prompts, date);
   const status = store.statusFor(date);
@@ -429,7 +429,7 @@ function DayCard({ date, expanded, onToggle, isToday }) {
 
   const heading = isToday
     ? 'Today'
-    : api.time.dayHeading(date, api.prompts.PROMPT_ZONE);
+    : api.time.dayHeading(date, api.prompts.getPromptZone());
 
   return (
     <Card
@@ -574,9 +574,9 @@ function DailyPromptScreen({ onBack }) {
 
       {store.status === 'denied' && (
         <EmptyState
-          emoji="🔒"
-          title="This account is not on the list"
-          body="The daily prompt is limited to two accounts. Sign in with the right one, or add this account to lifeos_members."
+          emoji="⏳"
+          title="Still setting up"
+          body="Your space has not finished loading. Check your connection and try again."
         />
       )}
 

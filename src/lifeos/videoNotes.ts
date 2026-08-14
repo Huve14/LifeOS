@@ -6,7 +6,7 @@
 // the two halves of the write (object upload, then row insert).
 
 import { getAuthClient, hasConfig } from '../supabase';
-import { currentUserId } from './members';
+import { currentUserId } from './spaces';
 import { withRetry } from './net';
 import {
   entryBlob,

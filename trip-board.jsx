@@ -37,8 +37,8 @@ const tripStore = {
     this.emit();
 
     try {
-      const member = await api.members.currentMember();
-      if (!member) {
+      const ready = await api.spaces.hasSpace();
+      if (!ready) {
         this.status = 'denied';
         this.emit();
         return;
@@ -573,9 +573,9 @@ function TripBoardScreen({ onBack }) {
 
       {store.status === 'denied' && (
         <EmptyState
-          emoji="🔒"
-          title="This account is not on the list"
-          body="The trip board is limited to two accounts. Sign in with the right one, or add this account to lifeos_members."
+          emoji="⏳"
+          title="Still setting up"
+          body="Your space has not finished loading. Check your connection and try again."
         />
       )}
 
