@@ -96,7 +96,7 @@ function Onboarding({ onDone, initialDate, user }) {
     if (!signIn || !signUp) { setAuthError('Auth not ready'); setAuthLoading(false); return; }
     try {
       if (authMode === 'name') {
-        const n = authName.trim() || 'Suveda';
+        const n = authName.trim() || 'there';
         const autoEmail = `${n.toLowerCase().replace(/\s+/g, '.')}@suveda.app`;
         const { error: siErr } = await signIn(autoEmail, authPassword);
         if (siErr) {
@@ -118,13 +118,13 @@ function Onboarding({ onDone, initialDate, user }) {
   const steps = [
     {
       visual: 'globe',
-      title: 'Hi, I\'m Huve!',
+      title: 'Welcome',
       body: 'Your warm, slightly bossy companion for the big move to Abu Dhabi. We\'ll go room by room, list by list — together.',
       cta: 'Let\'s do this',
     },
     {
       emoji: '📍',
-      title: 'Al Khalifa City, Abu Dhabi',
+      title: 'Where are you headed?',
       body: 'I\'ve set your destination already. Sandy mornings, palm shadows, late-night shawarma — you\'re going to love it.',
       cta: 'Continue',
     },
@@ -190,7 +190,7 @@ function Onboarding({ onDone, initialDate, user }) {
     },
     {
       emoji: '✨',
-      title: 'You\'re all set, Suveda',
+      title: 'You are all set',
       body: '6 lists, 1 timeline, 0 stress. I\'ll check in with you daily. Tap me anytime — bottom right corner.',
       cta: 'Open my dashboard',
     },
@@ -225,7 +225,7 @@ function Onboarding({ onDone, initialDate, user }) {
 
         {step === 0 && !user ? (
           <>
-            <h1 style={{ fontSize: 30, marginBottom: 14, lineHeight: 1.1 }}>Hi, I'm Huve!</h1>
+            <h1 style={{ fontSize: 30, marginBottom: 14, lineHeight: 1.1 }}>Welcome</h1>
             <p style={{ fontSize: 15, color: 'var(--muted)', lineHeight: 1.6, maxWidth: 320, margin: '0 auto 20px' }}>
               Your warm companion for the move to Abu Dhabi. Enter your name to get started.
             </p>
@@ -241,7 +241,7 @@ function Onboarding({ onDone, initialDate, user }) {
                     <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--muted)', marginBottom: 5, textAlign: 'left' }}>Name</label>
                     <input
                       type="text" value={authName} onChange={e => setAuthName(e.target.value)}
-                      placeholder="Suveda" required autoFocus
+                      placeholder="Your name" required autoFocus
                       style={{
                         width: '100%', padding: '12px 14px',
                         border: '1px solid var(--line)', borderRadius: 12,
@@ -406,7 +406,7 @@ function CountdownHero({ moveDate, layout, total, done }) {
   return (
     <Card padding="22px" style={{ background: 'var(--white)' }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-        <span style={{ fontSize: 13, color: 'var(--muted)', fontWeight: 600 }}>📍 Al Khalifa City, Abu Dhabi</span>
+        <span style={{ fontSize: 13, color: 'var(--muted)', fontWeight: 600 }}>📍 {state?.destination || 'Set your destination'}</span>
       </div>
       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 8 }}>
         <div>
@@ -572,7 +572,7 @@ function DailyJournal({ state, setState }) {
 }
 
 // ---------- Dashboard ----------
-function Dashboard({ state, setState, onModule, onAsk, layout = 'classic', progressStyle = 'bar', syncStatus = '', userName = 'Suveda' }) {
+function Dashboard({ state, setState, onModule, onAsk, layout = 'classic', progressStyle = 'bar', syncStatus = '', userName = 'there' }) {
   const progress = moduleProgress(state);
   const overall = overallProgress(state);
   const days = daysUntil(state.moveDate);
@@ -614,7 +614,7 @@ function Dashboard({ state, setState, onModule, onAsk, layout = 'classic', progr
       : `${Math.abs(days)} ${isAfterMove ? 'days in Abu Dhabi' : 'days to go'}`;
 
   const aiSuggestions = isAfterMove ? [
-    'Where\'s the best coffee near Al Khalifa City?',
+    'Where is the best coffee near me?',
     'How do I set up utilities in Abu Dhabi?',
     'What should I do this weekend?',
     'Tips for making friends as a new expat',
@@ -622,7 +622,7 @@ function Dashboard({ state, setState, onModule, onAsk, layout = 'classic', progr
   ] : [
     'What should I pack for August in Abu Dhabi?',
     'How do I get a residency visa?',
-    'What\'s the cost of living in Al Khalifa City?',
+    'What is the cost of living where I am moving?',
     'Give me a weekly prep timeline',
     'What should I do in my first week?',
   ];
@@ -643,7 +643,7 @@ function Dashboard({ state, setState, onModule, onAsk, layout = 'classic', progr
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `suveda-export-${today}.json`;
+    a.download = `lifeos-export-${today}.json`;
     a.click();
     URL.revokeObjectURL(url);
     setShowExport(false);
@@ -672,7 +672,7 @@ function Dashboard({ state, setState, onModule, onAsk, layout = 'classic', progr
           >📥</button>
           <img
             src="/logo-mark.svg"
-            width="44" height="44" alt="Suveda"
+            width="44" height="44" alt="LifeOS"
             style={{ borderRadius: 12, boxShadow: 'var(--shadow)', display: 'block' }}
           />
         </div>
@@ -687,7 +687,7 @@ function Dashboard({ state, setState, onModule, onAsk, layout = 'classic', progr
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             flexShrink: 0, overflow: 'hidden',
           }}>
-            <img src="/favicon.svg" width="36" height="36" alt="Suveda" style={{ borderRadius: '50%' }} />
+            <img src="/favicon.svg" width="36" height="36" alt="" style={{ borderRadius: '50%' }} />
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 13, fontWeight: 600, opacity: 0.85 }}>Good {timeGreeting}</div>
@@ -845,7 +845,7 @@ function Dashboard({ state, setState, onModule, onAsk, layout = 'classic', progr
       {/* Export modal */}
       <Modal open={showExport} onClose={() => setShowExport(false)} title="Export your data">
         <div style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.6, marginBottom: 16 }}>
-          Download all your Suveda data as a JSON file. Contains all your lists, progress, habits, journal entries, and settings.
+          Download all your data as a JSON file. Contains all your lists, progress, habits, journal entries, and settings.
         </div>
         <Button full onClick={exportData}>📥 Download JSON</Button>
       </Modal>

@@ -110,7 +110,7 @@ function PackingScreen({ state, setState, onBack, onAsk }) {
       subtitle={`${packed} of ${totalItems} · ${pct}%`}
       icon="Package"
       onBack={onBack}
-      action={<Button size="sm" variant="ghost" icon="✨" onClick={() => onAsk(`What might I be forgetting in my ${cur?.label?.toLowerCase()}?`, `Suveda's ${cur?.label} packing list: ${(cur?.items || []).map(i => i.name).join(', ')}`)}>AI</Button>}
+      action={<Button size="sm" variant="ghost" icon="✨" onClick={() => onAsk(`What might I be forgetting in my ${cur?.label?.toLowerCase()}?`, `My ${cur?.label} packing list: ${(cur?.items || []).map(i => i.name).join(', ')}`)}>AI</Button>}
     >
       {/* Room tabs */}
       <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 12, marginBottom: 4 }}>
@@ -1252,7 +1252,7 @@ function ShoppingScreen({ state, setState, onBack, onAsk }) {
         <Button size="sm" variant="ghost" icon="🔗" onClick={handleShare}>
           {linkCopied ? 'Copied!' : 'Share'}
         </Button>
-        <Button size="sm" variant="ghost" icon="✨" onClick={() => onAsk('What are 5 small things to buy in Abu Dhabi for my new apartment?', 'Suveda is setting up a studio in Al Khalifa City.')}>AI</Button>
+        <Button size="sm" variant="ghost" icon="✨" onClick={() => onAsk('What are 5 small things to buy for my new place?', 'Setting up a new home after a move.')}>AI</Button>
       </div>}
     >
       {shareLink && (
@@ -1396,7 +1396,7 @@ function HousingScreen({ state, setState, onBack, onAsk }) {
   async function getDecorationTips(room) {
     setLoadingTips(t => ({ ...t, [room.id]: true }));
     const photoContext = room.photos.length > 0 ? `Photos of the ${room.label}: ${room.photos.join(', ')}` : '';
-    const prompt = `I'm setting up my ${room.label} in Al Khalifa City, Abu Dhabi. Give me 3 practical decoration tips for a ${room.photos.length > 0 ? 'room (see attached photos)' : 'studio apartment'}. Focus on affordable, easy-to-find items in UAE (IKEA, Dragon Mart, online). Keep each tip to 1 sentence.`;
+    const prompt = `I'm setting up my ${room.label}. Give me 3 practical decoration tips for a ${room.photos.length > 0 ? 'room (see attached photos)' : 'small apartment'}. Focus on affordable, easy to find items. Keep each tip to 1 sentence.`;
     try {
       const tips = await askHuve(prompt, photoContext);
       setRooms(getRooms().map(r =>
@@ -1421,7 +1421,7 @@ function HousingScreen({ state, setState, onBack, onAsk }) {
           <div>
             <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 2 }}>Housing covered by SABIS</div>
             <div style={{ fontSize: 12, opacity: 0.9, lineHeight: 1.4 }}>
-              Your employer provides accommodation in Al Khalifa City. Use this space to plan how you'll decorate and personalise it.
+              Plan how you will set up and personalise each room.
             </div>
           </div>
         </div>
@@ -1559,34 +1559,6 @@ function HousingScreen({ state, setState, onBack, onAsk }) {
 }
 
 // ---------- MEMORY LANE (Goodbye module) ----------
-const OUR_STORY_PHOTOS = [
-  { src: '/memories-thumb/IMG_8887.jpeg', caption: 'I could look at you forever' },
-  { src: '/memories-thumb/IMG_8892.jpeg', caption: 'Always holding on' },
-  { src: '/memories-thumb/IMG_8923.jpeg', caption: 'Couldn\'t resist' },
-  { src: '/memories-thumb/IMG_8919.jpeg', caption: 'Us before the big move' },
-  { src: '/memories-thumb/IMG_8785.jpeg', caption: 'Our ceremony day' },
-  { src: '/memories-thumb/IMG_8790.jpeg', caption: 'Making it official' },
-  { src: '/memories-thumb/IMG_8798.jpeg', caption: 'Your smile that day' },
-  { src: '/memories-thumb/IMG_8960.jpeg', caption: 'We\'re ridiculous' },
-  { src: '/memories-thumb/IMG_8962.jpeg', caption: 'My everything' },
-  { src: '/memories-thumb/IMG_8519.jpeg', caption: 'The day it all began' },
-  { src: '/memories-thumb/IMG_8450.jpeg', caption: 'Always stealing kisses' },
-  { src: '/memories-thumb/IMG_0107.jpeg', caption: 'My favourite place, with you' },
-  { src: '/memories-thumb/IMG_1357.jpeg', caption: 'My favourite version of you' },
-  { src: '/memories-thumb/IMG_0796.jpeg', caption: 'Just us, always' },
-  { src: '/memories-thumb/IMG_8095.jpeg', caption: 'That smile could stop time' },
-  { src: '/memories-thumb/IMG_6701.jpeg', caption: 'Getting ready to steal the night' },
-  { src: '/memories-thumb/IMG_3342.jpeg', caption: 'You love everything you meet' },
-  { src: '/memories-thumb/IMG_2331.jpeg', caption: 'Your birthday glow' },
-  { src: '/memories-thumb/IMG_1751.jpeg', caption: 'Never letting you go' },
-  { src: '/memories-thumb/IMG_0152.jpeg', caption: 'Even casual, you take my breath away' },
-  { src: '/memories-thumb/ac94a93e-992d-46c0-803d-8828f47742cc.jpeg', caption: 'Our song came on' },
-  { src: '/memories-thumb/c4f16d90-0d6a-4600-b7b6-9ef810527818.jpeg', caption: 'Caught you laughing' },
-  { src: '/memories-thumb/798f70e7-f10a-46fb-8b9d-dd3bddd30f9f.jpeg', caption: 'The little pout I love' },
-  { src: '/memories-thumb/09b9ab63-2c4c-401d-8440-0d93b5d90df8.jpeg', caption: 'You make anything look stunning' },
-  { src: '/memories-thumb/2c8b60a8-0a75-469f-be23-bd2f4b8844aa.jpeg', caption: 'You never miss' },
-  { src: '/memories-thumb/57f105c5-9938-43d9-b862-6f3c2a53077b.jpeg', caption: 'Can\'t stop staring' },
-];
 
 function MemoryScreen({ state, setState, onBack }) {
   const lastTimes = state.memories?.lastTimes || [];
@@ -1656,7 +1628,7 @@ function MemoryScreen({ state, setState, onBack }) {
   return (
     <ModulePage
       title="Memory Lane"
-      subtitle={`${OUR_STORY_PHOTOS.length + photos.length} photos · ${ltDone + gbDone} memories`}
+      subtitle={`${photos.length} photos · ${ltDone + gbDone} memories`}
       icon="Camera"
       onBack={onBack}
       action={
@@ -1675,62 +1647,6 @@ function MemoryScreen({ state, setState, onBack }) {
         style={{ display: 'none' }}
         onChange={e => { handleUpload(e.target.files); e.target.value = ''; }}
       />
-
-      {/* Our Story — permanent couple photos */}
-      <div style={{ marginBottom: 28 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-          <SectionHeader title="Our Story" />
-          <button
-            onClick={() => setShowFilmReel(v => !v)}
-            style={{
-              fontSize: 12, fontWeight: 600, color: 'var(--terracotta)',
-              background: 'none', border: 'none', cursor: 'pointer',
-              fontFamily: 'inherit', padding: '4px 12px',
-            }}
-          >{showFilmReel ? 'Close film ↑' : 'Play as film reel ↓'}</button>
-        </div>
-        <p style={{ margin: '0 0 12px', fontSize: 13, color: 'var(--muted)', lineHeight: 1.5 }}>
-          The moments that made us, us.
-        </p>
-
-        {showFilmReel ? (
-          <MemoryPhotoGrid images={OUR_STORY_PHOTOS.map(p => p.src)} />
-        ) : (
-          <div style={{
-            display: 'flex', gap: 10,
-            overflowX: 'auto', scrollbarWidth: 'none',
-            WebkitOverflowScrolling: 'touch',
-            margin: '0 -20px', padding: '4px 20px 8px',
-          }}>
-            {OUR_STORY_PHOTOS.map((photo, i) => (
-              <div
-                key={i}
-                style={{
-                  flexShrink: 0, width: 148,
-                  borderRadius: 16, overflow: 'hidden',
-                  position: 'relative',
-                  boxShadow: '0 4px 16px rgba(0,0,0,0.14)',
-                  cursor: 'pointer',
-                }}
-                onClick={() => setShowFilmReel(true)}
-              >
-                <img
-                  src={photo.src}
-                  alt={photo.caption}
-                  style={{ width: '100%', height: 196, objectFit: 'cover', display: 'block' }}
-                />
-                <div style={{
-                  position: 'absolute', bottom: 0, left: 0, right: 0,
-                  background: 'linear-gradient(transparent, rgba(10,28,26,0.72))',
-                  padding: '28px 10px 10px',
-                  color: 'white', fontSize: 11, fontWeight: 500, lineHeight: 1.4,
-                  fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif',
-                }}>{photo.caption}</div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
 
       {/* Photo gallery */}
       {photos.length > 0 && (

@@ -293,7 +293,7 @@ function SharedList({ token }: { token: string }) {
       }}>
         <span style={{ fontSize: 48 }}>🔒</span>
         <h2 style={{ fontSize: 18, color: 'var(--dark)', margin: 0 }}>Invalid or expired link</h2>
-        <p style={{ fontSize: 13, margin: 0 }}>Ask Suveda for a fresh share link.</p>
+        <p style={{ fontSize: 13, margin: 0 }}>Ask for a fresh share link.</p>
       </div>
     );
   }
@@ -363,7 +363,7 @@ function SharedList({ token }: { token: string }) {
       </div>
 
       <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--muted)', padding: '0 18px' }}>
-        Suveda · Moving to Abu Dhabi 🌴
+        Shared list
       </div>
     </div>
   );
@@ -373,7 +373,7 @@ const token = window.location.pathname.match(/\/s\/(.+)/)?.[1] || window.locatio
 const root = document.getElementById('root')!;
 
 if (!token) {
-  root.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#8A8A8A;font-size:14px;text-align:center;padding:40px"><div><h2 style="font-size:18px;color:#1E1E1E;margin-bottom:8px">Missing link</h2><p style="margin:0">Ask Suveda for a valid shopping list link.</p></div></div>';
+  root.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#8A8A8A;font-size:14px;text-align:center;padding:40px"><div><h2 style="font-size:18px;color:#1E1E1E;margin-bottom:8px">Missing link</h2><p style="margin:0">Ask for a valid shopping list link.</p></div></div>';
 } else {
   createRoot(root).render(<SharedList token={token} />);
 }

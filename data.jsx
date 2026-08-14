@@ -1,6 +1,10 @@
-// data.jsx — Demo data and AI helper for Suveda
+// data.jsx / Starting data and AI helper.
+//
+// Everything in SEED is a generic starting point. Nothing here is anyone's
+// real content: a new account has to be able to sign up without inheriting
+// somebody else's notes, contacts or neighbourhood.
 
-// Move target: Abu Dhabi - Al Khalifa City. Default = ~90 days from "today".
+// Default move date is ~90 days out. Each account sets its own.
 const DEFAULT_MOVE_DATE = (() => {
   const d = new Date();
   d.setDate(d.getDate() + 92);
@@ -113,41 +117,27 @@ const SEED = {
     { id: 'balcony', label: 'Balcony / Entry', emoji: '🌿', photos: [], tips: '' },
   ]},
   memories: {
-    lastTimes: [
-      { id: 'lt1', text: 'Chai at the corner shop', done: false },
-      { id: 'lt2', text: 'Walk through the old neighbourhood', done: false },
-      { id: 'lt3', text: 'Sunset at your favourite spot', done: false },
-      { id: 'lt4', text: 'Walk through the neighbourhood park', done: false },
-      { id: 'lt5', text: 'That one biryani place', done: false },
-    ],
-    goodbyes: [
-      { id: 'gb1', name: 'Grandparents', note: 'Take a photo together', done: false },
-      { id: 'gb2', name: 'Parents', note: 'Help them set up video calls', done: false },
-      { id: 'gb3', name: 'Siblings', note: 'Promise weekly catch-ups', done: false },
-      { id: 'gb4', name: 'Close friends', note: 'Goodbye dinner (t9)', done: false },
-    ],
+    lastTimes: [],
+    goodbyes: [],
   },
   habits: [
     { id: 'h1', name: 'Drink 8 glasses of water', emoji: '💧', streak: 0, lastDone: '' },
     { id: 'h2', name: '10 min walk or stretch', emoji: '🚶', streak: 0, lastDone: '' },
     { id: 'h3', name: 'Read for 15 min', emoji: '📖', streak: 0, lastDone: '' },
-    { id: 'h4', name: 'Practice Arabic (Duolingo)', emoji: '🇦🇪', streak: 0, lastDone: '' },
     { id: 'h5', name: 'Journal 5 min', emoji: '✍️', streak: 0, lastDone: '' },
   ],
   journal: [],
-  contacts: [
-    { id: 'c1', name: 'SABIS HR', role: 'Sponsor / Visa', phone: '', email: '', note: 'They initiate the entry permit' },
-    { id: 'c2', name: 'Current landlord', role: 'Housing notice', phone: '', email: '', note: '2-month notice required (t3)' },
-    { id: 'c3', name: 'Friend in AUH', role: 'On-ground support', phone: '', email: '', note: 'Can help with apartment viewing' },
-  ],
-  whyNote: `My gorgeous baby Suveda, I have written this for you to use as a fallback and guide to help you in and around so that you know I am always with you whether far or near, that I am close to your heart and soul forever and always 🌍`,
-  whyNote2: `I'm doing this to make sure you still feel loved and appreciated, always seen and always heard, wherever life takes us just know I'll always be right there to help you through it... I love you my baby.`,
+  contacts: [],
+  // Left blank on purpose. These are the two notes pinned to the dashboard,
+  // and they are for whoever owns the account to write.
+  whyNote: '',
+  whyNote2: '',
   first48: {
-    simCard: { provider: 'Etisalat / du', where: 'Airport or Al Wahda Mall', note: 'Tourist eSIM works day 1' },
-    groceries: { store: 'Lulu Hypermarket', location: 'Al Khalifa City', tip: 'Walkable from most studios' },
-    mosque: { name: 'Sheikh Khalifa Mosque', location: 'Al Khalifa City', note: 'Walking distance from the studio' },
-    firstMeal: { place: 'Al Fanar Restaurant', location: 'Al Raha Mall', dish: 'Machboos — traditional Emirati' },
-    transport: { app: 'Careem', note: 'Works like Uber, also delivers food' },
+    simCard: { provider: '', where: '', note: '' },
+    groceries: { store: '', location: '', tip: '' },
+    mosque: { name: '', location: '', note: '' },
+    firstMeal: { place: '', location: '', dish: '' },
+    transport: { app: '', note: '' },
   },
 };
 
@@ -204,7 +194,22 @@ function applyProgress(seed, level) {
 
 // AI helper — calls the Huve AI proxy (Cloudflare Worker → NVIDIA API)
 async function askHuve(prompt, context = '') {
-  const sys = `You are Huve — speaking directly to Suveda, your partner, about your move to Al Khalifa City, Abu Dhabi, UAE on August 10, 2026. You know every detail of your shared plan: the budget, packing lists, visa process, housing search, habits to build, and people to say goodbye to. Speak warmly but practically — you care deeply and you've done the research. Keep answers to 2-4 sentences. Be concrete and direct. No emojis, no fluff. For visa/legal/medical questions, reference official sources (ICP, GDRFA, MoHRE, DOH) rather than giving advice yourself. If a file or photo is provided in context, use it to inform your answer.`;
+  // Built per caller rather than baked in. The old version named both people
+  // and their destination on every request, for every account.
+  const profile = window.__lifeos?.spaces;
+  const name = window.__suvedaUser?.user_metadata?.name || '';
+  const destination = window.__suvedaDestination || '';
+
+  const sys = [
+    'You are a practical, warm assistant inside a personal planning app.',
+    name ? `You are speaking to ${name}.` : '',
+    destination ? `They are planning a move to ${destination}.` : '',
+    'You know their budget, packing lists, documents, housing search and habits from the context provided.',
+    'Keep answers to 2-4 sentences. Be concrete and direct. No emojis, no fluff.',
+    'For visa, legal or medical questions, point to official sources rather than giving advice yourself.',
+    'If a file or photo is provided in context, use it to inform your answer.',
+  ].filter(Boolean).join(' ');
+  void profile;
   const user = context ? `Context: ${context}\n\nQuestion: ${prompt}` : prompt;
 
   // If a local proxy is available, call it; otherwise fall back.
