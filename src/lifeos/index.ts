@@ -3,6 +3,8 @@
 // window.__suvedaShopping: one namespace object, assigned before the .jsx
 // modules load.
 
+import * as call from './call';
+import * as ice from './ice';
 import * as lock from './lock';
 import * as members from './members';
 import * as native from './native';
@@ -17,6 +19,8 @@ import * as trips from './trips';
 import * as videoNotes from './videoNotes';
 
 export const lifeos = {
+  call,
+  ice,
   lock,
   members,
   native,

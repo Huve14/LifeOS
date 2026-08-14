@@ -72,6 +72,8 @@
 	<string>LifeOS saves a video note to your photos when you ask it to.</string>
 	<key>UIBackgroundModes</key>
 	<array>
+		<!-- Keeps call audio running when the phone is locked mid-call. -->
+		<string>audio</string>
 		<string>remote-notification</string>
 		<string>fetch</string>
 		<string>processing</string>

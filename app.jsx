@@ -291,6 +291,14 @@ function App() {
       journal: <VideoJournalScreen onBack={() => setView('home')} />,
       prompt:  <DailyPromptScreen onBack={() => setView('home')} />,
       trip:    <TripBoardScreen onBack={() => setView('home')} />,
+      call:    <CallScreen
+                onBack={() => setView('home')}
+                onRecordInstead={() => {
+                  // Phase 4 falling back into Phase 1: land on the journal
+                  // with the recorder already open.
+                  window.dispatchEvent(new CustomEvent('lifeos:record-video-note'));
+                  setView('journal');
+                }} />,
     };
     return screens[view] || screens.home;
   }
@@ -498,6 +506,7 @@ function SuvedaTweaks({ tweaks, setTweak, setView }) {
             { id: 'journal',    label: '🎥 Video' },
             { id: 'prompt',     label: '💬 Prompt' },
             { id: 'trip',       label: '🧳 Trip' },
+            { id: 'call',       label: '📞 Call' },
             { id: 'memory',     label: '💭 Memory' },
             { id: 'habits',     label: '🎯 Habits' },
             { id: 'map',        label: '🗺️ Map' },
@@ -532,6 +541,7 @@ const MORE_NAV = [
   { id: 'journal',  label: 'Video',    icon: 'Video' },
   { id: 'prompt',   label: 'Prompt',   icon: 'MessageCircle' },
   { id: 'trip',     label: 'Trip',     icon: 'Luggage' },
+  { id: 'call',     label: 'Call',     icon: 'Phone' },
   { id: 'tasks',    label: 'Timeline', icon: 'CalendarDays' },
   { id: 'shopping', label: 'Shopping', icon: 'ShoppingCart' },
   { id: 'housing',  label: 'Housing',  icon: 'Building2' },

@@ -805,6 +805,13 @@ function VideoJournalScreen({ onBack }) {
 
   useEffect(() => api?.net.onNetworkChange(setOnline), [api]);
 
+  // Phase 4 hands off to here when a call is too poor to continue.
+  useEffect(() => {
+    function openRecorder() { setRecording(true); }
+    window.addEventListener('lifeos:record-video-note', openRecorder);
+    return () => window.removeEventListener('lifeos:record-video-note', openRecorder);
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     api?.members.loadMembers().then(members => {
