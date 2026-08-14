@@ -32,6 +32,7 @@ import {
   Pencil,
   Phone,
   PhoneOff,
+  PictureInPicture2,
   PlaneTakeoff,
   Plus,
   RefreshCw,
@@ -88,6 +89,7 @@ const ICONS = {
   Pencil,
   Phone,
   PhoneOff,
+  PictureInPicture2,
   PlaneTakeoff,
   Plus,
   RefreshCw,
@@ -116,7 +118,6 @@ function AnimatedIcon({ name, size = 22, play, style, ...props }) {
   useEffect(() => {
     if (play == null || play === 0 || !ref.current) return;
     const reduceMotion = window.__lifeosPreferences?.motion === 'reduced'
-      || window.__lifeos?.performance.shouldUseLiteVisuals()
       || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     if (reduceMotion || typeof ref.current.animate !== 'function') return;
     const animation = ref.current.animate([

@@ -99,7 +99,7 @@ function participantInitials(name) {
   return parts.slice(0, 2).map(part => part[0]?.toUpperCase()).join('') || '?';
 }
 
-function ParticipantTile({ participant, lastRow = false }) {
+function ParticipantTile({ participant, lastRow = false, localCameraFacing = 'user' }) {
   const showVideo = participant.cameraOn && participant.videoElement;
   const label = participant.isLocal ? `${participant.name} (You)` : participant.name;
 
@@ -109,7 +109,7 @@ function ParticipantTile({ participant, lastRow = false }) {
         <VideoSurface
           element={participant.videoElement}
           muted={participant.isLocal}
-          mirrored={participant.isLocal}
+          mirrored={participant.isLocal && localCameraFacing === 'user'}
         />
       ) : (
         <div className="call-participant-placeholder">
@@ -127,6 +127,41 @@ function ParticipantTile({ participant, lastRow = false }) {
       </div>
     </div>
   );
+}
+
+function asVideoElement(element) {
+  return element?.tagName === 'VIDEO' ? element : null;
+}
+
+/** Prefer the person speaking, then another caller, and use the local camera
+ * only when nobody else has video. Native browser PiP can float one actual
+ * video track; the in-app full-screen control still shows the complete grid. */
+function pickPictureInPictureVideo(participants) {
+  const candidates = [
+    ...participants.filter(participant => !participant.isLocal && participant.speaking && participant.cameraOn),
+    ...participants.filter(participant => !participant.isLocal && participant.cameraOn),
+    ...participants.filter(participant => participant.isLocal && participant.cameraOn),
+  ];
+  return candidates.map(participant => asVideoElement(participant.videoElement)).find(Boolean) || null;
+}
+
+function supportsWebKitPictureInPicture(video) {
+  return Boolean(
+    video
+    && typeof video.webkitSupportsPresentationMode === 'function'
+    && video.webkitSupportsPresentationMode('picture-in-picture')
+    && typeof video.webkitSetPresentationMode === 'function',
+  );
+}
+
+async function closePictureInPicture(video) {
+  if (document.pictureInPictureElement && document.exitPictureInPicture) {
+    await document.exitPictureInPicture();
+    return;
+  }
+  if (video?.webkitPresentationMode === 'picture-in-picture') {
+    video.webkitSetPresentationMode('inline');
+  }
 }
 
 function currentFullscreenElement() {
@@ -166,11 +201,13 @@ function TransportStrip({ report }) {
   );
 }
 
-function ControlButton({ onClick, active, danger, label, icon }) {
+function ControlButton({ onClick, active, danger, disabled = false, label, icon }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      disabled={disabled}
+      aria-pressed={active ? 'true' : 'false'}
       aria-label={label}
       title={label}
       className={`call-control-button${active ? ' is-active' : ''}${danger ? ' is-danger' : ''}`}
@@ -211,6 +248,7 @@ function CallScreen({
   const callStageRef = useRef(null);
   const callDockRef = useRef(null);
   const dockDragRef = useRef(null);
+  const pipVideoRef = useRef(null);
   const launchHandledRef = useRef(0);
   const degradationRef = useRef(api?.call.newDegradationState());
 
@@ -227,6 +265,10 @@ function CallScreen({
   ] : []);
   const [micOn, setMicOn] = useState(true);
   const [cameraOn, setCameraOn] = useState(launch.mode !== 'audio');
+  const [cameraFacing, setCameraFacing] = useState('user');
+  const [cameraSwitching, setCameraSwitching] = useState(false);
+  const [pipActive, setPipActive] = useState(false);
+  const [pipStatus, setPipStatus] = useState('');
   const [soundBlocked, setSoundBlocked] = useState(false);
   const [soundUnlocking, setSoundUnlocking] = useState(false);
   const [nativeFullscreen, setNativeFullscreen] = useState(false);
@@ -245,6 +287,7 @@ function CallScreen({
   const fullscreen = nativeFullscreen || focusMode;
   const live = state === 'connected' || state === 'reconnecting';
   const busy = state === 'requesting' || state === 'connecting';
+  const pipVideo = pickPictureInPictureVideo(participants);
 
   const clampDock = useCallback((x, y) => {
     const stage = callStageRef.current;
@@ -346,6 +389,12 @@ function CallScreen({
   const hangUp = useCallback(async () => {
     const activeCall = callRef.current;
     callRef.current = null;
+    try {
+      await closePictureInPicture(pipVideoRef.current);
+    } catch {
+      // The operating system may have already dismissed its floating player.
+    }
+    pipVideoRef.current = null;
     await activeCall?.disconnect();
     await leaveFullscreen();
     api?.net.setBusy(false);
@@ -354,10 +403,16 @@ function CallScreen({
     setTransport(null);
     setQuality('unknown');
     setDockPosition(null);
+    setPipActive(false);
+    setPipStatus('');
     setState('ended');
   }, [api, leaveFullscreen]);
 
-  useEffect(() => () => { void callRef.current?.disconnect(); api?.net.setBusy(false); }, [api]);
+  useEffect(() => () => {
+    void closePictureInPicture(pipVideoRef.current).catch(() => {});
+    void callRef.current?.disconnect();
+    api?.net.setBusy(false);
+  }, [api]);
 
   useEffect(() => {
     const updateFullscreen = () => setNativeFullscreen(Boolean(currentFullscreenElement()));
@@ -368,6 +423,44 @@ function CallScreen({
       document.removeEventListener('webkitfullscreenchange', updateFullscreen);
     };
   }, []);
+
+  useEffect(() => {
+    const videos = [...new Set(participants
+      .map(participant => asVideoElement(participant.videoElement))
+      .filter(Boolean))];
+
+    const entered = event => {
+      pipVideoRef.current = event.currentTarget;
+      setPipActive(true);
+      setPipStatus('Picture in Picture is on. You can open another app while the call continues.');
+    };
+    const left = event => {
+      if (pipVideoRef.current === event.currentTarget) pipVideoRef.current = null;
+      setPipActive(false);
+      setPipStatus('');
+    };
+    const webkitChanged = event => {
+      if (event.currentTarget.webkitPresentationMode === 'picture-in-picture') entered(event);
+      else left(event);
+    };
+
+    videos.forEach(video => {
+      video.addEventListener('enterpictureinpicture', entered);
+      video.addEventListener('leavepictureinpicture', left);
+      video.addEventListener('webkitpresentationmodechanged', webkitChanged);
+    });
+    return () => videos.forEach(video => {
+      video.removeEventListener('enterpictureinpicture', entered);
+      video.removeEventListener('leavepictureinpicture', left);
+      video.removeEventListener('webkitpresentationmodechanged', webkitChanged);
+    });
+  }, [participants]);
+
+  useEffect(() => {
+    if (!pipStatus || pipActive) return undefined;
+    const timer = window.setTimeout(() => setPipStatus(''), 4500);
+    return () => window.clearTimeout(timer);
+  }, [pipStatus, pipActive]);
 
   useEffect(() => {
     document.body.classList.toggle('call-fullscreen-open', fullscreen);
@@ -412,6 +505,11 @@ function CallScreen({
     setCallMode(nextMode);
     setMicOn(true);
     setCameraOn(nextMode === 'video');
+    setCameraFacing('user');
+    setCameraSwitching(false);
+    setPipActive(false);
+    setPipStatus('');
+    pipVideoRef.current = null;
     setParticipants([]);
     setSoundBlocked(false);
     setSoundUnlocking(false);
@@ -470,6 +568,68 @@ function CallScreen({
     await callRef.current?.setCameraEnabled(next);
     if (next) setCallMode('video');
     void api.native.tap('light');
+  }
+
+  async function switchCamera() {
+    if (!callRef.current || !cameraOn || cameraSwitching) return;
+    const requested = api.call.nextCameraFacingMode(cameraFacing);
+    setCameraSwitching(true);
+    setPipStatus('');
+    try {
+      const actual = await callRef.current.switchCamera(requested);
+      setCameraFacing(actual);
+      setPipStatus(actual === 'environment' ? 'Back camera is on.' : 'Front camera is on.');
+      void api.native.tap('medium');
+    } catch (error) {
+      setPipStatus(api.call.friendlyCallError(error));
+      void api.native.notifyHaptic('warning');
+    } finally {
+      setCameraSwitching(false);
+    }
+  }
+
+  async function togglePictureInPicture() {
+    if (pipActive || document.pictureInPictureElement) {
+      try {
+        await closePictureInPicture(pipVideoRef.current);
+        pipVideoRef.current = null;
+        setPipActive(false);
+        setPipStatus('');
+      } catch (error) {
+        setPipStatus(api.call.friendlyCallError(error));
+      }
+      return;
+    }
+
+    const video = pipVideo;
+    if (!video) {
+      setPipStatus('Turn on a camera, then try Picture in Picture again.');
+      return;
+    }
+
+    try {
+      pipVideoRef.current = video;
+      // iPhone/iPad Safari exposes Apple’s presentation-mode API. Desktop
+      // Chrome and compatible Android browsers use the standard API below.
+      // Both calls stay directly inside the user’s tap, as browsers require.
+      if (supportsWebKitPictureInPicture(video)) {
+        video.webkitSetPresentationMode('picture-in-picture');
+      } else if (document.pictureInPictureEnabled && typeof video.requestPictureInPicture === 'function') {
+        await video.requestPictureInPicture();
+      } else {
+        throw new Error('Picture in Picture is not available in this browser.');
+      }
+      setPipActive(true);
+      setPipStatus('Picture in Picture is on. You can open another app while the call continues.');
+      void api.native.tap('medium');
+    } catch (error) {
+      pipVideoRef.current = null;
+      setPipActive(false);
+      const message = error instanceof Error ? error.message : '';
+      setPipStatus(message.includes('not available')
+        ? message
+        : 'Picture in Picture was blocked. Tap the control again and allow it when your device asks.');
+    }
   }
 
   async function enableSound() {
@@ -811,6 +971,7 @@ function CallScreen({
                   key={participant.identity}
                   participant={participant}
                   lastRow={index >= lastRowStart}
+                  localCameraFacing={cameraFacing}
                 />
               ))}
             </div>
@@ -854,6 +1015,12 @@ function CallScreen({
                 </button>
               )}
 
+              {pipStatus && (
+                <div className="call-feature-status" role="status" aria-live="polite">
+                  {pipStatus}
+                </div>
+              )}
+
               <div
                 ref={callDockRef}
                 className={`call-controls${dockPosition ? ' is-positioned' : ''}`}
@@ -889,21 +1056,37 @@ function CallScreen({
                   icon={micOn ? 'Mic' : 'MicOff'}
                 />
                 <ControlButton
-                  onClick={() => { void hangUp(); }}
-                  danger
-                  label="End call"
-                  icon="PhoneOff"
-                />
-                <ControlButton
                   onClick={toggleCamera}
                   active={!cameraOn}
                   label={cameraOn ? 'Turn camera off' : 'Turn camera on'}
                   icon={cameraOn ? 'VideoIcon' : 'VideoOff'}
                 />
                 <ControlButton
+                  onClick={switchCamera}
+                  active={cameraSwitching}
+                  disabled={!cameraOn || cameraSwitching}
+                  label={cameraSwitching
+                    ? 'Switching camera'
+                    : (cameraFacing === 'user' ? 'Switch to back camera' : 'Switch to front camera')}
+                  icon="SwitchCamera"
+                />
+                <ControlButton
+                  onClick={togglePictureInPicture}
+                  active={pipActive}
+                  disabled={!pipActive && !pipVideo}
+                  label={pipActive ? 'Exit Picture in Picture' : 'Use Picture in Picture'}
+                  icon="PictureInPicture2"
+                />
+                <ControlButton
                   onClick={toggleFullscreen}
                   label={fullscreen ? 'Exit full screen' : 'Enter full screen'}
                   icon={fullscreen ? 'Minimize2' : 'Maximize2'}
+                />
+                <ControlButton
+                  onClick={() => { void hangUp(); }}
+                  danger
+                  label="End call"
+                  icon="PhoneOff"
                 />
               </div>
             </>

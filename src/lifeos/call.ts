@@ -16,6 +16,7 @@ import type { TransportReport } from './ice';
 
 export type Quality = 'excellent' | 'good' | 'poor' | 'lost' | 'unknown';
 export type CallMode = 'video' | 'audio';
+export type CameraFacingMode = 'user' | 'environment';
 
 export type CallState =
   | 'idle'
@@ -78,6 +79,13 @@ export function friendlyCallError(error: unknown): string {
   }
   if (normalized.includes('failed to fetch') || normalized.includes('networkerror')) {
     return 'The network could not reach the call service. Check your connection and try audio instead.';
+  }
+  if (
+    normalized.includes('notfounderror')
+    || normalized.includes('overconstrainederror')
+    || normalized.includes('requested device not found')
+  ) {
+    return 'No other camera was found on this device. Your current camera is still connected.';
   }
 
   return message || 'The call could not connect. Try again or use audio mode.';
@@ -203,6 +211,8 @@ type LiveKit = typeof import('livekit-client');
 export type ActiveCall = {
   setMicEnabled: (enabled: boolean) => Promise<void>;
   setCameraEnabled: (enabled: boolean) => Promise<void>;
+  /** Restart the published camera in place without leaving the room. */
+  switchCamera: (facingMode: CameraFacingMode) => Promise<CameraFacingMode>;
   /** Must be called directly from a click/tap when Safari blocks autoplay. */
   startAudio: () => Promise<void>;
   disconnect: () => Promise<void>;
@@ -280,6 +290,11 @@ export function clampFloatingBarPosition(
     x: Math.round(Math.min(Math.max(point.x, safeInset), maxX)),
     y: Math.round(Math.min(Math.max(point.y, safeInset), maxY)),
   };
+}
+
+/** The camera control always alternates between mobile-facing modes. */
+export function nextCameraFacingMode(current: CameraFacingMode): CameraFacingMode {
+  return current === 'environment' ? 'user' : 'environment';
 }
 
 function mapQuality(livekit: LiveKit, value: unknown): Quality {
@@ -507,6 +522,25 @@ export async function startCall(
     async setCameraEnabled(enabled: boolean) {
       await room.localParticipant.setCameraEnabled(enabled);
       syncParticipants();
+    },
+    async switchCamera(facingMode: CameraFacingMode) {
+      const camera = room.localParticipant
+        .getTrackPublication(Track.Source.Camera)
+        ?.videoTrack;
+      if (!camera || camera.isMuted) {
+        throw new Error('Turn your camera on before switching cameras.');
+      }
+
+      // Only the underlying capture device restarts. Room membership, audio,
+      // subscriptions and the published video track all stay connected.
+      await camera.restartTrack({
+        facingMode,
+        resolution: VideoPresets.h540.resolution,
+      });
+      syncParticipants();
+
+      const actual = camera.mediaStreamTrack.getSettings().facingMode;
+      return actual === 'user' || actual === 'environment' ? actual : facingMode;
     },
     async startAudio() {
       await room.startAudio();

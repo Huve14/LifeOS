@@ -5,6 +5,7 @@ import {
   clampFloatingBarPosition,
   friendlyCallError,
   isCallInviteToken,
+  nextCameraFacingMode,
   newDegradationState,
   trackDegradation,
   validateServerUrl,
@@ -55,6 +56,18 @@ describe('friendlyCallError', () => {
   it('preserves an actionable provider message', () => {
     expect(friendlyCallError(new Error('Room connection timed out')))
       .toBe('Room connection timed out');
+  });
+
+  it('explains when a phone has no second camera to switch to', () => {
+    expect(friendlyCallError(new Error('OverconstrainedError: facingMode')))
+      .toContain('No other camera');
+  });
+});
+
+describe('nextCameraFacingMode', () => {
+  it('alternates between the selfie and outward-facing cameras', () => {
+    expect(nextCameraFacingMode('user')).toBe('environment');
+    expect(nextCameraFacingMode('environment')).toBe('user');
   });
 });
 

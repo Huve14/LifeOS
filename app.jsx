@@ -290,9 +290,10 @@ function App() {
   const previewGames = import.meta.env.DEV && previewParams.has('preview-games');
   const previewPairing = import.meta.env.DEV && previewParams.has('preview-pairing');
   const previewTasks = import.meta.env.DEV && previewParams.has('preview-tasks');
+  const previewTrip = import.meta.env.DEV && previewParams.has('preview-trip');
   const previewOnboarding = import.meta.env.DEV && previewParams.has('preview-onboarding');
   const previewLite = import.meta.env.DEV && previewParams.has('preview-lite');
-  const previewSession = previewHome || previewCall || previewGames || previewPairing || previewTasks || previewOnboarding;
+  const previewSession = previewHome || previewCall || previewGames || previewPairing || previewTasks || previewTrip || previewOnboarding;
   const requestedGameCode = (previewParams.get('game') || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
   const requestedPairCode = window.__lifeos.couples.normalizePairCode(previewParams.get('pair') || '');
   const previewDark = import.meta.env.DEV && previewParams.has('preview-dark');
@@ -399,7 +400,7 @@ function App() {
           moveDate: '2026-08-10',
           onboardingDone: !previewOnboarding,
         });
-        setView(previewOnboarding ? 'onboarding' : previewCall ? 'call' : previewGames ? 'games' : previewPairing ? 'space' : previewTasks ? 'tasks' : 'home');
+        setView(previewOnboarding ? 'onboarding' : previewCall ? 'call' : previewGames ? 'games' : previewPairing ? 'space' : previewTasks ? 'tasks' : previewTrip ? 'trip' : 'home');
         setStorageReady(true);
         return;
       }
@@ -430,7 +431,7 @@ function App() {
     return () => {
       cancelled = true;
     };
-  }, [previewCall, previewGames, previewOnboarding, previewPairing, previewSession, previewTasks, store, user?.id]);
+  }, [previewCall, previewGames, previewOnboarding, previewPairing, previewSession, previewTasks, previewTrip, store, user?.id]);
 
   const gameInviteHandledRef = useRef(false);
   useEffect(() => {
@@ -1538,6 +1539,12 @@ function FaceIdRow() {
 function BottomNav({ current, onNavigate, preferences }) {
   const [playTriggers, setPlayTriggers] = useState({});
   const [moreOpen, setMoreOpen] = useState(false);
+  const playNavItem = (id) => {
+    setPlayTriggers(triggers => ({
+      ...triggers,
+      [id]: (triggers[id] || 0) + 1,
+    }));
+  };
   // Attention badges used to import the complete video journal and daily
   // prompt bundles on every app launch. Their counts are non-essential and
   // can remain dormant until those screens are opened.
@@ -1573,12 +1580,12 @@ function BottomNav({ current, onNavigate, preferences }) {
                 onPointerDown={() => preloadLegacyView(item.id)}
                 onFocus={() => preloadLegacyView(item.id)}
                 onClick={() => {
-                  setPlayTriggers(t => ({ ...t, [item.id]: (t[item.id] || 0) + 1 }));
+                  playNavItem(item.id);
                   onNavigate(item.id);
                 }}
                 onMouseEnter={() => {
                   preloadLegacyView(item.id);
-                  setPlayTriggers(t => ({ ...t, [item.id]: (t[item.id] || 0) + 1 }));
+                  playNavItem(item.id);
                 }}
               >
                 <span className="bottom-nav-icon">
@@ -1592,7 +1599,10 @@ function BottomNav({ current, onNavigate, preferences }) {
 
           <button
             type="button"
-            onClick={() => setMoreOpen(o => !o)}
+            onClick={() => {
+              playNavItem('more');
+              setMoreOpen(open => !open);
+            }}
             className={`bottom-nav-item${activeMoreItem || moreOpen ? ' is-active' : ''}`}
             aria-expanded={moreOpen}
             aria-label={activeMoreItem ? `${activeMoreItem.label}, more destinations` : 'More destinations'}
@@ -1601,7 +1611,7 @@ function BottomNav({ current, onNavigate, preferences }) {
               <AnimatedIcon
                 name={activeMoreItem ? activeMoreItem.icon : 'LayoutGrid'}
                 size={26}
-                play={0}
+                play={playTriggers.more || 0}
               />
             </span>
             <span className="bottom-nav-label">{activeMoreItem ? activeMoreItem.label : 'More'}</span>
@@ -1623,10 +1633,14 @@ function BottomNav({ current, onNavigate, preferences }) {
                   onPointerDown={() => preloadLegacyView(item.id)}
                   onMouseEnter={() => preloadLegacyView(item.id)}
                   onFocus={() => preloadLegacyView(item.id)}
-                  onClick={() => { onNavigate(item.id); setMoreOpen(false); }}
+                  onClick={() => {
+                    playNavItem(item.id);
+                    onNavigate(item.id);
+                    setMoreOpen(false);
+                  }}
                 >
                   <span className="bottom-nav-more-icon">
-                    <AnimatedIcon name={item.icon} size={28} play={0} />
+                    <AnimatedIcon name={item.icon} size={28} play={playTriggers[item.id] || 0} />
                   </span>
                   <span className="bottom-nav-more-label">{item.label}</span>
                   <NavDot show={navNeedsAttention(item.id, unwatched, promptWaiting)} offset={8} />

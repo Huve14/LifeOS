@@ -1,11 +1,8 @@
-// Shared trip board data layer.
+// Private, offline-friendly trip board data layer.
 //
-// Both of us can edit everything, so the interesting problem is not access but
-// concurrency: two phones on bad wifi editing the same flight time. Writes go
-// through the outbox as a full-row upsert keyed on a device-generated
-// client_id, which makes a retry idempotent and resolves a genuine conflict as
-// last write wins. For two people planning one trip that is the right
-// tradeoff; anything cleverer would cost more than it saves.
+// Every row belongs to the signed-in account. Item writes go through the
+// outbox as a full-row upsert keyed on a device-generated client_id, so a retry
+// is idempotent and a weak mobile connection never loses a travel update.
 
 import { getAuthClient, hasConfig } from '../supabase';
 import { currentUserId } from './spaces';
@@ -18,13 +15,23 @@ import {
 import { newClientId } from './recording';
 import { flushOutbox, notifySent, registerSender, subscribeSent } from './sync';
 
-export type TripCategory = 'flight' | 'hotel' | 'booking' | 'idea';
+export type TripCategory =
+  | 'flight'
+  | 'hotel'
+  | 'transport'
+  | 'booking'
+  | 'activity'
+  | 'checklist'
+  | 'idea';
 export type TripStatus = 'confirmed' | 'tentative';
 
 export const CATEGORIES: Array<{ id: TripCategory; label: string; icon: string }> = [
   { id: 'flight', label: 'Flights', icon: 'Plane' },
   { id: 'hotel', label: 'Stays', icon: 'BedDouble' },
+  { id: 'transport', label: 'Transport', icon: 'CarFront' },
   { id: 'booking', label: 'Bookings', icon: 'Ticket' },
+  { id: 'activity', label: 'Plans', icon: 'MapPinned' },
+  { id: 'checklist', label: 'Checklist', icon: 'ListChecks' },
   { id: 'idea', label: 'Ideas', icon: 'Lightbulb' },
 ];
 
@@ -32,6 +39,7 @@ export const CURRENCIES = ['AED', 'ZAR', 'USD', 'EUR', 'GBP'];
 
 export type Trip = {
   id: string;
+  owner_id: string;
   title: string;
   origin: string;
   destination: string;
@@ -44,6 +52,7 @@ export type Trip = {
 
 export type TripItem = {
   id: string;
+  owner_id: string;
   trip_id: string;
   client_id: string;
   category: TripCategory;
@@ -56,8 +65,7 @@ export type TripItem = {
   status: TripStatus;
   notes: string;
   url: string;
-  created_by: string;
-  updated_by: string;
+  is_complete: boolean;
   created_at: string;
   updated_at: string;
   /** Set on locally queued rows that have not reached the server yet. */
@@ -65,32 +73,40 @@ export type TripItem = {
 };
 
 const TRIP_COLUMNS =
-  'id, title, origin, destination, start_date, end_date, notes, created_at, updated_at';
+  'id, owner_id, title, origin, destination, start_date, end_date, notes, created_at, updated_at';
 
 const ITEM_COLUMNS =
-  'id, trip_id, client_id, category, title, starts_at, ends_at, cost_amount, cost_currency, booking_ref, status, notes, url, created_by, updated_by, created_at, updated_at';
+  'id, owner_id, trip_id, client_id, category, title, starts_at, ends_at, cost_amount, cost_currency, booking_ref, status, notes, url, is_complete, created_at, updated_at';
 
 // ---------- Reads ----------
 
 export async function loadTrips(): Promise<Trip[]> {
   if (!hasConfig) return [];
+  const ownerId = currentUserId();
+  if (!ownerId) return [];
   const { data, error } = await getAuthClient()
     .from('lifeos_trips')
     .select(TRIP_COLUMNS)
+    .eq('owner_id', ownerId)
     .order('start_date', { ascending: true });
 
-  if (error || !data) return [];
+  if (error) throw error;
+  if (!data) return [];
   return data as Trip[];
 }
 
 export async function loadItems(tripId: string): Promise<TripItem[]> {
   if (!hasConfig || !tripId) return [];
+  const ownerId = currentUserId();
+  if (!ownerId) return [];
   const { data, error } = await getAuthClient()
     .from('lifeos_trip_items')
     .select(ITEM_COLUMNS)
-    .eq('trip_id', tripId);
+    .eq('trip_id', tripId)
+    .eq('owner_id', ownerId);
 
-  if (error || !data) return [];
+  if (error) throw error;
+  if (!data) return [];
   return data as TripItem[];
 }
 
@@ -151,6 +167,29 @@ export function tripTotals(items: TripItem[]): Totals {
   return { confirmed, tentative, currencies };
 }
 
+export type TripProgress = {
+  done: number;
+  total: number;
+  percent: number;
+};
+
+/**
+ * Confirmed reservations and completed checklist rows are the two kinds of
+ * progress a traveller can actually act on. Ideas stay out of the denominator
+ * until they are confirmed, so brainstorming never makes a trip look behind.
+ */
+export function tripProgress(items: TripItem[]): TripProgress {
+  const actionable = items.filter((item) => item.category !== 'idea');
+  const done = actionable.filter((item) =>
+    item.category === 'checklist' ? item.is_complete : item.status === 'confirmed',
+  ).length;
+  return {
+    done,
+    total: actionable.length,
+    percent: actionable.length === 0 ? 0 : Math.round((done / actionable.length) * 100),
+  };
+}
+
 export function formatCost(amount: number, currency: string): string {
   const rounded = Math.round(amount * 100) / 100;
   const body = Number.isInteger(rounded)
@@ -203,6 +242,7 @@ function blankItem(clientId: string, tripId: string): TripItem {
   const now = new Date().toISOString();
   return {
     id: clientId,
+    owner_id: currentUserId() ?? '',
     trip_id: tripId,
     client_id: clientId,
     category: 'idea',
@@ -215,8 +255,7 @@ function blankItem(clientId: string, tripId: string): TripItem {
     status: 'tentative',
     notes: '',
     url: '',
-    created_by: currentUserId() ?? '',
-    updated_by: currentUserId() ?? '',
+    is_complete: false,
     created_at: now,
     updated_at: now,
   };
@@ -285,6 +324,7 @@ export function toRow(item: TripItem): TripItemRow {
     status: item.status,
     notes: item.notes,
     url: item.url,
+    is_complete: item.is_complete,
   };
 }
 
@@ -299,7 +339,8 @@ async function sendEntry(queued: OutboxEntry): Promise<void> {
     const { error } = await client
       .from('lifeos_trip_items')
       .delete()
-      .eq('client_id', entry.id);
+      .eq('client_id', entry.id)
+      .eq('owner_id', userId);
     if (error) throw error;
     return;
   }
@@ -307,9 +348,9 @@ async function sendEntry(queued: OutboxEntry): Promise<void> {
   const { error } = await client.from('lifeos_trip_items').upsert(
     {
       trip_id: entry.meta.tripId,
+      owner_id: userId,
       client_id: entry.id,
       ...entry.meta.row,
-      updated_by: userId,
       updated_at: new Date().toISOString(),
     },
     { onConflict: 'client_id' },
@@ -326,11 +367,13 @@ export async function saveTrip(
 ): Promise<boolean> {
   if (!hasConfig) return false;
   const userId = currentUserId();
+  if (!userId) return false;
 
   const { error } = await getAuthClient()
     .from('lifeos_trips')
-    .update({ ...patch, updated_by: userId, updated_at: new Date().toISOString() })
-    .eq('id', tripId);
+    .update({ ...patch, updated_at: new Date().toISOString() })
+    .eq('id', tripId)
+    .eq('owner_id', userId);
 
   if (error) return false;
   notifyTripsChanged();
@@ -338,18 +381,34 @@ export async function saveTrip(
 }
 
 export async function createTrip(
-  trip: Pick<Trip, 'title' | 'origin' | 'destination' | 'start_date' | 'end_date'>,
+  trip: Pick<Trip, 'title' | 'origin' | 'destination' | 'start_date' | 'end_date' | 'notes'>,
 ): Promise<Trip | null> {
   if (!hasConfig) return null;
+  const ownerId = currentUserId();
+  if (!ownerId) return null;
   const { data, error } = await getAuthClient()
     .from('lifeos_trips')
-    .insert(trip)
+    .insert({ ...trip, owner_id: ownerId })
     .select(TRIP_COLUMNS)
     .single();
 
   if (error || !data) return null;
   notifyTripsChanged();
   return data as Trip;
+}
+
+export async function deleteTrip(tripId: string): Promise<boolean> {
+  if (!hasConfig) return false;
+  const ownerId = currentUserId();
+  if (!ownerId) return false;
+  const { error } = await getAuthClient()
+    .from('lifeos_trips')
+    .delete()
+    .eq('id', tripId)
+    .eq('owner_id', ownerId);
+  if (error) return false;
+  notifyTripsChanged();
+  return true;
 }
 
 // ---------- Change notification ----------
@@ -371,12 +430,13 @@ export function subscribeTrips(onChange: () => void): () => void {
   let removeChannel = () => {};
   if (hasConfig) {
     const client = getAuthClient();
+    const ownerId = currentUserId();
     const channel = client
       .channel('lifeos-trips')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'lifeos_trips' }, () =>
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'lifeos_trips', filter: ownerId ? `owner_id=eq.${ownerId}` : undefined }, () =>
         onChange(),
       )
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'lifeos_trip_items' }, () =>
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'lifeos_trip_items', filter: ownerId ? `owner_id=eq.${ownerId}` : undefined }, () =>
         onChange(),
       )
       .subscribe();

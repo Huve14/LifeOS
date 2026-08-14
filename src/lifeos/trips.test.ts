@@ -8,6 +8,7 @@ import {
   sortItems,
   toRow,
   tripLengthDays,
+  tripProgress,
   tripTotals,
   type Trip,
   type TripItem,
@@ -17,6 +18,7 @@ import type { TripItemEntry } from './outbox';
 function item(overrides: Partial<TripItem> = {}): TripItem {
   return {
     id: overrides.client_id ?? 'i1',
+    owner_id: 'u1',
     trip_id: 't1',
     client_id: 'i1',
     category: 'idea',
@@ -29,8 +31,7 @@ function item(overrides: Partial<TripItem> = {}): TripItem {
     status: 'tentative',
     notes: '',
     url: '',
-    created_by: 'u1',
-    updated_by: 'u1',
+    is_complete: false,
     created_at: '2026-08-01T00:00:00Z',
     updated_at: '2026-08-01T00:00:00Z',
     ...overrides,
@@ -39,6 +40,7 @@ function item(overrides: Partial<TripItem> = {}): TripItem {
 
 const trip: Trip = {
   id: 't1',
+  owner_id: 'u1',
   title: 'October in Abu Dhabi',
   origin: 'Johannesburg',
   destination: 'Abu Dhabi',
@@ -123,7 +125,9 @@ describe('groupByCategory', () => {
   });
 
   it('covers every category the schema allows', () => {
-    expect(CATEGORIES.map((c) => c.id).sort()).toEqual(['booking', 'flight', 'hotel', 'idea']);
+    expect(CATEGORIES.map((c) => c.id).sort()).toEqual([
+      'activity', 'booking', 'checklist', 'flight', 'hotel', 'idea', 'transport',
+    ]);
   });
 });
 
@@ -172,6 +176,22 @@ describe('formatCost', () => {
 
   it('keeps two decimals otherwise', () => {
     expect(formatCost(1200.5, 'ZAR')).toBe('ZAR 1,200.50');
+  });
+});
+
+describe('tripProgress', () => {
+  it('counts confirmed plans and completed checklist rows', () => {
+    const progress = tripProgress([
+      item({ category: 'flight', status: 'confirmed' }),
+      item({ client_id: 'hotel', category: 'hotel', status: 'tentative' }),
+      item({ client_id: 'passport', category: 'checklist', is_complete: true }),
+      item({ client_id: 'idea', category: 'idea', status: 'tentative' }),
+    ]);
+    expect(progress).toEqual({ done: 2, total: 3, percent: 67 });
+  });
+
+  it('is zero for a board that only contains ideas', () => {
+    expect(tripProgress([item({ category: 'idea' })])).toEqual({ done: 0, total: 0, percent: 0 });
   });
 });
 
@@ -224,9 +244,9 @@ describe('mergePending', () => {
   });
 
   it('keeps the server fields the edit does not touch', () => {
-    const saved = [item({ client_id: 'a', created_by: 'someone-else' })];
+    const saved = [item({ client_id: 'a', owner_id: 'someone-else' })];
     const merged = mergePending(saved, [entry('a', { title: 'Renamed' })]);
-    expect(merged[0].created_by).toBe('someone-else');
+    expect(merged[0].owner_id).toBe('someone-else');
   });
 
   it('removes a row with a queued delete', () => {

@@ -92,6 +92,7 @@ export type TripItemRow = {
   status: string;
   notes: string;
   url: string;
+  is_complete: boolean;
 };
 
 export type OutboxEntry = VideoNoteEntry | PromptAnswerEntry | TripItemEntry;
