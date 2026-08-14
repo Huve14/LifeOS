@@ -29,7 +29,6 @@
     "@capawesome/capacitor-background-task": "^8.0.2",
     "@react-three/fiber": "^9.7.0",
     "@supabase/supabase-js": "^2.33.0",
-    "animejs": "^4.4.1",
     "date-fns": "^4.4.0",
     "framer-motion": "^12.40.0",
     "livekit-client": "^2.21.0",

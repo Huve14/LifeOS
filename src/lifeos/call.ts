@@ -139,7 +139,7 @@ export function isCallInviteToken(value: string): boolean {
 }
 
 async function fetchToken(options: CallJoinOptions = {}): Promise<string> {
-  if (!hasConfig) throw new Error('Supabase is not configured');
+  if (!hasConfig) throw new Error('Calls are not configured');
 
   const { data } = await getAuthClient().auth.getSession();
   const accessToken = data.session?.access_token;

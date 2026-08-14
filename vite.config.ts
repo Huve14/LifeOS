@@ -43,10 +43,24 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}', 'memories-thumb/*.{jpeg,jpg}'],
+        // Keep the offline shell dependable without forcing a phone to
+        // download Maps, LiveKit, games, 3D art and every feature at install.
+        // Optional feature chunks are cached the first time they are opened.
+        globPatterns: [
+          '**/*.{html,svg,png,ico,woff2,css}',
+          'assets/{main,supabase,native,web,base,jsx-runtime,ios-frame,tweaks-panel,components,loading-globe,animated-icon,settings,screens-home,auth,app}-*.js',
+        ],
         navigateFallback: '/',
         navigateFallbackDenylist: [/^\/s\//],
         runtimeCaching: [
+          {
+            urlPattern: /\/assets\/.*\.js$/,
+            handler: 'StaleWhileRevalidate',
+            options: {
+              cacheName: 'feature-bundles',
+              expiration: { maxEntries: 24, maxAgeSeconds: 2592000 },
+            },
+          },
           {
             urlPattern: /^https:\/\/[a-z]+\.supabase\.co\/.*/i,
             handler: 'NetworkFirst',

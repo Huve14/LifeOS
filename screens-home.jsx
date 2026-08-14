@@ -1,7 +1,5 @@
 // screens-home.jsx — Home/Dashboard, written journal, Onboarding, AI sheet
 
-import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-
 const SolarGravityHero = React.lazy(() => import('./src/components/ui/solar-gravity-hero.tsx'));
 
 // ---------- Helpers ----------
@@ -71,6 +69,70 @@ const MODULES = [
   { id: 'people',   label: 'People',    emoji: '👥', color: 'var(--teal)' },
 ];
 
+function OnboardingInfographic({ type, name }) {
+  const initial = (name || 'Y').trim().charAt(0).toUpperCase();
+
+  if (type === 'personal') {
+    return (
+      <div className="tour-infographic tour-infographic-personal" role="img" aria-label="Your goals, rhythm and places shaping a private personal AI companion">
+        <div className="tour-orbit" aria-hidden="true">
+          <span className="tour-orbit-chip tour-orbit-chip-goals">✓ Your goals</span>
+          <span className="tour-orbit-chip tour-orbit-chip-rhythm">☀ Your rhythm</span>
+          <span className="tour-orbit-chip tour-orbit-chip-places">⌖ Your places</span>
+          <div className="tour-ai-core">
+            <span>✦</span>
+            <small>Your AI</small>
+          </div>
+        </div>
+        <div className="tour-profile-strip" aria-hidden="true">
+          <span className="tour-profile-avatar">{initial}</span>
+          <span><strong>Made for {name || 'you'}</strong><small>Learns only what you choose to share</small></span>
+          <b>🔒 Private</b>
+        </div>
+      </div>
+    );
+  }
+
+  if (type === 'today') {
+    return (
+      <div className="tour-infographic tour-infographic-today" role="img" aria-label="A calm dashboard bringing today's priorities, budget, journal and next flight together">
+        <div className="tour-mini-dashboard" aria-hidden="true">
+          <div className="tour-mini-header">
+            <span><small>GOOD MORNING</small><strong>Today at a glance</strong></span>
+            <b>33° ☀</b>
+          </div>
+          <div className="tour-mini-grid">
+            <div className="tour-mini-priority">
+              <span className="tour-mini-icon">✓</span>
+              <span><small>NEXT STEP</small><strong>One clear priority</strong><em>Ready when you are</em></span>
+            </div>
+            <div className="tour-mini-stat tour-mini-stat-budget"><span>◒</span><small>Budget</small><strong>On track</strong></div>
+            <div className="tour-mini-stat tour-mini-stat-journal"><span>✎</span><small>Journal</small><strong>2 notes</strong></div>
+            <div className="tour-mini-flight"><span>✈</span><span><small>NEXT FLIGHT</small><strong>All details in one place</strong></span><b>›</b></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="tour-infographic tour-infographic-close" role="img" aria-label="Private calls, shared game nights and invitations keeping your chosen people close">
+      <div className="tour-connection-map" aria-hidden="true">
+        <div className="tour-person-node tour-person-node-you"><span>{initial}</span><strong>You</strong><small>Abu Dhabi</small></div>
+        <div className="tour-connection-line"><i /><b>Connected</b><i /></div>
+        <div className="tour-person-node tour-person-node-them"><span>♥</span><strong>Your people</strong><small>Wherever they are</small></div>
+      </div>
+      <div className="tour-connection-tools" aria-hidden="true">
+        <span><b>◉</b><small>Video call</small></span>
+        <span><b>♬</b><small>Audio call</small></span>
+        <span><b>♠</b><small>Game night</small></span>
+        <span><b>↗</b><small>Invite link</small></span>
+      </div>
+      <div className="tour-secure-note" aria-hidden="true"><span>✓</span> Your space, shared only with people you invite</div>
+    </div>
+  );
+}
+
 // ---------- Onboarding (with embedded login) ----------
 function Onboarding({ onDone, initialDate, user }) {
   const [step, setStep] = React.useState(0);
@@ -81,16 +143,16 @@ function Onboarding({ onDone, initialDate, user }) {
   const [authName, setAuthName] = React.useState('');
   const [authEmail, setAuthEmail] = React.useState('');
   const [authPassword, setAuthPassword] = React.useState('');
+  const [authAIProfile, setAuthAIProfile] = React.useState({
+    home_base: '',
+    priorities: '',
+    interests: '',
+    response_style: 'warm_practical',
+    daily_rhythm: 'flexible',
+    notes: '',
+  });
   const [authError, setAuthError] = React.useState('');
   const [authLoading, setAuthLoading] = React.useState(false);
-  const wasLoggedIn = React.useRef(!!user);
-
-  // Auto-advance when user logs in during step 0
-  React.useEffect(() => {
-    if (!wasLoggedIn.current && user && step === 0) {
-      setStep(1);
-    }
-  }, [user, step]);
 
   async function handleAuth(e) {
     e.preventDefault();
@@ -100,7 +162,12 @@ function Onboarding({ onDone, initialDate, user }) {
     if (!signIn || !signUp) { setAuthError('Auth not ready'); setAuthLoading(false); return; }
     try {
       if (authMode === 'signup') {
-        const { data, error: suErr } = await signUp(authEmail.trim(), authPassword, authName.trim());
+        const { data, error: suErr } = await signUp(
+          authEmail.trim(),
+          authPassword,
+          authName.trim(),
+          authAIProfile,
+        );
         if (suErr) setAuthError(suErr.message);
         else if (!data?.session) setAuthError('Account created. Check your email to confirm it, then sign in.');
       } else {
@@ -113,54 +180,60 @@ function Onboarding({ onDone, initialDate, user }) {
     setAuthLoading(false);
   }
 
+  function updateAuthAIProfile(field, value) {
+    setAuthAIProfile(current => ({ ...current, [field]: value }));
+  }
+
+  const userName = user?.user_metadata?.display_name
+    || user?.user_metadata?.name
+    || user?.email?.split('@')[0]
+    || 'there';
+  const firstName = userName.trim().split(/\s+/)[0];
   const steps = [
     {
-      visual: 'globe',
-      title: 'Welcome',
-      body: 'Your warm, practical companion for everyday life in Abu Dhabi. Keep local answers, plans, people, and private documents together.',
-      cta: 'Let\'s do this',
+      visual: 'personal',
+      eyebrow: 'YOUR PERSONAL AI',
+      title: `Hi ${firstName}, meet your Life OS assistant`,
+      body: 'Your goals, routines and favourite places shape practical AI suggestions that feel like yours. You decide what it remembers, and you can change it anytime.',
+      cta: 'Show me around',
     },
     {
-      emoji: '📍',
-      title: 'Your UAE home base',
-      body: 'Save the places you rely on, handle life admin, and keep your connection home one tap away.',
-      cta: 'Continue',
+      visual: 'today',
+      eyebrow: 'ONE CALM VIEW',
+      title: 'See today clearly',
+      body: 'Your next step, budget, journal, documents and next flight come together on Home—so you can spend less time searching and more time living.',
+      cta: 'One more thing',
     },
     {
-      emoji: '✨',
-      title: 'Your day, all together',
-      body: 'Start with today\'s rhythm, open your UAE map, upload a document, or call home. Huve is always in the bottom corner when you need help.',
-      cta: 'Open my dashboard',
+      visual: 'close',
+      eyebrow: 'CLOSER, FROM ANYWHERE',
+      title: 'Keep your people close',
+      body: 'Start private audio or video calls, invite the people you choose, and make time for a nostalgic game night—all from one shared place.',
+      cta: 'Open my home',
     },
   ];
 
-  const s = steps[step];
+  const s = steps[Math.min(step, steps.length - 1)];
 
   return (
-    <div className={`onboarding-screen fade-in${!user ? ' onboarding-auth-screen' : ''}`} style={{
+    <div className={`onboarding-screen fade-in${!user ? ' onboarding-auth-screen' : ' onboarding-tour-screen'}`} style={{
       background: 'linear-gradient(180deg, var(--cream) 0%, var(--sand) 100%)',
       display: 'flex', flexDirection: 'column',
     }}>
       {/* progress dots */}
       {user && (
-        <div className="onboarding-progress" style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
+        <div className="onboarding-progress" role="progressbar" aria-label={`Introduction step ${step + 1} of ${steps.length}`} aria-valuemin="1" aria-valuemax={steps.length} aria-valuenow={step + 1}>
           {steps.map((_, i) => (
-            <div key={i} style={{
-              height: 4, width: i === step ? 22 : 6,
-              background: i <= step ? 'var(--terracotta)' : 'var(--line)',
-              borderRadius: 2,
-            }} />
+            <span key={i} className={i === step ? 'is-current' : i < step ? 'is-complete' : ''} />
           ))}
         </div>
       )}
 
-      <div className={`onboarding-content${!user ? ' onboarding-auth-content' : ''}`} style={{ flex: user ? 1 : '0 0 auto', display: 'flex', flexDirection: 'column', textAlign: 'center' }}>
-        <div className="onboarding-visual pop-in" key={step} style={{ display: 'flex', justifyContent: 'center' }} aria-hidden="true">
-          <div className="onboarding-visual-scale">
-            {s.visual === 'globe'
-              ? <SpinningGlobe />
-              : <div style={{ fontSize: 88 }}>{s.emoji}</div>}
-          </div>
+      <div className={`onboarding-content${!user ? ' onboarding-auth-content' : ' onboarding-tour-content'}`} style={{ display: 'flex', flexDirection: 'column', textAlign: 'center' }}>
+        <div className="onboarding-visual pop-in" key={user ? step : 'auth'}>
+          {!user
+            ? <div className="onboarding-visual-scale" aria-hidden="true"><SpinningGlobe /></div>
+            : <OnboardingInfographic type={s.visual} name={firstName} />}
         </div>
 
         {step === 0 && !user ? (
@@ -173,10 +246,10 @@ function Onboarding({ onDone, initialDate, user }) {
               </p>
             </div>
             {/* Auth form card */}
-            <div className="onboarding-auth-card" style={{
+            <div className={`onboarding-auth-card${authMode === 'signup' ? ' is-registering' : ''}`} style={{
               background: 'var(--white)', borderRadius: 20, padding: '22px 20px',
               boxShadow: 'var(--shadow-lg)', border: '1px solid var(--line)',
-              maxWidth: 420, width: '100%', margin: '0 auto',
+              maxWidth: authMode === 'signup' ? 560 : 420, width: '100%', margin: '0 auto',
             }}>
               <div className="onboarding-auth-tabs" role="tablist" aria-label="Account access">
                 <button
@@ -254,6 +327,87 @@ function Onboarding({ onDone, initialDate, user }) {
                   />
                 </div>
 
+                {authMode === 'signup' && (
+                  <section className="auth-ai-profile" aria-labelledby="auth-ai-profile-title">
+                    <div className="auth-ai-profile-heading">
+                      <span aria-hidden="true">◎</span>
+                      <div>
+                        <h3 id="auth-ai-profile-title">Personalise your AI</h3>
+                        <p>Optional details help your private assistant give more useful answers. You can change them later.</p>
+                      </div>
+                    </div>
+
+                    <div className="auth-ai-profile-grid">
+                      <label className="auth-profile-field">
+                        <span>Home base</span>
+                        <input
+                          value={authAIProfile.home_base}
+                          onChange={event => updateAuthAIProfile('home_base', event.target.value)}
+                          placeholder="e.g. Abu Dhabi"
+                          maxLength={120}
+                          autoComplete="address-level2"
+                        />
+                      </label>
+                      <label className="auth-profile-field">
+                        <span>Daily rhythm</span>
+                        <select
+                          value={authAIProfile.daily_rhythm}
+                          onChange={event => updateAuthAIProfile('daily_rhythm', event.target.value)}
+                        >
+                          <option value="early_bird">Early bird</option>
+                          <option value="flexible">Flexible</option>
+                          <option value="night_owl">Night owl</option>
+                        </select>
+                      </label>
+                    </div>
+
+                    <label className="auth-profile-field">
+                      <span>What matters most right now?</span>
+                      <textarea
+                        value={authAIProfile.priorities}
+                        onChange={event => updateAuthAIProfile('priorities', event.target.value)}
+                        placeholder="Goals, responsibilities, or things you want help organising"
+                        maxLength={500}
+                        rows={2}
+                      />
+                    </label>
+
+                    <label className="auth-profile-field">
+                      <span>Interests and favourite things</span>
+                      <input
+                        value={authAIProfile.interests}
+                        onChange={event => updateAuthAIProfile('interests', event.target.value)}
+                        placeholder="e.g. food, fitness, books, travel"
+                        maxLength={500}
+                      />
+                    </label>
+
+                    <label className="auth-profile-field">
+                      <span>Preferred guidance style</span>
+                      <select
+                        value={authAIProfile.response_style}
+                        onChange={event => updateAuthAIProfile('response_style', event.target.value)}
+                      >
+                        <option value="warm_practical">Warm and practical</option>
+                        <option value="direct">Direct and action-focused</option>
+                        <option value="concise">Brief and concise</option>
+                        <option value="detailed">Detailed with explanations</option>
+                      </select>
+                    </label>
+
+                    <label className="auth-profile-field">
+                      <span>Anything else Life OS should remember?</span>
+                      <textarea
+                        value={authAIProfile.notes}
+                        onChange={event => updateAuthAIProfile('notes', event.target.value)}
+                        placeholder="Preferences, routines, accessibility needs, or useful context"
+                        maxLength={700}
+                        rows={2}
+                      />
+                    </label>
+                  </section>
+                )}
+
                 {authError && (
                   <div role="status" aria-live="polite" style={{ background: '#fef2f2', color: '#b91c1c', padding: '10px 14px', borderRadius: 12, fontSize: 13, fontWeight: 500, marginBottom: 14 }}>
                     {authError}
@@ -280,36 +434,29 @@ function Onboarding({ onDone, initialDate, user }) {
             </div>
           </>
         ) : (
-          <>
-            <h1 style={{ fontSize: 30, marginBottom: 14, lineHeight: 1.1 }}>{s.title}</h1>
-            <p style={{ fontSize: 15, color: 'var(--muted)', lineHeight: 1.6, maxWidth: 320, margin: '0 auto' }}>{s.body}</p>
-            {s.content}
-          </>
+          <div className="onboarding-tour-copy">
+            <div className="onboarding-tour-eyebrow">{s.eyebrow}</div>
+            <h1>{s.title}</h1>
+            <p>{s.body}</p>
+          </div>
         )}
       </div>
 
       {user && (
-        <div className="onboarding-actions" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {step === 0 && (
-            <Button variant="primary" size="lg" full onClick={() => setStep(1)}>
-              Let's do this
-            </Button>
-          )}
+        <div className="onboarding-actions">
+          <Button
+            variant="primary" size="lg" full
+            onClick={() => {
+              if (step < steps.length - 1) setStep(step + 1);
+              else onDone({ moveDate: date });
+            }}
+          >
+            {s.cta} <span aria-hidden="true">→</span>
+          </Button>
           {step > 0 && (
-            <Button
-              variant="primary" size="lg" full
-              onClick={() => {
-                if (step < steps.length - 1) setStep(step + 1);
-                else onDone({ moveDate: date });
-              }}
-            >
-              {s.cta}
-            </Button>
-          )}
-          {step > 0 && step < steps.length - 1 && (
             <button
               onClick={() => setStep(step - 1)}
-              style={{ color: 'var(--muted)', fontSize: 13, padding: 8, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
+              className="onboarding-back-button"
             >
               ← back
             </button>
@@ -507,16 +654,13 @@ function JournalAnimatedText({ text, direction, reducedMotion }) {
                   const delay = Math.min(globalIndex++ * 0.008, 0.36);
                   if (globalIndex > JOURNAL_CHARACTER_ANIMATION_LIMIT) return character;
                   return (
-                    <motion.span
+                    <span
                       key={`${segmentIndex}-${characterIndex}`}
-                      className="journal-character"
-                      initial={{ y: direction > 0 ? 4 : -4, opacity: 0, filter: 'blur(2px)' }}
-                      animate={{ y: 0, opacity: 1, filter: 'blur(0px)' }}
-                      exit={{ y: direction > 0 ? 4 : -4, opacity: 0, filter: 'blur(2px)' }}
-                      transition={{ type: 'spring', bounce: 0.1, duration: 0.3, delay }}
+                      className={`journal-character${direction < 0 ? ' is-reverse' : ''}`}
+                      style={{ '--journal-delay': `${delay}s` }}
                     >
                       {character}
-                    </motion.span>
+                    </span>
                   );
                 })}
               </span>
@@ -530,7 +674,9 @@ function JournalAnimatedText({ text, direction, reducedMotion }) {
 
 function JournalNavigation({ entries, currentIndex, onChange, onEdit, onDelete }) {
   const [direction, setDirection] = React.useState(0);
-  const reducedMotion = useReducedMotion();
+  const dragStartY = React.useRef(null);
+  const reducedMotion = window.__lifeos?.performance.shouldUseLiteVisuals()
+    || document.querySelector('.app')?.dataset.motion === 'reduced';
   const currentEntry = entries[currentIndex];
   const parts = currentEntry ? journalDateParts(currentEntry.date) : null;
 
@@ -541,12 +687,13 @@ function JournalNavigation({ entries, currentIndex, onChange, onEdit, onDelete }
     void window.__lifeos?.native.tap('light');
   }
 
-  function handleDragEnd(_, info) {
-    const distance = Math.abs(info.offset.y);
-    const shouldMove = distance > 18 || Math.abs(info.velocity.y) > 220;
-    if (!shouldMove) return;
-    const steps = Math.max(1, Math.round(distance / JOURNAL_ITEM_HEIGHT));
-    move(currentIndex + (info.offset.y < 0 ? steps : -steps));
+  function finishDrag(event) {
+    if (dragStartY.current == null) return;
+    const offset = event.clientY - dragStartY.current;
+    dragStartY.current = null;
+    if (Math.abs(offset) < 18) return;
+    const steps = Math.max(1, Math.round(Math.abs(offset) / JOURNAL_ITEM_HEIGHT));
+    move(currentIndex + (offset < 0 ? steps : -steps));
   }
 
   function handleKeyDown(event) {
@@ -572,39 +719,39 @@ function JournalNavigation({ entries, currentIndex, onChange, onEdit, onDelete }
 
   return (
     <div className="journal-navigation-card" tabIndex="0" onKeyDown={handleKeyDown} aria-label="Journal entry navigation">
-      <aside className="journal-date-rail" aria-label="Journal dates">
+      <aside
+        className="journal-date-rail"
+        aria-label="Journal dates"
+        onPointerDown={event => {
+          dragStartY.current = event.clientY;
+          event.currentTarget.setPointerCapture?.(event.pointerId);
+        }}
+        onPointerUp={finishDrag}
+        onPointerCancel={() => { dragStartY.current = null; }}
+      >
         <div className="journal-rail-fade is-top" />
         <div className="journal-rail-track-anchor">
-          <motion.div
-            drag="y"
-            dragElastic={0.08}
-            dragConstraints={{
-              top: -(currentIndex * JOURNAL_ITEM_HEIGHT),
-              bottom: (entries.length - 1 - currentIndex) * JOURNAL_ITEM_HEIGHT,
-            }}
-            onDragEnd={handleDragEnd}
-            animate={{ y: -(currentIndex * JOURNAL_ITEM_HEIGHT) }}
-            transition={{ type: 'spring', stiffness: 260, damping: 32, mass: 0.6 }}
+          <div
             className="journal-date-track"
+            style={{ transform: `translateY(${-currentIndex * JOURNAL_ITEM_HEIGHT}px)` }}
           >
             {entries.map((entry, index) => {
               const active = index === currentIndex;
               const entryDate = journalDateParts(entry.date);
               return (
-                <motion.button
+                <button
                   type="button"
                   key={entry.id}
                   onClick={() => move(index)}
-                  animate={{ scale: active ? 1.18 : 1 }}
                   aria-label={`Open ${entryDate.month} ${entryDate.day}`}
                   aria-current={active ? 'date' : undefined}
                   className={active ? 'is-active' : ''}
                 >
                   {entryDate.day}
-                </motion.button>
+                </button>
               );
             })}
-          </motion.div>
+          </div>
         </div>
         <div className="journal-rail-fade is-bottom" />
       </aside>
@@ -612,17 +759,9 @@ function JournalNavigation({ entries, currentIndex, onChange, onEdit, onDelete }
       <section className="journal-entry-panel">
         <header className="journal-entry-header">
           <div className="journal-entry-date" aria-label={`${parts.weekday}, ${parts.month} ${parts.day}, ${parts.year}`}>
-            <AnimatePresence mode="popLayout" custom={direction}>
-              <motion.span
-                key={`${parts.month}-${parts.day}-${parts.year}`}
-                initial={{ y: direction > 0 ? 4 : -4, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                exit={{ y: direction > 0 ? 4 : -4, opacity: 0 }}
-                transition={{ duration: reducedMotion ? 0 : 0.24, ease: 'easeOut' }}
-              >
-                {parts.month} {parts.day}<small>{parts.year}</small>
-              </motion.span>
-            </AnimatePresence>
+            <span key={`${parts.month}-${parts.day}-${parts.year}`} className={reducedMotion ? '' : 'journal-entry-fade-in'}>
+              {parts.month} {parts.day}<small>{parts.year}</small>
+            </span>
           </div>
           <div className="journal-entry-navigation">
             <button type="button" onClick={() => move(currentIndex - 1)} disabled={currentIndex === 0} aria-label="Previous journal entry">
@@ -635,18 +774,9 @@ function JournalNavigation({ entries, currentIndex, onChange, onEdit, onDelete }
         </header>
 
         <div className="journal-entry-body">
-          <AnimatePresence mode="popLayout" custom={direction}>
-            <motion.div
-              className="journal-entry-motion"
-              key={currentEntry.id}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: reducedMotion ? 0 : 0.22 }}
-            >
-              <JournalAnimatedText text={currentEntry.text} direction={direction} reducedMotion={reducedMotion} />
-            </motion.div>
-          </AnimatePresence>
+          <div className={`journal-entry-motion${reducedMotion ? '' : ' journal-entry-fade-in'}`} key={currentEntry.id}>
+            <JournalAnimatedText text={currentEntry.text} direction={direction} reducedMotion={reducedMotion} />
+          </div>
         </div>
 
         <footer className="journal-entry-footer">
@@ -662,11 +792,64 @@ function JournalNavigation({ entries, currentIndex, onChange, onEdit, onDelete }
   );
 }
 
+function journalFlightLocalValue(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+  return local.toISOString().slice(0, 16);
+}
+
+function JournalNextFlightCard({ flight, now, onEdit }) {
+  if (!flight) {
+    return (
+      <button type="button" className="journal-flight-card is-empty" onClick={onEdit}>
+        <span className="journal-flight-icon"><AnimatedIcon name="PlaneTakeoff" size={28} /></span>
+        <span className="journal-flight-empty-copy">
+          <span>TRAVEL NOTE</span>
+          <strong>Set my next flight</strong>
+          <small>Keep the route, departure time and countdown close to your journal.</small>
+        </span>
+        <span className="journal-flight-add" aria-hidden="true">＋</span>
+      </button>
+    );
+  }
+
+  const departure = new Date(flight.departureAt);
+  const countdown = window.__lifeos.journal.formatFlightCountdown(flight, now);
+  const departureLabel = new Intl.DateTimeFormat(undefined, {
+    weekday: 'short', day: 'numeric', month: 'short',
+    hour: '2-digit', minute: '2-digit',
+  }).format(departure);
+
+  return (
+    <section className={`journal-flight-card${countdown === 'Departed' ? ' is-past' : ''}`} aria-label="My next flight">
+      <div className="journal-flight-icon"><AnimatedIcon name="PlaneTakeoff" size={28} /></div>
+      <div className="journal-flight-route">
+        <span>MY NEXT FLIGHT</span>
+        <h2><b>{flight.from}</b><i aria-hidden="true">→</i><b>{flight.to}</b></h2>
+        <p><AnimatedIcon name="CalendarClock" size={14} /> {departureLabel}</p>
+      </div>
+      <div className="journal-flight-details">
+        {flight.flightNumber && <span><small>Flight</small><strong>{flight.flightNumber}</strong></span>}
+        {flight.terminal && <span><small>Terminal / gate</small><strong>{flight.terminal}</strong></span>}
+      </div>
+      <div className="journal-flight-actions">
+        <strong>{countdown}</strong>
+        <button type="button" onClick={onEdit}><AnimatedIcon name="Pencil" size={14} /> Edit</button>
+      </div>
+    </section>
+  );
+}
+
 function NotesJournalScreen({ state, setState, onBack }) {
   const api = window.__lifeos;
   const entries = React.useMemo(() => api.journal.prepareJournalEntries(state.journal), [api, state.journal]);
+  const flight = React.useMemo(() => api.journal.prepareNextFlight(state.nextFlight), [api, state.nextFlight]);
   const [currentId, setCurrentId] = React.useState(() => entries.at(-1)?.id || null);
   const [editor, setEditor] = React.useState(null);
+  const [flightEditor, setFlightEditor] = React.useState(null);
+  const [flightNow, setFlightNow] = React.useState(() => new Date());
   const currentIndex = Math.max(0, entries.findIndex(entry => entry.id === currentId));
 
   React.useEffect(() => {
@@ -676,6 +859,13 @@ function NotesJournalScreen({ state, setState, onBack }) {
     }
     if (!entries.some(entry => entry.id === currentId)) setCurrentId(entries.at(-1).id);
   }, [currentId, entries]);
+
+  React.useEffect(() => {
+    if (!flight) return undefined;
+    setFlightNow(new Date());
+    const timer = window.setInterval(() => setFlightNow(new Date()), 60_000);
+    return () => window.clearInterval(timer);
+  }, [flight?.departureAt]);
 
   function openNewEntry() {
     const today = new Date();
@@ -707,6 +897,38 @@ function NotesJournalScreen({ state, setState, onBack }) {
     void api.native.tap('light');
   }
 
+  function openFlightEditor() {
+    setFlightEditor(flight ? {
+      ...flight,
+      departureAt: journalFlightLocalValue(flight.departureAt),
+    } : {
+      from: '', to: '', departureAt: '', flightNumber: '', terminal: '',
+    });
+  }
+
+  function saveFlight(event) {
+    event.preventDefault();
+    if (!flightEditor?.from.trim() || !flightEditor?.to.trim() || !flightEditor?.departureAt) return;
+    const departure = new Date(flightEditor.departureAt);
+    if (Number.isNaN(departure.getTime())) return;
+    const saved = api.journal.saveNextFlight({
+      ...flightEditor,
+      departureAt: departure.toISOString(),
+    });
+    if (!saved) return;
+    setState(current => ({ ...current, nextFlight: saved }));
+    setFlightNow(new Date());
+    setFlightEditor(null);
+    void api.native.notifyHaptic('success');
+  }
+
+  function removeFlight() {
+    if (!window.confirm('Remove this flight from your journal?')) return;
+    setState(current => ({ ...current, nextFlight: null }));
+    setFlightEditor(null);
+    void api.native.tap('light');
+  }
+
   return (
     <ModulePage
       title="Journal"
@@ -715,6 +937,8 @@ function NotesJournalScreen({ state, setState, onBack }) {
       onBack={onBack}
       action={<Button size="sm" onClick={openNewEntry} icon="＋">New entry</Button>}
     >
+      <JournalNextFlightCard flight={flight} now={flightNow} onEdit={openFlightEditor} />
+
       <div className="journal-screen-shell">
         <JournalNavigation
           entries={entries}
@@ -723,7 +947,7 @@ function NotesJournalScreen({ state, setState, onBack }) {
           onEdit={entry => setEditor({ ...entry, isNew: false })}
           onDelete={deleteEntry}
         />
-        <p className="journal-privacy-note"><AnimatedIcon name="LockKeyhole" size={14} /> Only you can open these written entries.</p>
+        <p className="journal-privacy-note"><AnimatedIcon name="LockKeyhole" size={14} /> Your flight and written entries are private to your account.</p>
       </div>
 
       <Modal open={Boolean(editor)} onClose={() => setEditor(null)} title={editor?.isNew ? 'New journal entry' : 'Edit journal entry'}>
@@ -770,6 +994,29 @@ function NotesJournalScreen({ state, setState, onBack }) {
           </form>
         )}
       </Modal>
+
+      <Modal open={Boolean(flightEditor)} onClose={() => setFlightEditor(null)} title={flight ? 'Edit my next flight' : 'Set my next flight'}>
+        {flightEditor && (
+          <form className="journal-flight-editor" onSubmit={saveFlight}>
+            <div className="journal-flight-editor-intro">
+              <span><AnimatedIcon name="PlaneTakeoff" size={24} /></span>
+              <div><strong>Keep the important bit close</strong><small>The countdown updates automatically in your local time.</small></div>
+            </div>
+            <div className="journal-flight-editor-grid">
+              <label><span>From</span><input value={flightEditor.from} onChange={event => setFlightEditor(current => ({ ...current, from: event.target.value }))} placeholder="AUH or Abu Dhabi" maxLength="80" autoFocus required /></label>
+              <label><span>To</span><input value={flightEditor.to} onChange={event => setFlightEditor(current => ({ ...current, to: event.target.value }))} placeholder="CPT or Cape Town" maxLength="80" required /></label>
+              <label className="is-wide"><span>Departure date & time</span><input type="datetime-local" value={flightEditor.departureAt} onInput={event => setFlightEditor(current => ({ ...current, departureAt: event.target.value }))} onChange={event => setFlightEditor(current => ({ ...current, departureAt: event.target.value }))} required /></label>
+              <label><span>Flight number <small>optional</small></span><input value={flightEditor.flightNumber || ''} onChange={event => setFlightEditor(current => ({ ...current, flightNumber: event.target.value }))} placeholder="EY 123" maxLength="24" /></label>
+              <label><span>Terminal or gate <small>optional</small></span><input value={flightEditor.terminal || ''} onChange={event => setFlightEditor(current => ({ ...current, terminal: event.target.value }))} placeholder="Terminal A · Gate 12" maxLength="40" /></label>
+            </div>
+            <p className="journal-flight-editor-note"><AnimatedIcon name="LockKeyhole" size={13} /> Saved privately with your Life OS journal.</p>
+            <div className="journal-flight-editor-actions">
+              {flight && <Button variant="ghost" onClick={removeFlight}>Remove flight</Button>}
+              <Button type="submit" disabled={!flightEditor.from.trim() || !flightEditor.to.trim() || !flightEditor.departureAt}>Save flight</Button>
+            </div>
+          </form>
+        )}
+      </Modal>
     </ModulePage>
   );
 }
@@ -796,16 +1043,23 @@ function HomeProgress({ value, total, color = 'var(--gold)' }) {
   );
 }
 
-function JourneyHero({ model, onOpen }) {
+function JourneyHero({ model, onOpen, style, liteVisuals = false }) {
   const { journey, dailyModeCopy, setupDone, setupTotal, priorities } = model;
   const pct = setupTotal > 0 ? Math.round((setupDone / setupTotal) * 100) : 0;
   const next = priorities[0];
+  const night = window.__lifeos.daylight.isNightInAbuDhabi();
 
   return (
-    <section className="home-journey-hero">
-      <React.Suspense fallback={<div className="home-solar-scene home-solar-scene-loading" aria-hidden="true" />}>
-        <SolarGravityHero />
-      </React.Suspense>
+    <section className="home-journey-hero" style={style}>
+      {liteVisuals ? (
+        <div className={`home-solar-scene home-solar-scene-lite${night ? ' is-night' : ''}`} data-celestial={night ? 'moon' : 'sun'} aria-hidden="true">
+          <div className="home-solar-fallback" />
+        </div>
+      ) : (
+        <React.Suspense fallback={<div className={`home-solar-scene home-solar-scene-loading${night ? ' is-night' : ''}`} aria-hidden="true" />}>
+          <SolarGravityHero />
+        </React.Suspense>
+      )}
       <div className="home-hero-content">
         <div className="home-hero-eyebrow">{journey.eyebrow}</div>
         <div className="home-hero-time">{journey.timeLabel}</div>
@@ -829,12 +1083,12 @@ function JourneyHero({ model, onOpen }) {
   );
 }
 
-function DailyModeSelector({ value, onChange }) {
+function DailyModeSelector({ value, onChange, style }) {
   const modes = window.__lifeos.home.DAILY_MODES;
   const active = modes.find(mode => mode.id === value) || modes[0];
 
   return (
-    <section className="home-mode-card" aria-label="Choose how today should feel">
+    <section className="home-mode-card" aria-label="Choose how today should feel" style={style}>
       <div className="home-mode-intro">
         <span className="home-mode-kicker">TODAY'S PACE</span>
         <strong>How should today feel?</strong>
@@ -1016,7 +1270,7 @@ function LandingKit({ first48, onAsk, onOpen }) {
           <button key={item.label} className="home-landing-item" onClick={() => onAsk(item.prompt)}>
             <span className="home-landing-icon">{item.icon}</span>
             <strong>{item.value || item.label}</strong>
-            <small>{item.value ? item.label : 'Plan with Huve'} <span aria-hidden="true">→</span></small>
+            <small>{item.value ? item.label : 'Plan with AI'} <span aria-hidden="true">→</span></small>
           </button>
         ))}
       </div>
@@ -1091,7 +1345,7 @@ function DailyPhraseCard({ phrase, onAsk }) {
       <p>{phrase.context}</p>
       <div className="home-phrase-actions">
         <button onClick={speak} disabled={!canSpeak}><span>🔊</span> Hear it</button>
-        <button onClick={() => onAsk(`Help me practise the Arabic phrase "${phrase.transliteration}" and give me one simple example of when to use it.`)}>Practise <span>→</span></button>
+        <button onClick={() => onAsk(`Help me practise the Arabic phrase "${phrase.transliteration}" and give me one simple example of when to use it.`)}>Practise with AI <span>→</span></button>
       </div>
     </article>
   );
@@ -1127,10 +1381,10 @@ function HomeSyncAction({ feedback, onSync, disabled = false }) {
             className="home-sync-action-button"
             onClick={onSync}
             disabled={disabled}
-            aria-label={status === 'idle' ? 'Sync Life OS to Supabase now' : 'Retry Supabase sync'}
+            aria-label={status === 'idle' ? 'Sync Life OS now' : 'Retry sync'}
             title={disabled
-              ? 'Supabase sync is unavailable'
-              : detail || (status === 'idle' ? 'Sync to Supabase now' : 'Retry sync')}
+              ? 'Sync is unavailable'
+              : detail || (status === 'idle' ? 'Sync now' : 'Retry sync')}
           >
             <AnimatedIcon name="RefreshCw" size={20} play={0} />
           </button>
@@ -1145,10 +1399,11 @@ function Dashboard({
   setState,
   onModule,
   onAsk,
-  syncStatus = '',
   syncFeedback,
   onSync,
   syncDisabled = false,
+  preferences,
+  performanceMode,
   userName = 'there',
   userEmail = '',
 }) {
@@ -1164,6 +1419,15 @@ function Dashboard({
   const [whyNote, setWhyNote] = React.useState(state.whyNote || '');
   const [whyNote2, setWhyNote2] = React.useState(state.whyNote2 || '');
   const [showExport, setShowExport] = React.useState(false);
+  const prefs = window.__lifeos.preferences.preparePreferences(preferences);
+  const liteVisuals = performanceMode === 'lite'
+    || prefs.motion === 'reduced'
+    || window.__lifeos.performance.shouldUseLiteVisuals();
+  const hiddenHomeSections = new Set(prefs.hiddenHomeSections);
+  const homeSectionStyle = sectionId => ({
+    display: hiddenHomeSections.has(sectionId) ? 'none' : undefined,
+    order: prefs.homeOrder.indexOf(sectionId),
+  });
   const name = (!userName || userName === 'User' || userName === 'there') ? 'there' : userName.split(' ')[0];
   const todayLabel = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
   const moneyRemaining = new Intl.NumberFormat('en-AE', { maximumFractionDigits: 0 }).format(money.remaining);
@@ -1248,11 +1512,10 @@ function Dashboard({
 
   return (
     <main className="home-dashboard fade-in">
-      <header className="home-topbar">
+      <header className="home-topbar" style={{ order: -3 }}>
         <div>
           <div className="home-date">{todayLabel}</div>
-          <h1>Hi {name} <span aria-hidden="true">👋</span></h1>
-          {syncStatus && <div className="home-sync"><span />{syncStatus}</div>}
+          <h1>Hi {name}</h1>
         </div>
         <div className="home-topbar-actions">
           <HomeSyncAction feedback={syncFeedback} onSync={onSync} disabled={syncDisabled} />
@@ -1262,11 +1525,11 @@ function Dashboard({
         </div>
       </header>
 
-      <JourneyHero model={model} onOpen={onModule} />
+      <JourneyHero model={model} onOpen={onModule} style={{ order: -2 }} liteVisuals={liteVisuals} />
 
-      <DailyModeSelector value={dailyMode} onChange={setDailyMode} />
+      <DailyModeSelector value={dailyMode} onChange={setDailyMode} style={{ order: -1 }} />
 
-      <section className="home-section">
+      <section className="home-section" style={homeSectionStyle('priorities')}>
         <HomeSectionHeader
           eyebrow="Today"
           title="A clear next step"
@@ -1279,19 +1542,19 @@ function Dashboard({
         </Card>
       </section>
 
-      <section className="home-section home-everyday-grid">
+      <section className="home-section home-everyday-grid" style={homeSectionStyle('connection')}>
         <ConnectionBridge connection={connection} onOpen={onModule} />
         <DailyPhraseCard phrase={phrase} onAsk={onAsk} />
       </section>
 
-      <section className="home-section">
+      <section className="home-section" style={homeSectionStyle('overview')}>
         <HomeSectionHeader eyebrow="Everyday overview" title="Your life at a glance" />
         <div className="home-metrics-grid">
           {metrics.map(metric => <SetupMetric key={metric.id} metric={metric} onOpen={onModule} />)}
         </div>
       </section>
 
-      <section className="home-section home-snapshot-grid">
+      <section className="home-section home-snapshot-grid" style={homeSectionStyle('snapshots')}>
         <button className="home-snapshot-card home-money-card" onClick={() => onModule('budget')}>
           <span className="home-snapshot-icon">💳</span>
           <span className="home-snapshot-label">Available this month</span>
@@ -1308,7 +1571,7 @@ function Dashboard({
         </button>
       </section>
 
-      <section className="home-section">
+      <section className="home-section" style={homeSectionStyle('games')}>
         <button type="button" className="home-game-night-card" onClick={() => onModule('games')}>
           <span className="home-game-night-copy">
             <span className="home-section-eyebrow">LIFE OS PLAY</span>
@@ -1323,12 +1586,12 @@ function Dashboard({
       </section>
 
       {journey.isAfterMove && journey.daysSinceMove <= 30 && (
-        <section className="home-section">
+        <section className="home-section" style={homeSectionStyle('settling')}>
           <LandingKit first48={state.first48} onAsk={onAsk} onOpen={onModule} />
         </section>
       )}
 
-      <section className={`home-section home-support-grid${hasPrivateNote ? '' : ' is-single'}`}>
+      <section className={`home-section home-support-grid${hasPrivateNote ? '' : ' is-single'}`} style={homeSectionStyle('wellbeing')}>
         <DailyRhythm habits={habits} today={todayKey} setState={setState} onOpen={onModule} />
         {hasPrivateNote && (
           <LoveNoteCard
@@ -1340,14 +1603,14 @@ function Dashboard({
         )}
       </section>
 
-      <section className="home-section">
+      <section className="home-section" style={homeSectionStyle('assistant')}>
         <Card padding="20px" style={{ background: 'var(--sand)', border: 'none' }}>
           <div className="home-huve-row">
-            <img src="/huve-avatar.jpg" width="48" height="48" alt="Huve" />
+            <img src="/huve-avatar.jpg" width="48" height="48" alt="Huve AI assistant" />
             <div>
-              <div className="home-section-eyebrow">YOUR UAE COMPANION</div>
+              <div className="home-section-eyebrow">YOUR PERSONAL AI</div>
               <h2>Need a local answer?</h2>
-              <p>Bring the question. Huve will help turn it into a practical next step.</p>
+              <p>Bring the question. Huve will use your preferences to turn it into a practical next step.</p>
             </div>
             <button className="home-huve-button" onClick={() => onAsk()}>Ask Huve <span aria-hidden="true">→</span></button>
           </div>
@@ -1359,7 +1622,7 @@ function Dashboard({
         </Card>
       </section>
 
-      <section className="home-section">
+      <section className="home-section" style={homeSectionStyle('tools')}>
         <HomeSectionHeader eyebrow="Everything in one place" title="Your UAE life hub" />
         <div className="home-tools-grid">
           {tools.map(tool => (
@@ -1372,7 +1635,7 @@ function Dashboard({
         </div>
       </section>
 
-      <footer className="home-footer">
+      <footer className="home-footer" style={{ order: 99 }}>
         <img src="/logo-mark.svg" width="22" height="22" alt="" />
         <span>A little more like home, every day.</span>
       </footer>

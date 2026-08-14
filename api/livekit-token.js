@@ -73,7 +73,7 @@ export default async function handler(req, res) {
     });
   }
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-    return sendJson(res, 503, { error: 'Supabase is not configured on the server.' });
+    return sendJson(res, 503, { error: 'Calling services are not configured.' });
   }
 
   const body = requestBody(req);

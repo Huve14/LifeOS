@@ -21,6 +21,11 @@ function createSeedState(tweaks) {
     ...applyProgress(SEED, tweaks.progressLevel),
     habits: SEED.habits || [],
     journal: [],
+    preferences: window.__lifeos?.preferences.preparePreferences(),
+    // A fresh account must finish the three-screen introduction once. This
+    // flag is persisted in the account's private state, so confirmation-link
+    // sign-ups still land in the tour on their first authenticated visit.
+    onboardingDone: false,
   };
 }
 
@@ -32,6 +37,11 @@ function pickStoredState(candidate) {
   }
   if (!saved.habits) saved.habits = SEED.habits || [];
   if (!saved.journal) saved.journal = [];
+  saved.preferences = window.__lifeos?.preferences.preparePreferences(saved.preferences);
+  // Existing accounts pre-date the first-run flag and should continue to go
+  // straight home. New accounts are explicitly seeded with `false` above.
+  if (!Object.prototype.hasOwnProperty.call(saved, 'onboardingDone')) saved.onboardingDone = true;
+  if (!Object.prototype.hasOwnProperty.call(saved, 'nextFlight')) saved.nextFlight = null;
   if (!saved.memories) saved.memories = SEED.memories || { lastTimes: [], goodbyes: [] };
   if (!saved.contacts) saved.contacts = SEED.contacts || [];
   if (!saved.whyNote2) {
@@ -158,6 +168,104 @@ function LockScreen({ onUnlock }) {
   );
 }
 
+// Feature screens are legacy global modules, but they do not need to occupy
+// memory before the user opens them. Keep one promise per bundle so taps,
+// pointer preloads and repeated visits always share the same request.
+const LEGACY_BUNDLE_LOADERS = {
+  modules: () => import('./screens-modules.jsx'),
+  tasks: () => Promise.all([
+    import('./screens-modules.jsx'),
+    import('./src/components/ui/glass-calendar.jsx'),
+  ]),
+  memory: () => Promise.all([
+    import('./screens-modules.jsx'),
+    import('./src/components/ui/memory-photo-grid.jsx'),
+  ]),
+  map: () => Promise.all([
+    import('./src/components/ui/map-utils.jsx'),
+    import('./screens-map.jsx'),
+  ]),
+  journal: () => import('./video-journal.jsx'),
+  prompt: () => import('./daily-prompt.jsx'),
+  trip: () => import('./trip-board.jsx'),
+  call: () => import('./call.jsx'),
+  games: () => import('./games.jsx'),
+  space: () => import('./space.jsx'),
+  shared: () => import('./shared-list.jsx'),
+};
+
+const VIEW_BUNDLES = {
+  packing: 'modules', docs: 'modules', tasks: 'tasks', budget: 'modules',
+  shopping: 'modules', housing: 'modules', habits: 'modules', people: 'modules',
+  memory: 'memory', map: 'map', journal: 'journal',
+  prompt: 'prompt', trip: 'trip', call: 'call', games: 'games', space: 'space',
+};
+
+const legacyBundlePromises = new Map();
+const readyLegacyBundles = new Set();
+
+function loadLegacyBundle(bundle) {
+  if (readyLegacyBundles.has(bundle)) return Promise.resolve();
+  if (legacyBundlePromises.has(bundle)) return legacyBundlePromises.get(bundle);
+  const promise = LEGACY_BUNDLE_LOADERS[bundle]()
+    .then(() => { readyLegacyBundles.add(bundle); })
+    .catch(error => {
+      legacyBundlePromises.delete(bundle);
+      throw error;
+    });
+  legacyBundlePromises.set(bundle, promise);
+  return promise;
+}
+
+function preloadLegacyView(view) {
+  const bundle = VIEW_BUNDLES[view];
+  if (bundle) void loadLegacyBundle(bundle).catch(() => {});
+}
+
+function LazyLegacyScreen({ bundle, componentName, screenProps = {} }) {
+  const [status, setStatus] = useState(() => readyLegacyBundles.has(bundle) ? 'ready' : 'loading');
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    if (readyLegacyBundles.has(bundle)) {
+      setStatus('ready');
+      return () => { active = false; };
+    }
+    setStatus('loading');
+    void loadLegacyBundle(bundle).then(() => {
+      if (active) setStatus('ready');
+    }).catch(nextError => {
+      if (!active) return;
+      setError(nextError?.message || 'This feature could not be opened.');
+      setStatus('error');
+    });
+    return () => { active = false; };
+  }, [bundle]);
+
+  if (status === 'error') {
+    return (
+      <div className="feature-loader" role="alert">
+        <strong>Could not open this feature</strong>
+        <span>{error}</span>
+        <button type="button" onClick={() => { setError(''); setStatus('loading'); void loadLegacyBundle(bundle).then(() => setStatus('ready')); }}>Try again</button>
+      </div>
+    );
+  }
+
+  const Screen = window[componentName];
+  if (status !== 'ready' || !Screen) {
+    return (
+      <div className="feature-loader" role="status" aria-live="polite">
+        <i aria-hidden="true" />
+        <strong>Opening…</strong>
+      </div>
+    );
+  }
+
+  return <Screen {...screenProps} />;
+}
+
 function App() {
   // Browser call invitations are guest-first: resolve them before auth and
   // onboarding so a recipient never needs a Life OS account or app install.
@@ -165,9 +273,13 @@ function App() {
   if (callInviteMatch) {
     const requestedMode = new URLSearchParams(window.location.search).get('mode');
     return (
-      <GuestCallScreen
-        inviteToken={decodeURIComponent(callInviteMatch[1])}
-        initialMode={requestedMode === 'video' ? 'video' : 'audio'}
+      <LazyLegacyScreen
+        bundle="call"
+        componentName="GuestCallScreen"
+        screenProps={{
+          inviteToken: decodeURIComponent(callInviteMatch[1]),
+          initialMode: requestedMode === 'video' ? 'video' : 'audio',
+        }}
       />
     );
   }
@@ -176,11 +288,11 @@ function App() {
   // Path format catches cases where the old SW intercepts /s/ and serves index.html.
   const pathMatch = window.location.pathname.match(/^\/s\/(.+)/);
   if (pathMatch) {
-    return <SharedList token={pathMatch[1]} />;
+    return <LazyLegacyScreen bundle="shared" componentName="SharedList" screenProps={{ token: pathMatch[1] }} />;
   }
   const hash = window.location.hash;
   if (hash.startsWith('#shared/')) {
-    return <SharedList token={hash.replace('#shared/', '')} />;
+    return <LazyLegacyScreen bundle="shared" componentName="SharedList" screenProps={{ token: hash.replace('#shared/', '') }} />;
   }
 
   // A local-only visual fixture for responsive browser QA. Vite removes this
@@ -189,8 +301,13 @@ function App() {
   const previewHome = import.meta.env.DEV && previewParams.has('preview-home');
   const previewCall = import.meta.env.DEV && previewParams.has('preview-call');
   const previewGames = import.meta.env.DEV && previewParams.has('preview-games');
-  const previewSession = previewHome || previewCall || previewGames;
+  const previewPairing = import.meta.env.DEV && previewParams.has('preview-pairing');
+  const previewTasks = import.meta.env.DEV && previewParams.has('preview-tasks');
+  const previewOnboarding = import.meta.env.DEV && previewParams.has('preview-onboarding');
+  const previewLite = import.meta.env.DEV && previewParams.has('preview-lite');
+  const previewSession = previewHome || previewCall || previewGames || previewPairing || previewTasks || previewOnboarding;
   const requestedGameCode = (previewParams.get('game') || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+  const requestedPairCode = window.__lifeos.couples.normalizePairCode(previewParams.get('pair') || '');
   const previewDark = import.meta.env.DEV && previewParams.has('preview-dark');
   const previewEmail = previewParams.get('preview-email') || 'demo@lifeos.app';
   const previewUser = previewSession ? { id: 'visual-preview', email: previewEmail, user_metadata: { name: 'Demo User' } } : null;
@@ -204,6 +321,10 @@ function App() {
   const [authReady, setAuthReady] = useState(previewSession || !!window.__suvedaUser);
   const [profile, setProfile] = useState(previewSession ? {
     user_id: 'visual-preview', display_name: 'Demo User', handle: 'demo_user', time_zone: 'Asia/Dubai',
+    ai_profile: {
+      home_base: 'Abu Dhabi', priorities: 'Build a calm weekly rhythm', interests: 'Food, travel and photography',
+      response_style: 'warm_practical', daily_rhythm: 'flexible', notes: '',
+    },
   } : null);
 
   useEffect(() => {
@@ -227,6 +348,13 @@ function App() {
     return () => { cancelled = true; };
   }, [previewSession, user?.id]);
 
+  useEffect(() => {
+    window.__lifeosAIProfile = profile?.ai_profile || user?.user_metadata?.ai_profile || {};
+    return () => {
+      window.__lifeosAIProfile = {};
+    };
+  }, [profile?.ai_profile, user?.user_metadata?.ai_profile]);
+
   const lock = useAppLock();
 
   // App state
@@ -236,12 +364,43 @@ function App() {
   const [aiOpen, setAiOpen] = useState(false);
   const [aiPrompt, setAiPrompt] = useState('');
   const [aiContext, setAiContext] = useState('');
+  const preferences = useMemo(
+    () => window.__lifeos.preferences.preparePreferences(state.preferences),
+    [state.preferences],
+  );
+  const [systemPrefersDark, setSystemPrefersDark] = useState(() => (
+    typeof window.matchMedia === 'function' && window.matchMedia('(prefers-color-scheme: dark)').matches
+  ));
+  const appDark = preferences.colorMode === 'system'
+    ? systemPrefersDark
+    : preferences.colorMode === 'dark';
+  const devicePerformanceMode = useMemo(
+    () => window.__lifeos.performance.getPerformanceMode(),
+    [],
+  );
+  const performanceMode = previewLite || preferences.motion === 'reduced' ? 'lite' : devicePerformanceMode;
   const [celebrate, setCelebrate] = useState(false);
   const [syncFeedback, setSyncFeedback] = useState({ status: 'idle', message: 'Sync now', detail: '' });
   const lastPctRef = useRef(0);
   const syncResetRef = useRef(null);
 
   useEffect(() => () => clearTimeout(syncResetRef.current), []);
+
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return undefined;
+    const query = window.matchMedia('(prefers-color-scheme: dark)');
+    const update = event => setSystemPrefersDark(event.matches);
+    setSystemPrefersDark(query.matches);
+    query.addEventListener?.('change', update);
+    return () => query.removeEventListener?.('change', update);
+  }, []);
+
+  useEffect(() => {
+    window.__lifeosPreferences = preferences;
+    return () => {
+      window.__lifeosPreferences = undefined;
+    };
+  }, [preferences]);
 
   useEffect(() => {
     let cancelled = false;
@@ -251,9 +410,9 @@ function App() {
         setState({
           ...createSeedState({ ...tweaks, progressLevel: 'empty' }),
           moveDate: '2026-08-10',
-          onboardingDone: true,
+          onboardingDone: !previewOnboarding,
         });
-        setView(previewCall ? 'call' : previewGames ? 'games' : 'home');
+        setView(previewOnboarding ? 'onboarding' : previewCall ? 'call' : previewGames ? 'games' : previewPairing ? 'space' : previewTasks ? 'tasks' : 'home');
         setStorageReady(true);
         return;
       }
@@ -270,8 +429,9 @@ function App() {
         const restored = pickStoredState(saved);
         if (restored) {
           setState(restored);
-          setView(restored.onboardingDone ? 'map' : 'onboarding');
+          setView(restored.onboardingDone ? 'home' : 'onboarding');
         } else {
+          setState(createSeedState(tweaks));
           setView('onboarding');
         }
       } finally {
@@ -283,7 +443,7 @@ function App() {
     return () => {
       cancelled = true;
     };
-  }, [previewCall, previewGames, previewSession, store, user?.id]);
+  }, [previewCall, previewGames, previewOnboarding, previewPairing, previewSession, previewTasks, store, user?.id]);
 
   const gameInviteHandledRef = useRef(false);
   useEffect(() => {
@@ -292,6 +452,13 @@ function App() {
     setView('games');
   }, [requestedGameCode, storageReady, user?.id]);
 
+  const pairInviteHandledRef = useRef(false);
+  useEffect(() => {
+    if (!user?.id || !storageReady || requestedPairCode.length !== 12 || pairInviteHandledRef.current) return;
+    pairInviteHandledRef.current = true;
+    setView('space');
+  }, [requestedPairCode, storageReady, user?.id]);
+
   useEffect(() => {
     if (previewSession || !user?.id || !storageReady || !store?.saveAppState) return;
     const timer = setTimeout(() => {
@@ -299,7 +466,7 @@ function App() {
         setSyncFeedback(current => current.status === 'syncing' ? current : {
           status: 'error',
           message: 'Sync failed',
-          detail: error instanceof Error ? error.message : 'Supabase did not save the latest changes.',
+          detail: error instanceof Error ? error.message : 'Your latest changes could not be saved.',
         });
       });
     }, 500);
@@ -342,8 +509,8 @@ function App() {
 
   // Keep the native status bar legible against the app background.
   useEffect(() => {
-    void window.__lifeos?.native.setStatusBarForTheme(tweaks.dark);
-  }, [tweaks.dark]);
+    void window.__lifeos?.native.setStatusBarForTheme(appDark);
+  }, [appDark]);
 
   // Map accent tweak to CSS variable
   const accentMap = {
@@ -355,7 +522,21 @@ function App() {
   // Apply theme attrs to root .app
   const appStyle = {
     '--accent': accentMap[tweaks.accent],
+    ...window.__lifeos.preferences.getThemeTokens(preferences.palette, appDark),
+    '--radius': preferences.cornerStyle === 'square' ? '10px' : preferences.cornerStyle === 'soft' ? '16px' : '22px',
+    '--radius-sm': preferences.cornerStyle === 'square' ? '7px' : preferences.cornerStyle === 'soft' ? '11px' : '14px',
   };
+
+  function updatePreferences(patch) {
+    setState(current => ({
+      ...current,
+      preferences: window.__lifeos.preferences.preparePreferences({
+        ...current.preferences,
+        ...patch,
+        activePreset: Object.prototype.hasOwnProperty.call(patch, 'activePreset') ? patch.activePreset : 'custom',
+      }),
+    }));
+  }
 
   function openAi(prompt = '', context = '') {
     setAiPrompt(prompt);
@@ -376,7 +557,7 @@ function App() {
   async function syncNow() {
     if (syncFeedback.status === 'syncing') return;
     clearTimeout(syncResetRef.current);
-    setSyncFeedback({ status: 'syncing', message: 'Syncing', detail: 'Saving your latest changes to Supabase.' });
+    setSyncFeedback({ status: 'syncing', message: 'Syncing', detail: 'Saving your latest changes.' });
 
     try {
       const result = previewSession
@@ -385,13 +566,13 @@ function App() {
       const message = result.sent > 0
         ? `${result.sent} ${result.sent === 1 ? 'item' : 'items'} synced`
         : 'Synced now';
-      setSyncFeedback({ status: 'success', message, detail: 'Supabase has the latest version of your Life OS.' });
+      setSyncFeedback({ status: 'success', message, detail: 'Your Life OS is up to date.' });
       void window.__lifeos?.native.notifyHaptic('success');
       syncResetRef.current = setTimeout(() => {
         setSyncFeedback({ status: 'idle', message: 'Sync now', detail: '' });
       }, 2200);
     } catch (error) {
-      const detail = error instanceof Error ? error.message : 'Supabase could not be reached.';
+      const detail = error instanceof Error ? error.message : 'Sync could not be reached.';
       const offline = /offline|network|failed to fetch/i.test(detail);
       setSyncFeedback({
         status: offline ? 'offline' : 'error',
@@ -407,64 +588,89 @@ function App() {
       return <Onboarding user={user} initialDate={tweaks.moveDate} onDone={({ moveDate }) => {
         setTweak('moveDate', moveDate);
         setState(s => ({ ...s, moveDate, onboardingDone: true }));
-        setView('map');
+        setView('home');
       }} />;
     }
 
-    const screens = {
-      home:    <Dashboard state={state} setState={setState} onAsk={openAi}
+    if (view === 'home' || !view) {
+      return <Dashboard state={state} setState={setState}
                 onModule={openModule}
+                onAsk={openAi}
                 layout={tweaks.layout} progressStyle={tweaks.progressStyle}
-                syncStatus={syncFeedback.status === 'syncing'
-                  ? 'Syncing to Supabase…'
-                  : syncFeedback.status === 'success'
-                    ? syncFeedback.message
-                    : syncFeedback.status === 'error' || syncFeedback.status === 'offline'
-                      ? 'Sync needs attention'
-                      : storageReady ? (store?.hasConfig ? 'Supabase ready' : 'Local draft') : 'Connecting…'}
                 syncFeedback={syncFeedback}
                 onSync={syncNow}
                 syncDisabled={!previewSession && (!storageReady || !store?.hasConfig || !user?.id)}
+                preferences={preferences}
+                performanceMode={performanceMode}
                 userName={displayName}
-                userEmail={user?.email || ''} />,
-      settings:<SettingsScreen
+                userEmail={user?.email || ''} />;
+    }
+
+    if (view === 'settings') {
+      return <SettingsScreen
                 profile={profile}
                 email={user?.email || ''}
+                preferences={preferences}
+                onPreferencesChange={updatePreferences}
                 onProfileChange={setProfile}
                 onBack={() => setView('home')}
-                onLoggedOut={() => setView('onboarding')} />,
-      packing: <PackingScreen state={state} setState={setState} onBack={() => setView('home')} onAsk={openAi} />,
-      docs:    <DocumentsScreen state={state} setState={setState} onBack={() => setView('home')} onAsk={openAi} />,
-      tasks:   <TasksScreen state={state} setState={setState} onBack={() => setView('home')} />,
-      budget:  <BudgetScreen state={state} setState={setState} onBack={() => setView('home')} />,
-      shopping:<ShoppingScreen state={state} setState={setState} onBack={() => setView('home')} onAsk={openAi} />,
-      housing: <HousingScreen state={state} setState={setState} onBack={() => setView('home')} onAsk={openAi} />,
-      memory:  <MemoryScreen state={state} setState={setState} onBack={() => setView('home')} />,
-      habits:  <HabitsScreen state={state} setState={setState} onBack={() => setView('home')} />,
-      people:  <ContactsScreen state={state} setState={setState} onBack={() => setView('home')} />,
-      map:     <MapScreen state={state} setState={setState} onBack={() => setView('home')} />,
-      notes:   <NotesJournalScreen state={state} setState={setState} onBack={() => setView('home')} />,
-      journal: <VideoJournalScreen onBack={() => setView('home')} />,
-      prompt:  <DailyPromptScreen onBack={() => setView('home')} />,
-      trip:    <TripBoardScreen onBack={() => setView('home')} />,
-      space:   <SpaceScreen onBack={() => setView('home')} />,
-      call:    <CallScreen
-                launch={callLaunch}
-                onLaunchHandled={() => setCallLaunch(current => ({ ...current, id: 0 }))}
-                onBack={() => setView('home')}
-                onRecordInstead={() => {
-                  // Phase 4 falling back into Phase 1: land on the journal
-                  // with the recorder already open.
-                  window.dispatchEvent(new CustomEvent('lifeos:record-video-note'));
-                  setView('journal');
-                }} />,
-      games:   <GamesScreen
-                profile={profile}
-                initialCode={requestedGameCode}
-                demo={previewGames}
-                onBack={() => setView('home')} />,
+                onReplayIntro={() => {
+                  setState(current => ({ ...current, onboardingDone: false }));
+                  setView('onboarding');
+                }}
+                onLoggedOut={() => setView('onboarding')} />;
+    }
+
+    // Notes ships with Home because the dashboard and AI sheet share its
+    // journal data. Avoid adding another loading boundary for code already in
+    // memory.
+    if (view === 'notes') {
+      return <NotesJournalScreen state={state} setState={setState} onBack={() => setView('home')} />;
+    }
+
+    const commonProps = { state, setState, onBack: () => setView('home'), onAsk: openAi };
+    const featureScreens = {
+      packing: ['modules', 'PackingScreen', commonProps],
+      docs: ['modules', 'DocumentsScreen', commonProps],
+      tasks: ['tasks', 'TasksScreen', commonProps],
+      budget: ['modules', 'BudgetScreen', commonProps],
+      shopping: ['modules', 'ShoppingScreen', commonProps],
+      housing: ['modules', 'HousingScreen', commonProps],
+      memory: ['memory', 'MemoryScreen', commonProps],
+      habits: ['modules', 'HabitsScreen', commonProps],
+      people: ['modules', 'ContactsScreen', commonProps],
+      map: ['map', 'MapScreen', commonProps],
+      journal: ['journal', 'VideoJournalScreen', { onBack: () => setView('home') }],
+      prompt: ['prompt', 'DailyPromptScreen', { onBack: () => setView('home') }],
+      trip: ['trip', 'TripBoardScreen', { onBack: () => setView('home') }],
+      space: ['space', 'SpaceScreen', {
+        initialCode: requestedPairCode,
+        demo: previewPairing,
+        onBack: () => setView('home'),
+        onCall: () => {
+          setCallLaunch(current => ({ id: current.id + 1, mode: 'video' }));
+          setView('call');
+        },
+      }],
+      call: ['call', 'CallScreen', {
+        launch: callLaunch,
+        onLaunchHandled: () => setCallLaunch(current => ({ ...current, id: 0 })),
+        onBack: () => setView('home'),
+        onRecordInstead: () => {
+          window.dispatchEvent(new CustomEvent('lifeos:record-video-note'));
+          setView('journal');
+        },
+      }],
+      games: ['games', 'GamesScreen', {
+        profile,
+        initialCode: requestedGameCode,
+        demo: previewGames,
+        onBack: () => setView('home'),
+      }],
     };
-    return screens[view] || screens.home;
+    const feature = featureScreens[view];
+    if (!feature) return null;
+    return <LazyLegacyScreen bundle={feature[0]} componentName={feature[1]} screenProps={feature[2]} />;
   }
 
   // Derive user info for display
@@ -492,46 +698,57 @@ function App() {
     return <Onboarding user={null} initialDate={tweaks.moveDate} onDone={({ moveDate }) => {
       setTweak('moveDate', moveDate);
       setState(s => ({ ...s, moveDate, onboardingDone: true }));
-      setView('map');
+      setView('home');
     }} />;
   }
 
   return (
     <div
-      className="app"
-      data-dark={tweaks.dark}
-      data-density={tweaks.density}
+      className={`app${view === 'onboarding' ? ' app-onboarding' : ''}`}
+      data-dark={appDark}
+      data-density={preferences.density === 'compact' ? 'compact' : 'cozy'}
+      data-palette={preferences.palette}
+      data-motion={preferences.motion}
+      data-text-size={preferences.textSize}
+      data-contrast={preferences.highContrast ? 'high' : 'standard'}
+      data-glass={preferences.glassEffects ? 'on' : 'off'}
+      data-corners={preferences.cornerStyle}
+      data-performance={performanceMode}
       style={{
         ...appStyle,
         background: 'var(--cream)',
         backgroundImage:
-          'radial-gradient(at 20% 0%, rgba(246, 209, 16, 0.16) 0%, transparent 40%),' +
-          'radial-gradient(at 100% 100%, rgba(129, 206, 235, 0.20) 0%, transparent 50%)',
+          'radial-gradient(at 20% 0%, color-mix(in srgb, var(--honey) 16%, transparent) 0%, transparent 40%),' +
+          'radial-gradient(at 100% 100%, color-mix(in srgb, var(--blue) 20%, transparent) 0%, transparent 50%)',
         color: 'var(--dark)',
         position: 'relative',
       }}
     >
       {renderContent()}
 
-      {/* Floating Ask Huve button (hidden during onboarding) */}
-      {view !== 'onboarding' && view !== 'settings' && view !== 'games' && (
+      {/* Personal AI companion — available everywhere except the intro,
+          settings and full-screen game room. */}
+      {view !== 'onboarding' && view !== 'settings' && view !== 'games' && view !== 'space' && (
         <button
+          type="button"
           onClick={() => openAi()}
           className="ai-launcher ai-pulse"
-          aria-label="Ask Huve"
+          aria-label="Ask Huve, your Life OS AI assistant"
+          title="Ask Huve"
           style={{
             background: 'linear-gradient(135deg, var(--honey) 0%, var(--butter) 100%)',
             boxShadow: '0 8px 24px -6px rgba(45, 114, 139, 0.5), 0 4px 10px rgba(0,0,0,0.1)',
           }}
-          ><img src="/huve-avatar.jpg" width="42" height="42" alt="Huve" style={{ borderRadius: '50%', objectFit: 'cover' }} /></button>
+        >
+          <img src="/huve-avatar.jpg" width="42" height="42" alt="Huve AI assistant" />
+        </button>
       )}
 
       {/* Bottom navigation (hidden during onboarding) */}
       {view !== 'onboarding' && (
-        <BottomNav current={view} onNavigate={setView} />
+        <BottomNav current={view} onNavigate={setView} preferences={preferences} />
       )}
 
-      {/* AI sheet */}
       <AskHuveSheet
         open={aiOpen}
         onClose={() => setAiOpen(false)}
@@ -688,15 +905,108 @@ function LifeOSTweaks({ tweaks, setTweak, setView }) {
   );
 }
 
-function SettingsScreen({ profile, email, onProfileChange, onBack, onLoggedOut }) {
+const SETTINGS_HOME_SECTIONS = [
+  { id: 'priorities', label: 'Today’s priorities', description: 'Your clearest next actions', icon: '✓' },
+  { id: 'connection', label: 'Calls & daily Arabic', description: 'Connection windows and a local phrase', icon: '☎' },
+  { id: 'overview', label: 'Life at a glance', description: 'Progress across your key areas', icon: '◫' },
+  { id: 'snapshots', label: 'Money & UAE map', description: 'Budget and saved-place snapshots', icon: '⌖' },
+  { id: 'games', label: 'Game night', description: 'A shortcut into shared games', icon: '♠' },
+  { id: 'settling', label: 'Settling-in guide', description: 'Useful during your first month', icon: '☀' },
+  { id: 'wellbeing', label: 'Wellbeing', description: 'Habits and your private note', icon: '♡' },
+  { id: 'assistant', label: 'Personal AI', description: 'Local answers and personalised guidance', icon: '✦' },
+  { id: 'tools', label: 'Life hub', description: 'Every Life OS tool in one place', icon: '⌘' },
+];
+
+const SETTINGS_PALETTES = [
+  { id: 'honey', label: 'Honey Sky', colors: ['#F6D110', '#81CEEB', '#FFF9C7'] },
+  { id: 'oasis', label: 'Oasis', colors: ['#D8E86E', '#79D2C5', '#F4F8D9'] },
+  { id: 'sunset', label: 'Sunset', colors: ['#FFB95F', '#F2AAA3', '#FFF0DD'] },
+  { id: 'lavender', label: 'Lavender', colors: ['#C7ADF5', '#94D7ED', '#F2ECFF'] },
+];
+
+const SETTINGS_LIFE_MODES = [
+  { id: 'calm', label: 'Calm', icon: '◌', description: 'Only the essentials, with gentle motion.' },
+  { id: 'explorer', label: 'Explorer', icon: '⌖', description: 'Places, trips and local tools come first.' },
+  { id: 'connected', label: 'Connected', icon: '♥', description: 'Calls, games and your people lead the day.' },
+  { id: 'everything', label: 'Everything', icon: '□', description: 'The full Life OS experience.' },
+];
+
+function SettingsToggle({ checked, onChange, label, description, icon, disabled = false }) {
+  return (
+    <button
+      type="button"
+      className="settings-toggle-row"
+      onClick={() => !disabled && onChange(!checked)}
+      aria-pressed={checked}
+      disabled={disabled}
+    >
+      {icon && <span className="settings-toggle-icon" aria-hidden="true">{icon}</span>}
+      <span className="settings-toggle-copy"><strong>{label}</strong>{description && <small>{description}</small>}</span>
+      <span className={`settings-switch${checked ? ' is-on' : ''}`} aria-hidden="true"><i /></span>
+    </button>
+  );
+}
+
+function SettingsSegmented({ value, onChange, options, label }) {
+  return (
+    <div className="settings-segmented" role="group" aria-label={label}>
+      {options.map(option => (
+        <button
+          key={option.value}
+          type="button"
+          className={value === option.value ? 'is-active' : ''}
+          onClick={() => onChange(option.value)}
+          aria-pressed={value === option.value}
+        >
+          {option.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function SettingsScreen({ profile, email, preferences, onPreferencesChange, onProfileChange, onBack, onLoggedOut, onReplayIntro }) {
   const [name, setName] = useState(profile?.display_name || '');
+  const [aiProfile, setAIProfile] = useState(() => window.__lifeos?.aiProfile.prepareAIProfile(profile?.ai_profile));
   const [saving, setSaving] = useState(false);
+  const [savingAI, setSavingAI] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [message, setMessage] = useState('');
+  const [resetOpen, setResetOpen] = useState(false);
+  const prefs = window.__lifeos.preferences.preparePreferences(preferences);
+  const hiddenSections = new Set(prefs.hiddenHomeSections);
+  const visibleSectionCount = prefs.homeOrder.length - prefs.hiddenHomeSections.length;
 
   useEffect(() => {
     setName(profile?.display_name || '');
   }, [profile?.display_name]);
+
+  useEffect(() => {
+    setAIProfile(window.__lifeos?.aiProfile.prepareAIProfile(profile?.ai_profile));
+  }, [profile?.ai_profile]);
+
+  function changePreferences(patch) {
+    onPreferencesChange(patch);
+    void window.__lifeos?.native.tap('light');
+  }
+
+  function applyLifeMode(modeId) {
+    changePreferences(window.__lifeos.preferences.applyLifeMode(prefs, modeId));
+    setMessage(`${SETTINGS_LIFE_MODES.find(mode => mode.id === modeId)?.label || 'Your'} mode is ready.`);
+  }
+
+  function toggleHomeSection(sectionId, show) {
+    const hidden = new Set(prefs.hiddenHomeSections);
+    if (show) hidden.delete(sectionId);
+    else hidden.add(sectionId);
+    changePreferences({ hiddenHomeSections: [...hidden] });
+  }
+
+  function moveSection(sectionId, direction) {
+    changePreferences({
+      homeOrder: window.__lifeos.preferences.moveHomeSection(prefs, sectionId, direction),
+    });
+  }
 
   async function saveProfile(event) {
     event.preventDefault();
@@ -713,6 +1023,25 @@ function SettingsScreen({ profile, email, onProfileChange, onBack, onLoggedOut }
     }
   }
 
+  function updateAIProfile(field, value) {
+    setAIProfile(current => ({ ...current, [field]: value }));
+  }
+
+  async function saveAIProfile(event) {
+    event.preventDefault();
+    setMessage('');
+    setSavingAI(true);
+    try {
+      const updated = await window.__suvedaAuth?.updateProfile?.({ ai_profile: aiProfile });
+      if (updated) onProfileChange(updated);
+      setMessage('Your personal AI preferences have been saved.');
+    } catch (error) {
+      setMessage(error?.message || 'Your preferences could not be updated.');
+    } finally {
+      setSavingAI(false);
+    }
+  }
+
   async function logout() {
     setMessage('');
     setLoggingOut(true);
@@ -726,7 +1055,197 @@ function SettingsScreen({ profile, email, onProfileChange, onBack, onLoggedOut }
   }
 
   return (
-    <ModulePage title="Settings" subtitle="Your Life OS account" icon="Settings" onBack={onBack}>
+    <ModulePage title="Settings" subtitle="Make Life OS feel like yours" icon="Settings" onBack={onBack}>
+      <section className="settings-personalization-hero">
+        <div className="settings-hero-copy">
+          <span className="settings-hero-kicker">YOUR LIFE, YOUR LAYOUT</span>
+          <h2>Shape the app around you.</h2>
+          <p>Choose a mood, decide what Home shows, and put the tools you use most within one tap.</p>
+          <span className="settings-auto-save"><i /> Preferences sync automatically</span>
+        </div>
+        <div className="settings-live-preview" aria-label={`${SETTINGS_PALETTES.find(item => item.id === prefs.palette)?.label || 'Custom'} appearance selected`}>
+          <div className="settings-preview-top"><span /><span /><span /></div>
+          <div className="settings-preview-hero"><i /><b /></div>
+          <div className="settings-preview-grid"><span /><span /><span /></div>
+          <div className="settings-preview-dock"><i /><i /><i /><i /></div>
+        </div>
+      </section>
+
+      <Card padding="20px" className="settings-studio-card settings-modes-card" style={{ marginBottom: 14 }}>
+        <div className="settings-card-heading">
+          <div><span>Quick start</span><h3>Choose a Life mode</h3></div>
+          <small>Changes layout, colour and shortcuts together</small>
+        </div>
+        <div className="settings-life-modes">
+          {SETTINGS_LIFE_MODES.map(mode => (
+            <button
+              key={mode.id}
+              type="button"
+              className={prefs.activePreset === mode.id ? 'is-active' : ''}
+              onClick={() => applyLifeMode(mode.id)}
+              aria-pressed={prefs.activePreset === mode.id}
+            >
+              <span>{mode.icon}</span>
+              <strong>{mode.label}</strong>
+              <small>{mode.description}</small>
+              {prefs.activePreset === mode.id && <b>Selected</b>}
+            </button>
+          ))}
+        </div>
+      </Card>
+
+      <Card padding="20px" className="settings-studio-card" style={{ marginBottom: 14 }}>
+        <div className="settings-card-heading">
+          <div><span>Appearance</span><h3>Set the feeling</h3></div>
+          <small>Previewed instantly across the whole app</small>
+        </div>
+
+        <div className="settings-control-label">Colour palette</div>
+        <div className="settings-palette-grid">
+          {SETTINGS_PALETTES.map(palette => (
+            <button
+              key={palette.id}
+              type="button"
+              className={prefs.palette === palette.id ? 'is-active' : ''}
+              onClick={() => changePreferences({ palette: palette.id })}
+              aria-pressed={prefs.palette === palette.id}
+            >
+              <span className="settings-palette-dots">
+                {palette.colors.map(color => <i key={color} style={{ background: color }} />)}
+              </span>
+              <strong>{palette.label}</strong>
+              <small>{prefs.palette === palette.id ? 'Using now' : 'Try palette'}</small>
+            </button>
+          ))}
+        </div>
+
+        <div className="settings-control-grid">
+          <label>
+            <span className="settings-control-label">Colour mode</span>
+            <SettingsSegmented
+              label="Colour mode"
+              value={prefs.colorMode}
+              onChange={value => changePreferences({ colorMode: value })}
+              options={[{ value: 'light', label: 'Light' }, { value: 'dark', label: 'Dark' }, { value: 'system', label: 'Auto' }]}
+            />
+          </label>
+          <label>
+            <span className="settings-control-label">Spacing</span>
+            <SettingsSegmented
+              label="Interface spacing"
+              value={prefs.density}
+              onChange={value => changePreferences({ density: value })}
+              options={[{ value: 'comfortable', label: 'Comfort' }, { value: 'compact', label: 'Compact' }]}
+            />
+          </label>
+          <label>
+            <span className="settings-control-label">Corners</span>
+            <SettingsSegmented
+              label="Corner style"
+              value={prefs.cornerStyle}
+              onChange={value => changePreferences({ cornerStyle: value })}
+              options={[{ value: 'square', label: 'Clean' }, { value: 'soft', label: 'Soft' }, { value: 'round', label: 'Round' }]}
+            />
+          </label>
+        </div>
+      </Card>
+
+      <Card padding="20px" className="settings-studio-card" style={{ marginBottom: 14 }}>
+        <div className="settings-card-heading">
+          <div><span>Home screen</span><h3>Put your day in your order</h3></div>
+          <small>Show, hide or move every section</small>
+        </div>
+        <div className="settings-home-order-list">
+          {prefs.homeOrder.map((sectionId, index) => {
+            const section = SETTINGS_HOME_SECTIONS.find(item => item.id === sectionId);
+            if (!section) return null;
+            const shown = !hiddenSections.has(sectionId);
+            return (
+              <div key={sectionId} className={`settings-home-order-item${shown ? '' : ' is-hidden'}`}>
+                <span className="settings-home-order-icon" aria-hidden="true">{section.icon}</span>
+                <span className="settings-home-order-copy"><strong>{section.label}</strong><small>{section.description}</small></span>
+                <div className="settings-order-actions">
+                  <button type="button" onClick={() => moveSection(sectionId, -1)} disabled={index === 0} aria-label={`Move ${section.label} up`}>↑</button>
+                  <button type="button" onClick={() => moveSection(sectionId, 1)} disabled={index === prefs.homeOrder.length - 1} aria-label={`Move ${section.label} down`}>↓</button>
+                </div>
+                <button
+                  type="button"
+                  className={`settings-visibility-button${shown ? ' is-visible' : ''}`}
+                  onClick={() => toggleHomeSection(sectionId, !shown)}
+                  disabled={shown && visibleSectionCount <= 1}
+                  aria-label={`${shown ? 'Hide' : 'Show'} ${section.label}`}
+                  aria-pressed={shown}
+                >
+                  {shown ? 'Shown' : 'Hidden'}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      </Card>
+
+      <Card padding="20px" className="settings-studio-card" style={{ marginBottom: 14 }}>
+        <div className="settings-card-heading">
+          <div><span>Quick dock</span><h3>Choose your three one-tap tools</h3></div>
+          <small>Home always stays in the first position</small>
+        </div>
+        <div className="settings-dock-preview" aria-label="Bottom navigation preview">
+          <span><AnimatedIcon name="House" size={22} play={0} /><small>Home</small></span>
+          {prefs.quickNav.map(itemId => {
+            const item = NAV_CATALOG.find(navItem => navItem.id === itemId);
+            return <span key={itemId}><AnimatedIcon name={item?.icon || 'LayoutGrid'} size={22} play={0} /><small>{item?.label}</small></span>;
+          })}
+          <span><AnimatedIcon name="LayoutGrid" size={22} play={0} /><small>More</small></span>
+        </div>
+        <div className="settings-dock-selects">
+          {prefs.quickNav.map((itemId, index) => (
+            <label key={`${index}-${itemId}`}>
+              <span>Shortcut {index + 1}</span>
+              <select
+                value={itemId}
+                onChange={event => changePreferences({
+                  quickNav: window.__lifeos.preferences.setQuickNavSlot(prefs, index, event.target.value),
+                })}
+              >
+                {QUICK_NAV_OPTIONS.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}
+              </select>
+            </label>
+          ))}
+        </div>
+      </Card>
+
+      <Card padding="20px" className="settings-studio-card" style={{ marginBottom: 14 }}>
+        <div className="settings-card-heading">
+          <div><span>Comfort & accessibility</span><h3>Make every interaction easier</h3></div>
+          <small>These controls affect the full app</small>
+        </div>
+        <div className="settings-comfort-grid">
+          <div className="settings-comfort-segment">
+            <span className="settings-control-label">Text size</span>
+            <SettingsSegmented
+              label="Text size"
+              value={prefs.textSize}
+              onChange={value => changePreferences({ textSize: value })}
+              options={[{ value: 'standard', label: 'Standard' }, { value: 'large', label: 'Larger' }]}
+            />
+          </div>
+          <div className="settings-comfort-segment">
+            <span className="settings-control-label">Animation</span>
+            <SettingsSegmented
+              label="Animation amount"
+              value={prefs.motion}
+              onChange={value => changePreferences({ motion: value })}
+              options={[{ value: 'full', label: 'Full' }, { value: 'gentle', label: 'Gentle' }, { value: 'reduced', label: 'Still' }]}
+            />
+          </div>
+        </div>
+        <div className="settings-toggle-list">
+          <SettingsToggle checked={prefs.highContrast} onChange={value => changePreferences({ highContrast: value })} icon="◐" label="Higher contrast" description="Stronger borders and easier-to-read supporting text" />
+          <SettingsToggle checked={prefs.glassEffects} onChange={value => changePreferences({ glassEffects: value })} icon="◫" label="Liquid glass effects" description="Blurred navigation and floating surfaces" />
+          <SettingsToggle checked={prefs.haptics} onChange={value => changePreferences({ haptics: value })} icon="≈" label="Haptic feedback" description="A gentle tap for important actions on iPhone" />
+        </div>
+      </Card>
+
       <Card padding="20px" style={{ marginBottom: 14 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 18 }}>
           <div style={{
@@ -768,19 +1287,118 @@ function SettingsScreen({ profile, email, onProfileChange, onBack, onLoggedOut }
         </form>
       </Card>
 
+      <Card padding="20px" className="settings-ai-card" style={{ marginBottom: 14 }}>
+        <div className="settings-ai-heading">
+          <span aria-hidden="true">◎</span>
+          <div>
+            <div className="settings-ai-eyebrow">Your personal AI</div>
+            <h3>Teach your assistant what helps you</h3>
+            <p>Share only what you are comfortable with. Your private AI profile tailors answers to your routines, priorities and preferred style.</p>
+          </div>
+        </div>
+
+        <form onSubmit={saveAIProfile} className="settings-ai-form">
+          <div className="settings-ai-grid">
+            <label className="auth-profile-field">
+              <span>Home base</span>
+              <input
+                value={aiProfile?.home_base || ''}
+                onChange={event => updateAIProfile('home_base', event.target.value)}
+                placeholder="e.g. Abu Dhabi"
+                maxLength={120}
+              />
+            </label>
+            <label className="auth-profile-field">
+              <span>Daily rhythm</span>
+              <select
+                value={aiProfile?.daily_rhythm || 'flexible'}
+                onChange={event => updateAIProfile('daily_rhythm', event.target.value)}
+              >
+                <option value="early_bird">Early bird</option>
+                <option value="flexible">Flexible</option>
+                <option value="night_owl">Night owl</option>
+              </select>
+            </label>
+          </div>
+
+          <label className="auth-profile-field">
+            <span>What matters most right now?</span>
+            <textarea
+              value={aiProfile?.priorities || ''}
+              onChange={event => updateAIProfile('priorities', event.target.value)}
+              placeholder="Goals, responsibilities, or things you want help organising"
+              maxLength={500}
+              rows={3}
+            />
+          </label>
+
+          <label className="auth-profile-field">
+            <span>Interests and favourite things</span>
+            <input
+              value={aiProfile?.interests || ''}
+              onChange={event => updateAIProfile('interests', event.target.value)}
+              placeholder="e.g. food, fitness, books, travel"
+              maxLength={500}
+            />
+          </label>
+
+          <label className="auth-profile-field">
+            <span>Preferred guidance style</span>
+            <select
+              value={aiProfile?.response_style || 'warm_practical'}
+              onChange={event => updateAIProfile('response_style', event.target.value)}
+            >
+              <option value="warm_practical">Warm and practical</option>
+              <option value="direct">Direct and action-focused</option>
+              <option value="concise">Brief and concise</option>
+              <option value="detailed">Detailed with explanations</option>
+            </select>
+          </label>
+
+          <label className="auth-profile-field">
+            <span>Anything else Life OS should remember?</span>
+            <textarea
+              value={aiProfile?.notes || ''}
+              onChange={event => updateAIProfile('notes', event.target.value)}
+              placeholder="Preferences, routines, accessibility needs, or useful context"
+              maxLength={700}
+              rows={3}
+            />
+          </label>
+
+          <div className="settings-ai-actions">
+            <span>AI context private to your account</span>
+            <Button type="submit" size="sm" disabled={savingAI}>
+              {savingAI ? 'Saving…' : 'Save AI preferences'}
+            </Button>
+          </div>
+        </form>
+      </Card>
+
       <Card padding="20px" style={{ marginBottom: 14 }}>
         <div style={{ fontSize: 12, fontWeight: 750, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--teal)', marginBottom: 8 }}>
           Privacy
         </div>
         <h3 style={{ fontSize: 16, marginBottom: 6 }}>Your data stays with your account</h3>
         <p style={{ fontSize: 13, lineHeight: 1.55, color: 'var(--muted)', margin: 0 }}>
-          Your profile, dashboard, chat and personal lists are isolated from every other Life OS account by database access rules.
+          Your profile, preferences, dashboard and personal lists are isolated from every other Life OS account by database access rules.
         </p>
         <FaceIdRow />
       </Card>
 
+      <Card padding="20px" className="settings-studio-card" style={{ marginBottom: 14 }}>
+        <div className="settings-card-heading">
+          <div><span>Experience</span><h3>Start fresh when you want to</h3></div>
+          <small>Your content and account stay untouched</small>
+        </div>
+        <div className="settings-secondary-actions">
+          <button type="button" onClick={onReplayIntro}><span>◎</span><strong>Replay welcome tour</strong><small>See the three introduction screens again</small></button>
+          <button type="button" onClick={() => setResetOpen(true)}><span>↺</span><strong>Reset customisation</strong><small>Restore the original layout and appearance</small></button>
+        </div>
+      </Card>
+
       {message && (
-        <div role="status" style={{ fontSize: 13, color: 'var(--muted)', padding: '4px 2px 12px' }}>{message}</div>
+        <div className="settings-status-message" role="status">{message}</div>
       )}
 
       <button
@@ -796,35 +1414,50 @@ function SettingsScreen({ profile, email, onProfileChange, onBack, onLoggedOut }
       >
         {loggingOut ? 'Logging out…' : 'Log out'}
       </button>
+
+      <Modal open={resetOpen} onClose={() => setResetOpen(false)} title="Reset customisation?">
+        <p className="settings-reset-copy">
+          This restores the original palette, Home sections and dock. Your journal, budget, documents, profile and personal preferences will not be changed.
+        </p>
+        <div className="settings-reset-actions">
+          <Button variant="ghost" onClick={() => setResetOpen(false)}>Keep mine</Button>
+          <Button onClick={() => {
+            changePreferences(window.__lifeos.preferences.applyLifeMode({}, 'everything'));
+            setResetOpen(false);
+            setMessage('Your original Life OS layout has been restored.');
+          }}>Reset layout</Button>
+        </div>
+      </Modal>
     </ModulePage>
   );
 }
 
 // ---------- Bottom navigation ----------
-const PRIMARY_NAV = [
+const NAV_CATALOG = [
   { id: 'home',    label: 'Home',      icon: 'House' },
   { id: 'map',     label: 'Map',       icon: 'Map' },
   { id: 'docs',    label: 'Docs',      icon: 'FileText' },
   { id: 'budget',  label: 'Budget',    icon: 'Wallet' },
-];
-
-const MORE_NAV = [
-  { id: 'settings', label: 'Settings', icon: 'Settings' },
+  { id: 'call',     label: 'Call',      icon: 'Phone' },
   { id: 'notes',    label: 'Journal',  icon: 'NotebookPen' },
+  { id: 'games',    label: 'Games',    icon: 'Gamepad2' },
+  { id: 'trip',     label: 'Trip',     icon: 'Luggage' },
+  { id: 'habits',   label: 'Habits',   icon: 'Target' },
+  { id: 'people',   label: 'People',   icon: 'Users' },
+  { id: 'settings', label: 'Settings', icon: 'Settings' },
   { id: 'journal',  label: 'Video',    icon: 'Video' },
   { id: 'packing',  label: 'Packing',  icon: 'Package' },
   { id: 'prompt',   label: 'Prompt',   icon: 'MessageCircle' },
-  { id: 'trip',     label: 'Trip',     icon: 'Luggage' },
-  { id: 'call',     label: 'Call',     icon: 'Phone' },
-  { id: 'games',    label: 'Games',    icon: 'Gamepad2' },
   { id: 'tasks',    label: 'Timeline', icon: 'CalendarDays' },
   { id: 'shopping', label: 'Shopping', icon: 'ShoppingCart' },
   { id: 'housing',  label: 'Housing',  icon: 'Building2' },
   { id: 'memory',   label: 'Memory',   icon: 'Camera' },
-  { id: 'habits',   label: 'Habits',   icon: 'Target' },
-  { id: 'people',   label: 'People',   icon: 'Users' },
   { id: 'space',    label: 'Pairing',  icon: 'Heart' },
 ];
+
+const QUICK_NAV_OPTIONS = NAV_CATALOG.filter(item => (
+  ['map', 'docs', 'budget', 'call', 'notes', 'games', 'trip', 'habits', 'people'].includes(item.id)
+));
 
 // Which nav entries currently have something waiting.
 function navNeedsAttention(id, unwatched, promptWaiting) {
@@ -913,19 +1546,33 @@ function FaceIdRow() {
   );
 }
 
-function BottomNav({ current, onNavigate }) {
+function BottomNav({ current, onNavigate, preferences }) {
   const [playTriggers, setPlayTriggers] = useState({});
   const [moreOpen, setMoreOpen] = useState(false);
-  const unwatched = useUnwatchedCount();
-  const promptWaiting = useUnansweredToday();
+  // Attention badges used to import the complete video journal and daily
+  // prompt bundles on every app launch. Their counts are non-essential and
+  // can remain dormant until those screens are opened.
+  const unwatched = 0;
+  const promptWaiting = false;
+  const { primaryNav, moreNav } = useMemo(() => {
+    const prepared = window.__lifeos.preferences.preparePreferences(preferences);
+    const primaryIds = new Set(['home', ...prepared.quickNav]);
+    return {
+      primaryNav: [
+        NAV_CATALOG[0],
+        ...prepared.quickNav.map(id => NAV_CATALOG.find(item => item.id === id)).filter(Boolean),
+      ],
+      moreNav: NAV_CATALOG.filter(item => !primaryIds.has(item.id)),
+    };
+  }, [preferences]);
 
-  const activeMoreItem = MORE_NAV.find(item => item.id === current);
+  const activeMoreItem = moreNav.find(item => item.id === current);
 
   return (
     <>
       <nav className="bottom-nav" aria-label="Main navigation">
         <div className="bottom-nav-inner">
-          {PRIMARY_NAV.map(item => {
+          {primaryNav.map(item => {
             const active = current === item.id;
             return (
               <button
@@ -934,11 +1581,16 @@ function BottomNav({ current, onNavigate }) {
                 className={`bottom-nav-item${active ? ' is-active' : ''}`}
                 aria-current={active ? 'page' : undefined}
                 aria-label={item.label}
+                onPointerDown={() => preloadLegacyView(item.id)}
+                onFocus={() => preloadLegacyView(item.id)}
                 onClick={() => {
                   setPlayTriggers(t => ({ ...t, [item.id]: (t[item.id] || 0) + 1 }));
                   onNavigate(item.id);
                 }}
-                onMouseEnter={() => setPlayTriggers(t => ({ ...t, [item.id]: (t[item.id] || 0) + 1 }))}
+                onMouseEnter={() => {
+                  preloadLegacyView(item.id);
+                  setPlayTriggers(t => ({ ...t, [item.id]: (t[item.id] || 0) + 1 }));
+                }}
               >
                 <span className="bottom-nav-icon">
                   <AnimatedIcon name={item.icon} size={26} play={playTriggers[item.id] || 0} />
@@ -969,9 +1621,9 @@ function BottomNav({ current, onNavigate }) {
         </div>
       </nav>
 
-      <Sheet open={moreOpen} onClose={() => setMoreOpen(false)} title="More" height="auto">
+      <Sheet open={moreOpen} onClose={() => setMoreOpen(false)} title="More" height="auto" lightweight>
           <div className="bottom-nav-more-grid">
-            {MORE_NAV.map(item => {
+            {moreNav.map(item => {
               const active = current === item.id;
               return (
                 <button
@@ -979,6 +1631,9 @@ function BottomNav({ current, onNavigate }) {
                   type="button"
                   className={`bottom-nav-more-item${active ? ' is-active' : ''}`}
                   aria-current={active ? 'page' : undefined}
+                  onPointerDown={() => preloadLegacyView(item.id)}
+                  onMouseEnter={() => preloadLegacyView(item.id)}
+                  onFocus={() => preloadLegacyView(item.id)}
                   onClick={() => { onNavigate(item.id); setMoreOpen(false); }}
                 >
                   <span className="bottom-nav-more-icon">
@@ -990,7 +1645,6 @@ function BottomNav({ current, onNavigate }) {
               );
             })}
           </div>
-          <FaceIdRow />
       </Sheet>
     </>
   );

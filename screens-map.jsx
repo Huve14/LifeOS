@@ -1,4 +1,4 @@
-// screens-map.jsx / Map with an AI location guide
+// screens-map.jsx / Abu Dhabi map with a personal AI location guide
 
 const { useState, useCallback, useEffect } = React;
 
@@ -349,11 +349,9 @@ const CATEGORY_COLORS = {
 };
 
 /* ── Map Screen ── */
-function MapScreen({ state, setState, onBack }) {
+function MapScreen({ state, setState, onBack, onAsk }) {
   const [filter, setFilter] = useState('all');
   const [selected, setSelected] = useState(null);
-  const [huveReply, setHuveReply] = useState('');
-  const [huveLoading, setHuveLoading] = useState(false);
 
   const filtered = filter === 'all'
     ? ABU_DHABI_LOCATIONS
@@ -381,20 +379,6 @@ function MapScreen({ state, setState, onBack }) {
     }
   }, [filter]);
 
-  /* Ask Huve about a location */
-  const askHuveAbout = useCallback(async (loc) => {
-    setHuveLoading(true);
-    setHuveReply('');
-    try {
-      const reply = await window.askHuve(loc.huvePrompt, `The user is exploring Abu Dhabi and is interested in ${loc.name} (${loc.description}).`);
-      setHuveReply(reply);
-    } catch {
-      setHuveReply('Huve\'s having a moment — try again in a sec! 🌵');
-    } finally {
-      setHuveLoading(false);
-    }
-  }, []);
-
   /* Marker color by category */
   function markerColor(loc) {
     return CATEGORY_COLORS[loc.category] || 'var(--terracotta)';
@@ -403,7 +387,6 @@ function MapScreen({ state, setState, onBack }) {
   /* Close popup */
   const closePopup = useCallback(() => {
     setSelected(null);
-    setHuveReply('');
   }, []);
 
   const days = daysUntil(state.moveDate);
@@ -415,10 +398,13 @@ function MapScreen({ state, setState, onBack }) {
       icon="Map"
       onBack={onBack}
       action={
-        <Button size="sm" variant="ghost" icon="✨" onClick={() => {
-          const pick = ABU_DHABI_LOCATIONS[Math.floor(Math.random() * ABU_DHABI_LOCATIONS.length)];
-          if (pick) setSelected(pick);
-        }}>Suggest</Button>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <Button size="sm" variant="ghost" icon="⌖" onClick={() => {
+            const pick = ABU_DHABI_LOCATIONS[Math.floor(Math.random() * ABU_DHABI_LOCATIONS.length)];
+            if (pick) setSelected(pick);
+          }}>Suggest</Button>
+          <Button size="sm" variant="ghost" icon="✨" onClick={() => onAsk('Help me choose somewhere useful or interesting to visit in Abu Dhabi today.', `I am viewing ${filtered.length} places on my Life OS UAE map.`)}>Ask AI</Button>
+        </div>
       }
     >
       {/* Welcome card */}
@@ -433,7 +419,7 @@ function MapScreen({ state, setState, onBack }) {
             Welcome to Abu Dhabi!
           </div>
           <div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.5 }}>
-            Tap any pin to learn about the place. Ask <strong>Huve</strong> for interesting facts and tips about each location.
+            Tap any pin for practical details and directions, then ask your AI guide for personalised local tips.
           </div>
         </div>
       )}
@@ -446,7 +432,7 @@ function MapScreen({ state, setState, onBack }) {
         {CATEGORIES.map(c => (
           <button
             key={c.id}
-            onClick={() => { setFilter(c.id); setSelected(null); setHuveReply(''); }}
+            onClick={() => { setFilter(c.id); setSelected(null); }}
             style={{
               flexShrink: 0, padding: '8px 14px', borderRadius: 999,
               border: 'none', fontFamily: 'inherit', fontSize: 13, fontWeight: 600,
@@ -565,79 +551,40 @@ function MapScreen({ state, setState, onBack }) {
             </div>
           </div>
 
-          {/* Ask Huve */}
+          {/* AI guide and directions */}
           <div style={{
             padding: '14px 20px',
             display: 'flex', alignItems: 'center', gap: 10,
           }}>
             <button
-              onClick={() => askHuveAbout(selected)}
-              disabled={huveLoading}
+              type="button"
+              onClick={() => onAsk(selected.huvePrompt, `I am exploring ${selected.name} in Abu Dhabi. ${selected.description}`)}
               style={{
                 flex: 1, padding: '10px 16px', borderRadius: 12,
-                border: 'none', fontFamily: 'inherit', fontSize: 13, fontWeight: 600,
-                cursor: huveLoading ? 'default' : 'pointer',
-                background: huveLoading
-                  ? 'var(--sand)'
-                  : 'linear-gradient(135deg, var(--terracotta) 0%, var(--gold) 100%)',
-                color: huveLoading ? 'var(--muted)' : '#fff',
-                boxShadow: huveLoading
-                  ? 'none'
-                  : '0 4px 12px rgba(45,114,139,0.3)',
+                border: 'none', fontFamily: 'inherit', fontSize: 13, fontWeight: 700,
+                cursor: 'pointer', background: 'linear-gradient(135deg, var(--honey), var(--blue))',
+                color: '#17272D', boxShadow: '0 4px 12px rgba(45,114,139,0.18)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
               }}
             >
-              {huveLoading ? (
-                <>
-                  <span style={{
-                    width: 14, height: 14, borderRadius: '50%',
-                    border: '2px solid var(--muted)',
-                    borderTopColor: 'transparent',
-                    animation: 'spin 0.6s linear infinite',
-                    display: 'inline-block',
-                  }} />
-                  Huve is thinking…
-                </>
-              ) : (
-                <>
-                  <span>🌵</span>
-                  Ask Huve about {selected.name.split(' ')[0]}
-                </>
-              )}
+              <span>✨</span> Ask AI about {selected.name.split(' ')[0]}
             </button>
             <a
               href={`https://www.google.com/maps/search/${encodeURIComponent(selected.name + ' Abu Dhabi')}`}
               target="_blank"
               rel="noopener noreferrer"
               style={{
-                width: 40, height: 40, borderRadius: 12,
-                border: '1px solid var(--line)', background: 'var(--white)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                textDecoration: 'none', color: 'var(--dark)', fontSize: 18,
-                flexShrink: 0,
+                flex: 1, padding: '10px 16px', borderRadius: 12,
+                border: 'none', fontFamily: 'inherit', fontSize: 13, fontWeight: 700,
+                cursor: 'pointer', textDecoration: 'none',
+                background: 'linear-gradient(135deg, var(--terracotta) 0%, var(--gold) 100%)',
+                color: '#fff', boxShadow: '0 4px 12px rgba(45,114,139,0.3)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
               }}
-            >🔗</a>
+            >
+              <span>⌖</span> Open in Maps
+            </a>
           </div>
-
-          {/* Huve reply */}
-          {huveReply && (
-            <div className="fade-in" style={{
-              padding: '14px 20px 18px',
-              borderTop: '1px solid var(--line)',
-              background: 'var(--cream)',
-            }}>
-              <div style={{
-                display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8,
-              }}>
-                <span style={{ fontSize: 20 }}>🌵</span>
-                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--terracotta)' }}>Huve says</span>
-              </div>
-              <div style={{
-                fontSize: 13, lineHeight: 1.6, color: 'var(--dark)',
-                whiteSpace: 'pre-wrap',
-              }}>{huveReply}</div>
-            </div>
-          )}
         </div>
       )}
 

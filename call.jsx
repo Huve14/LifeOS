@@ -221,7 +221,7 @@ function CallScreen({
   const [transport, setTransport] = useState(null);
   const [participants, setParticipants] = useState(() => previewGroupCall ? [
     { identity: 'preview-local', name: 'You', isLocal: true, videoElement: null, audioElement: null, cameraOn: false, microphoneOn: true, speaking: false },
-    { identity: 'preview-huve', name: 'Huve', isLocal: false, videoElement: null, audioElement: null, cameraOn: false, microphoneOn: true, speaking: true },
+    { identity: 'preview-alex', name: 'Alex', isLocal: false, videoElement: null, audioElement: null, cameraOn: false, microphoneOn: true, speaking: true },
     { identity: 'preview-family', name: 'Mum', isLocal: false, videoElement: null, audioElement: null, cameraOn: false, microphoneOn: true, speaking: false },
     { identity: 'preview-friend', name: 'Aisha', isLocal: false, videoElement: null, audioElement: null, cameraOn: false, microphoneOn: false, speaking: false },
   ] : []);

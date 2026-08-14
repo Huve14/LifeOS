@@ -4,7 +4,10 @@
 // modules load.
 
 import * as call from './call';
+import * as couples from './couples';
+import * as aiProfile from './aiProfile';
 import * as budget from './budget';
+import * as daylight from './daylight';
 import * as ice from './ice';
 import * as journal from './journal';
 import * as home from './home';
@@ -13,6 +16,8 @@ import * as lock from './lock';
 import * as native from './native';
 import * as net from './net';
 import * as outbox from './outbox';
+import * as preferences from './preferences';
+import * as performance from './performance';
 import * as prompts from './prompts';
 import * as push from './push';
 import * as recording from './recording';
@@ -23,8 +28,11 @@ import * as trips from './trips';
 import * as videoNotes from './videoNotes';
 
 export const lifeos = {
+  aiProfile,
   budget,
   call,
+  couples,
+  daylight,
   games,
   home,
   ice,
@@ -33,6 +41,8 @@ export const lifeos = {
   native,
   net,
   outbox,
+  preferences,
+  performance,
   prompts,
   push,
   recording,

@@ -241,7 +241,7 @@ function SharedList({ token }: { token: string }) {
     if (valid !== true) return;
     const unsub = subscribeShoppingItems((updated) => setItems(updated), token);
     return unsub;
-  }, [valid]);
+  }, [token, valid]);
 
   const handleClaim = useCallback(async (itemId: string, currentSupplier: string) => {
     if (!shopperName.trim()) {

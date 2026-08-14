@@ -111,7 +111,7 @@ function PackingScreen({ state, setState, onBack, onAsk }) {
       subtitle={`${packed} of ${totalItems} · ${pct}%`}
       icon="Package"
       onBack={onBack}
-      action={<Button size="sm" variant="ghost" icon="✨" onClick={() => onAsk(`What might I be forgetting in my ${cur?.label?.toLowerCase()}?`, `My ${cur?.label} packing list: ${(cur?.items || []).map(i => i.name).join(', ')}`)}>AI</Button>}
+      action={<Button size="sm" variant="ghost" icon="✨" onClick={() => onAsk(`What might I be forgetting in my ${cur?.label?.toLowerCase()}?`, `My ${cur?.label} packing list: ${(cur?.items || []).map(i => i.name).join(', ')}`)}>AI help</Button>}
     >
       {/* Room tabs */}
       <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 12, marginBottom: 4 }}>
@@ -369,11 +369,7 @@ function DocumentsScreen({ state, setState, onBack, onAsk }) {
       subtitle={`${done} of ${documents.length} organised`}
       icon="FileText"
       onBack={onBack}
-      action={
-        <div style={{ display: 'flex', gap: 4 }}>
-          <Button size="sm" variant="ghost" icon="✨" onClick={() => onAsk('Help me organise the documents I use for everyday life in the UAE. Point me to official sources for any legal or residency requirements.')}>AI</Button>
-        </div>
-      }
+      action={<Button size="sm" variant="ghost" icon="✨" onClick={() => onAsk('Help me organise the documents I use for everyday life in the UAE. Point me to official sources for any legal or residency requirements.')}>AI help</Button>}
     >
       <Card padding="18px" style={{ background: 'linear-gradient(135deg, var(--blue-ink) 0%, #2D829F 100%)', color: '#fff', border: 'none', marginBottom: 16 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -494,8 +490,34 @@ function DocumentsScreen({ state, setState, onBack, onAsk }) {
             <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', display: 'block', marginTop: 14, marginBottom: 4 }}>Note (optional)</label>
             <textarea value={newNote} onChange={e => setNewNote(e.target.value)} placeholder="Any details…" rows={2} style={{ ...inputStyle, resize: 'vertical', fontFamily: 'inherit' }} />
             <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', display: 'block', marginTop: 14, marginBottom: 4 }}>Private file (PDF, Word, or image)</label>
-            <input ref={fileRef} type="file" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.webp" onChange={onFileChange} style={{ fontSize: 12, color: 'var(--muted)', width: '100%' }} />
-            {selectedFile && !uploading && <div style={{ fontSize: 12, color: '#4a8b55', marginTop: 6 }}>✓ {selectedFile.name} ready to upload</div>}
+            <div className={`document-file-picker${selectedFile ? ' has-file' : ''}`}>
+              <input
+                ref={fileRef}
+                id="document-private-file"
+                className="document-file-input"
+                type="file"
+                accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.webp"
+                onChange={onFileChange}
+                tabIndex={-1}
+              />
+              <button
+                type="button"
+                className="document-file-button"
+                onClick={() => fileRef.current?.click()}
+                disabled={uploading}
+              >
+                <span className="document-file-button-icon" aria-hidden="true">↑</span>
+                <span>{selectedFile ? 'Choose a different file' : 'Choose private file'}</span>
+              </button>
+              <div className="document-file-status" aria-live="polite">
+                <strong>{selectedFile ? selectedFile.name : 'No file selected'}</strong>
+                <small>
+                  {selectedFile
+                    ? `${Math.max(0.01, selectedFile.size / (1024 * 1024)).toFixed(2)} MB · Ready to upload`
+                    : 'PDF, Word, PNG, JPG or WebP'}
+                </small>
+              </div>
+            </div>
             {uploading && <div style={{ fontSize: 12, color: 'var(--terracotta)', marginTop: 6 }}>Uploading securely…</div>}
             {uploadError && <div role="alert" style={{ fontSize: 12, color: 'var(--terracotta)', marginTop: 6 }}>{uploadError}</div>}
             <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 8, lineHeight: 1.45 }}>Files are stored privately and opened with a short-lived secure link.</div>
@@ -510,80 +532,249 @@ function DocumentsScreen({ state, setState, onBack, onAsk }) {
   );
 }
 
-// ---------- TASKS / TIMELINE (inspired by Linear) ----------
+// ---------- TASKS / TIMELINE ----------
+function taskDateKey(date) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function taskDateFromKey(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value || '')) return null;
+  const [year, month, day] = value.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function taskGroupForDate(value) {
+  const date = taskDateFromKey(value);
+  if (!date) return 'Ongoing';
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const daysAway = Math.round((date.getTime() - today.getTime()) / 86400000);
+  if (daysAway <= 0) return 'Today';
+  if (daysAway <= 7) return 'This week';
+  if (daysAway <= 31) return 'This month';
+  return 'Ongoing';
+}
+
+function displayTaskDate(value) {
+  const date = taskDateFromKey(value);
+  if (!date) return '';
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
 function TasksScreen({ state, setState, onBack }) {
+  const CalendarComponent = window.GlassCalendar;
   const groups = ['Today', 'This week', 'This month', 'Ongoing'];
+  const tasks = state.tasks || [];
+  const today = React.useMemo(() => {
+    const date = new Date();
+    date.setHours(0, 0, 0, 0);
+    return date;
+  }, []);
   const [adding, setAdding] = React.useState(false);
   const [newTask, setNewTask] = React.useState('');
-  const [newWhen, setNewWhen] = React.useState(groups[0]);
+  const [newDueDate, setNewDueDate] = React.useState(() => taskDateKey(new Date()));
+  const [newTime, setNewTime] = React.useState('');
+  const [newPriority, setNewPriority] = React.useState('normal');
+  const [selectedDate, setSelectedDate] = React.useState(() => new Date());
   const [view, setView] = React.useState('calendar');
-  const grouped = groups.map(g => ({
-    when: g,
-    items: state.tasks.filter(t => t.when === g),
-  }));
-  const allDone = state.tasks.filter(t => t.status === 'done').length;
+  const [taskFeedback, setTaskFeedback] = React.useState('');
+  const taskInputRef = React.useRef(null);
+  const composerRef = React.useRef(null);
 
-  const tasksWithDates = React.useMemo(() => {
-    const now = new Date(); now.setHours(0,0,0,0);
-    return state.tasks.map(t => {
-      const date = new Date(now);
-      if (t.when === 'This week') date.setDate(date.getDate() + 7);
-      else if (t.when === 'This month') date.setDate(date.getDate() + 30);
-      else if (t.when !== 'Today') return { ...t, date: null };
-      return { ...t, date };
+  const grouped = React.useMemo(() => groups.map(group => ({
+    when: group,
+    items: tasks.filter(task => (task.dueDate ? taskGroupForDate(task.dueDate) : task.when) === group),
+  })), [tasks]);
+  const allDone = tasks.filter(task => task.status === 'done').length;
+
+  const tasksWithDates = React.useMemo(() => tasks.map(task => {
+    const explicitDate = taskDateFromKey(task.dueDate);
+    if (explicitDate) return { ...task, date: explicitDate };
+    const date = new Date(today);
+    if (task.when === 'This week') date.setDate(date.getDate() + 7);
+    else if (task.when === 'This month') date.setDate(date.getDate() + 30);
+    else if (task.when !== 'Today') return { ...task, date: null };
+    return { ...task, date };
+  }), [tasks, today]);
+
+  function openComposer(date = selectedDate) {
+    const nextDate = date instanceof Date && !Number.isNaN(date.getTime()) ? date : new Date();
+    setSelectedDate(nextDate);
+    setNewDueDate(taskDateKey(nextDate));
+    setAdding(true);
+    setTaskFeedback('');
+    window.requestAnimationFrame(() => {
+      composerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      taskInputRef.current?.focus({ preventScroll: true });
     });
-  }, [state.tasks]);
+  }
 
   function toggle(id) {
-    setState(s => ({
-      ...s,
-      tasks: (s.tasks || []).map(t => t.id === id ? { ...t, status: t.status === 'done' ? 'pending' : 'done' } : t),
+    setState(current => ({
+      ...current,
+      tasks: (current.tasks || []).map(task => task.id === id
+        ? { ...task, status: task.status === 'done' ? 'pending' : 'done' }
+        : task),
     }));
   }
 
-  function addTask() {
+  function addTask(event) {
+    event?.preventDefault?.();
     const text = newTask.trim();
-    if (!text) return;
-    setState(s => ({
-      ...s,
-      tasks: [...(s.tasks || []), { id: uid(), text, status: 'pending', when: newWhen }],
+    const dueDate = taskDateFromKey(newDueDate);
+    if (!text) {
+      setTaskFeedback('Add a task name first.');
+      taskInputRef.current?.focus();
+      return;
+    }
+    if (!dueDate) {
+      setTaskFeedback('Choose a valid date.');
+      return;
+    }
+    const id = uid();
+    setState(current => ({
+      ...current,
+      tasks: [...(current.tasks || []), {
+        id,
+        text: text.slice(0, 160),
+        status: 'pending',
+        when: taskGroupForDate(newDueDate),
+        dueDate: newDueDate,
+        time: newTime,
+        priority: newPriority,
+      }],
     }));
+    setSelectedDate(dueDate);
     setNewTask('');
+    setNewTime('');
+    setNewPriority('normal');
     setAdding(false);
+    setTaskFeedback('Added to your calendar.');
+    setView('calendar');
   }
 
   function removeTask(id) {
-    setState(s => ({
-      ...s,
-      tasks: (s.tasks || []).filter(t => t.id !== id),
+    setState(current => ({
+      ...current,
+      tasks: (current.tasks || []).filter(task => task.id !== id),
     }));
   }
+
+  const taskComposer = (
+    <section ref={composerRef} className="task-composer" aria-labelledby="task-composer-title">
+      <div className="task-composer-heading">
+        <div>
+          <div className="task-composer-kicker">NEW TASK</div>
+          <h2 id="task-composer-title">Add something to your calendar</h2>
+          <p>Choose a day and it will appear in the month overview above.</p>
+        </div>
+        <div className="task-composer-date-chip">{displayTaskDate(newDueDate) || 'Choose date'}</div>
+      </div>
+      <form onSubmit={addTask} className="task-composer-form">
+        <label className="task-field task-field-title">
+          <span>Task</span>
+          <input
+            ref={taskInputRef}
+            value={newTask}
+            maxLength={160}
+            onChange={event => {
+              setNewTask(event.target.value);
+              if (taskFeedback) setTaskFeedback('');
+            }}
+            placeholder="What needs to get done?"
+            autoComplete="off"
+          />
+        </label>
+        <label className="task-field">
+          <span>Date</span>
+          <input
+            type="date"
+            value={newDueDate}
+            onChange={event => {
+              setNewDueDate(event.target.value);
+              const nextDate = taskDateFromKey(event.target.value);
+              if (nextDate) setSelectedDate(nextDate);
+            }}
+            onInput={event => {
+              setNewDueDate(event.currentTarget.value);
+              const nextDate = taskDateFromKey(event.currentTarget.value);
+              if (nextDate) setSelectedDate(nextDate);
+            }}
+          />
+        </label>
+        <label className="task-field">
+          <span>Time <small>optional</small></span>
+          <input
+            type="time"
+            value={newTime}
+            onChange={event => setNewTime(event.target.value)}
+            onInput={event => setNewTime(event.currentTarget.value)}
+          />
+        </label>
+        <label className="task-field">
+          <span>Priority</span>
+          <select value={newPriority} onChange={event => setNewPriority(event.target.value)}>
+            <option value="normal">Normal</option>
+            <option value="high">High</option>
+            <option value="low">Low</option>
+          </select>
+        </label>
+        <button type="submit" className="task-add-submit" disabled={!newTask.trim()}>
+          <span aria-hidden="true">＋</span>
+          Add task
+        </button>
+      </form>
+      <div className="task-composer-footer">
+        <span className={taskFeedback === 'Added to your calendar.' ? 'task-feedback-success' : ''} role="status" aria-live="polite">
+          {taskFeedback || 'Your tasks sync privately with your Life OS account.'}
+        </span>
+        {view === 'list' && adding ? (
+          <button type="button" onClick={() => setAdding(false)}>Cancel</button>
+        ) : null}
+      </div>
+    </section>
+  );
 
   return (
     <ModulePage
       title="Life admin"
-      subtitle={`${allDone} of ${state.tasks.length} complete`}
+      subtitle={`${allDone} of ${tasks.length} complete`}
       icon="CalendarDays"
       onBack={onBack}
       action={
         <div style={{ display: 'flex', gap: 6 }}>
-          <Button size="sm" variant="ghost" icon={view === 'calendar' ? '📋' : '📅'} onClick={() => setView(v => v === 'calendar' ? 'list' : 'calendar')}>
+          <Button size="sm" variant="ghost" icon={view === 'calendar' ? '📋' : '📅'} onClick={() => setView(current => current === 'calendar' ? 'list' : 'calendar')}>
             {view === 'calendar' ? 'List' : 'Calendar'}
           </Button>
-          <Button size="sm" variant="ghost" icon="＋" onClick={() => { setAdding(true); setView('list'); }}>Add</Button>
+          <Button size="sm" variant="ghost" icon="＋" onClick={() => openComposer(selectedDate)}>Add</Button>
         </div>
       }
     >
       {view === 'calendar' ? (
-        GlassCalendar ? (
-          <GlassCalendar
-            tasks={tasksWithDates}
-            selectedDate={new Date()}
-          />
-        ) : <div style={{ padding: 40, textAlign: 'center', opacity: 0.5 }}>Loading calendar...</div>
+        <>
+          {CalendarComponent ? (
+            <CalendarComponent
+              tasks={tasksWithDates}
+              selectedDate={selectedDate}
+              onDateSelect={date => {
+                setSelectedDate(date);
+                setNewDueDate(taskDateKey(date));
+                setTaskFeedback('');
+              }}
+              onAddTask={openComposer}
+              onToggleTask={toggle}
+              onDeleteTask={removeTask}
+            />
+          ) : <div style={{ padding: 40, textAlign: 'center', opacity: 0.5 }}>Loading calendar...</div>}
+          {taskComposer}
+        </>
       ) : (
         <>
-          {/* Everyday progress */}
           <Card padding="18px" style={{
             background: 'linear-gradient(135deg, var(--honey) 0%, var(--butter) 100%)', color: '#17272D', border: 'none', marginBottom: 18,
           }}>
@@ -591,7 +782,7 @@ function TasksScreen({ state, setState, onBack }) {
               <div>
                 <div style={{ fontSize: 12, opacity: 0.85, fontWeight: 600 }}>Everyday progress</div>
                 <div style={{ fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif', fontSize: 36, fontWeight: 800, marginTop: 2 }}>
-                  {state.tasks.length > 0 ? Math.round((allDone / state.tasks.length) * 100) : 0}<span style={{ fontSize: 16, fontWeight: 600, opacity: 0.85, marginLeft: 4 }}>%</span>
+                  {tasks.length > 0 ? Math.round((allDone / tasks.length) * 100) : 0}<span style={{ fontSize: 16, fontWeight: 600, opacity: 0.85, marginLeft: 4 }}>%</span>
                 </div>
               </div>
               <div style={{ textAlign: 'right' }}>
@@ -600,19 +791,18 @@ function TasksScreen({ state, setState, onBack }) {
               </div>
             </div>
             <div style={{ marginTop: 10 }}>
-              <ProgressBar value={allDone} total={state.tasks.length} color="var(--blue-ink)" height={6} />
+              <ProgressBar value={allDone} total={tasks.length} color="var(--blue-ink)" height={6} />
             </div>
           </Card>
 
-          {/* Timeline spine */}
           <div style={{ position: 'relative', paddingLeft: 28 }}>
             <div style={{
               position: 'absolute', left: 13, top: 8, bottom: 8,
               width: 2, background: 'var(--line)',
             }} />
-            {grouped.map((group, gi) => {
+            {grouped.map(group => {
               if (group.items.length === 0) return null;
-              const groupDone = group.items.filter(t => t.status === 'done').length;
+              const groupDone = group.items.filter(task => task.status === 'done').length;
               const allGroupDone = groupDone === group.items.length;
               const anyDone = groupDone > 0;
               return (
@@ -625,9 +815,7 @@ function TasksScreen({ state, setState, onBack }) {
                     boxShadow: '0 0 0 4px var(--cream)',
                     zIndex: 1,
                   }} />
-                  <div style={{
-                    display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8,
-                  }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                     <span style={{
                       fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif', fontSize: 13, fontWeight: 700,
                       color: allGroupDone ? '#66bb6a' : 'var(--terracotta)',
@@ -637,49 +825,31 @@ function TasksScreen({ state, setState, onBack }) {
                       {group.when}
                       {allGroupDone && <span style={{ fontSize: 11, color: '#66bb6a' }}>✓ All done</span>}
                     </span>
-                    {allGroupDone && <span style={{ fontSize: 14 }}>🎯</span>}
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    {group.items.map(t => {
-                      const isDone = t.status === 'done';
+                    {group.items.map(task => {
+                      const isDone = task.status === 'done';
+                      const dateLabel = displayTaskDate(task.dueDate);
                       return (
-                        <div
-                          key={t.id}
-                          onClick={() => toggle(t.id)}
-                          style={{
-                            display: 'flex', alignItems: 'center', gap: 10,
-                            padding: '10px 12px', borderRadius: 10,
-                            background: isDone ? '#f0faf0' : 'var(--white)',
-                            border: `1px solid ${isDone ? '#d4edd4' : 'var(--line)'}`,
-                            cursor: 'pointer', transition: 'all 0.15s',
-                          }}
-                        >
-                          <div style={{
-                            width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
-                            background: isDone ? '#66bb6a' : 'var(--cream)',
-                            border: isDone ? 'none' : '1.5px solid var(--line)',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            color: '#fff', fontSize: 10, fontWeight: 700,
-                          }}>{isDone ? '✓' : ''}</div>
-                          <div style={{
-                            flex: 1, fontSize: 13, fontWeight: 500,
-                            textDecoration: isDone ? 'line-through' : 'none',
-                            color: isDone ? 'var(--muted)' : 'var(--dark)',
-                          }}>{t.text}</div>
-                          {!isDone && (
-                            <div style={{
-                              width: 4, height: 4, borderRadius: '50%',
-                              background: 'var(--muted)',
-                              flexShrink: 0, opacity: 0.4,
-                            }} />
-                          )}
+                        <div key={task.id} className="task-list-row" data-done={isDone ? 'true' : 'false'}>
                           <button
-                            onClick={e => { e.stopPropagation(); removeTask(t.id); }}
-                            style={{
-                              fontSize: 12, padding: '2px', border: 'none',
-                              background: 'none', cursor: 'pointer', color: 'var(--muted)',
-                              fontFamily: 'inherit', opacity: 0.4,
-                            }}
+                            type="button"
+                            onClick={() => toggle(task.id)}
+                            className="task-list-toggle"
+                            aria-label={isDone ? `Mark ${task.text} incomplete` : `Mark ${task.text} complete`}
+                          >{isDone ? '✓' : ''}</button>
+                          <div className="task-list-copy">
+                            <div>{task.text}</div>
+                            {dateLabel || task.time ? (
+                              <small>{dateLabel}{dateLabel && task.time ? ' · ' : ''}{task.time || ''}</small>
+                            ) : null}
+                          </div>
+                          {task.priority === 'high' ? <span className="task-priority">High</span> : null}
+                          <button
+                            type="button"
+                            onClick={() => removeTask(task.id)}
+                            className="task-list-delete"
+                            aria-label={`Delete ${task.text}`}
                           >✕</button>
                         </div>
                       );
@@ -690,28 +860,10 @@ function TasksScreen({ state, setState, onBack }) {
             })}
           </div>
 
-          {adding && (
-            <Card padding="14px" style={{ marginTop: 8 }}>
-              <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-                <input
-                  value={newTask}
-                  onChange={e => setNewTask(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && addTask()}
-                  placeholder="Task description..."
-                  style={{
-                    flex: 1, padding: '8px 10px', border: '1px solid var(--line)',
-                    borderRadius: 8, fontSize: 13, fontFamily: 'inherit',
-                    background: 'var(--cream)', outline: 'none',
-                  }}
-                />
-                <Button size="sm" onClick={addTask}>Add</Button>
-              </div>
-              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                {groups.map(g => (
-                  <Pill key={g} active={newWhen === g} onClick={() => setNewWhen(g)}>{g}</Pill>
-                ))}
-              </div>
-            </Card>
+          {adding ? taskComposer : (
+            <button type="button" className="task-list-add" onClick={() => openComposer(selectedDate)}>
+              ＋ Add another task
+            </button>
           )}
         </>
       )}
@@ -1638,7 +1790,7 @@ function ShoppingScreen({ state, setState, onBack, onAsk }) {
         <Button size="sm" variant="ghost" icon="🔗" onClick={handleShare}>
           {linkCopied ? 'Copied!' : 'Share'}
         </Button>
-        <Button size="sm" variant="ghost" icon="✨" onClick={() => onAsk('What are 5 small things to buy for my new place?', 'Setting up a new home after a move.')}>AI</Button>
+        <Button size="sm" variant="ghost" icon="✨" onClick={() => onAsk('What are 5 useful things to buy for my home in Abu Dhabi?', 'Setting up and maintaining a home in the UAE.')}>AI help</Button>
       </div>}
     >
       {shareLink && (
@@ -1780,17 +1932,18 @@ function HousingScreen({ state, setState, onBack, onAsk }) {
   }
 
   async function getDecorationTips(room) {
-    setLoadingTips(t => ({ ...t, [room.id]: true }));
+    setLoadingTips(current => ({ ...current, [room.id]: true }));
     const photoContext = room.photos.length > 0 ? `Photos of the ${room.label}: ${room.photos.join(', ')}` : '';
-    const prompt = `I'm setting up my ${room.label}. Give me 3 practical decoration tips for a ${room.photos.length > 0 ? 'room (see attached photos)' : 'small apartment'}. Focus on affordable, easy to find items. Keep each tip to 1 sentence.`;
+    const prompt = `I'm setting up my ${room.label}. Give me 3 practical decoration tips for a ${room.photos.length > 0 ? 'room using the attached photos' : 'small apartment'}. Focus on affordable items that are easy to find in Abu Dhabi. Keep each tip to one sentence.`;
     try {
       const tips = await askHuve(prompt, photoContext);
-      setRooms(getRooms().map(r =>
-        r.id === room.id ? { ...r, tips } : r
-      ));
-      setAiTips(t => ({ ...t, [room.id]: tips }));
-    } catch {}
-    setLoadingTips(t => ({ ...t, [room.id]: false }));
+      setRooms(getRooms().map(item => item.id === room.id ? { ...item, tips } : item));
+      setAiTips(current => ({ ...current, [room.id]: tips }));
+    } catch {
+      onAsk(prompt, photoContext);
+    } finally {
+      setLoadingTips(current => ({ ...current, [room.id]: false }));
+    }
   }
 
   return (
@@ -1853,7 +2006,7 @@ function HousingScreen({ state, setState, onBack, onAsk }) {
                 {uploading ? '...' : 'Add photo'}
               </Button>
               <Button size="sm" variant="teal" icon="✨" onClick={() => getDecorationTips(activeRoom)} disabled={loadingTips[activeRoom.id]}>
-                {loadingTips[activeRoom.id] ? '...' : 'AI tips'}
+                {loadingTips[activeRoom.id] ? 'Thinking…' : 'AI tips'}
               </Button>
             </div>
           </div>
@@ -1908,28 +2061,21 @@ function HousingScreen({ state, setState, onBack, onAsk }) {
             </div>
           )}
 
-          {/* AI decoration tips */}
           {(aiTips[activeRoom.id] || loadingTips[activeRoom.id]) && (
             <Card padding="14px" style={{ background: 'var(--sand)', border: 'none' }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--teal)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 8 }}>
-                {loadingTips[activeRoom.id] ? 'Getting tips...' : `${activeRoom.emoji} Decoration tips`}
+                {loadingTips[activeRoom.id] ? 'Your AI is thinking…' : `${activeRoom.emoji} AI decoration tips`}
               </div>
               {loadingTips[activeRoom.id] ? (
                 <div style={{ display: 'flex', gap: 4, padding: '12px 0' }}>
-                  {[0,1,2].map(i => (
-                    <div key={i} style={{
-                      width: 7, height: 7, borderRadius: '50%', background: 'var(--muted)',
-                      animation: `pop 0.6s ${i * 0.15}s infinite alternate`,
-                    }} />
-                  ))}
+                  {[0,1,2].map(i => <div key={i} style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--muted)', animation: `pop 0.6s ${i * 0.15}s infinite alternate` }} />)}
                 </div>
               ) : (
-                <div style={{ fontSize: 13, lineHeight: 1.6, whiteSpace: 'pre-wrap', color: 'var(--dark)' }}>
-                  {aiTips[activeRoom.id]}
-                </div>
+                <div style={{ fontSize: 13, lineHeight: 1.6, whiteSpace: 'pre-wrap', color: 'var(--dark)' }}>{aiTips[activeRoom.id]}</div>
               )}
             </Card>
           )}
+
         </div>
       )}
 
@@ -1937,7 +2083,7 @@ function HousingScreen({ state, setState, onBack, onAsk }) {
         <div style={{
           padding: '24px', textAlign: 'center', color: 'var(--muted)', fontSize: 13,
         }}>
-          Tap a room above to add photos and get AI decoration tips
+          Tap a room above to add photos and get AI decoration ideas
         </div>
       )}
     </ModulePage>

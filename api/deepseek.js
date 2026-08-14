@@ -19,7 +19,7 @@ export default async function handler(req, res) {
 
   if (!API_KEY) {
     return sendJson(res, 200, {
-      text: 'AI is not configured yet. Set NVIDIA_API_KEY in your Vercel environment variables.',
+      text: 'This service is not available right now.',
     });
   }
 

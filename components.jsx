@@ -9,6 +9,41 @@ const STATUS = {
   inProgress: { bg: 'var(--honey)',    fg: '#17272D', label: 'In progress' },
 };
 
+// Kept in the tiny shared shell so feature bundles can load only when the
+// user opens them. Feature modules may define the same wrapper locally.
+function ModulePage({ title, subtitle, emoji, icon, onBack, children, action }) {
+  return (
+    <main className="module-page fade-in">
+      <header className="module-page-header">
+        <button
+          onClick={onBack}
+          className="module-page-back"
+          type="button"
+          aria-label="Back to home"
+          style={{
+            background: 'var(--white)', border: '1px solid var(--line)',
+            fontSize: 16, fontWeight: 700, color: 'var(--dark)',
+            boxShadow: 'var(--shadow)',
+          }}
+        >‹</button>
+        <div className="module-page-heading">
+          <div className="module-page-title-row">
+            {icon ? (
+              <AnimatedIcon name={icon} size={20} style={{ color: 'var(--terracotta)' }} />
+            ) : (
+              <span style={{ fontSize: 20 }}>{emoji}</span>
+            )}
+            <h1>{title}</h1>
+          </div>
+          {subtitle && <div className="module-page-subtitle">{subtitle}</div>}
+        </div>
+        {action && <div className="module-page-action">{action}</div>}
+      </header>
+      <div className="module-page-content">{children}</div>
+    </main>
+  );
+}
+
 function Badge({ status, children, size = 'md' }) {
   const s = STATUS[status] || { bg: 'var(--sand)', fg: 'var(--dark)', label: children };
   const fontSize = size === 'sm' ? 11 : 12;
@@ -69,11 +104,11 @@ function Button({ variant = 'primary', children, onClick, full, icon, size = 'md
   );
 }
 
-function Card({ children, padding, style = {}, onClick, accent }) {
+function Card({ children, padding, style = {}, onClick, accent, className = '' }) {
   const p = padding ?? 'var(--pad)';
   return (
     <div
-      className="ui-card"
+      className={`ui-card${className ? ` ${className}` : ''}`}
       onClick={onClick}
       style={{
         background: 'var(--white)',
@@ -276,23 +311,24 @@ function TabBar({ tabs, active, onChange, scrollable = false }) {
   );
 }
 
-function Sheet({ open, onClose, title, children, height }) {
+function Sheet({ open, onClose, title, children, height, lightweight = false }) {
   if (!open) return null;
   return (
     <div
-      className="ui-sheet-backdrop"
+      className={`ui-sheet-backdrop${lightweight ? ' is-lightweight' : ''}`}
       onClick={onClose}
       style={{
         position: 'fixed', inset: 0, zIndex: 200,
-        background: 'rgba(30, 30, 30, 0.4)',
-        backdropFilter: 'blur(6px)',
+        background: lightweight ? 'rgba(12, 29, 35, 0.48)' : 'rgba(30, 30, 30, 0.4)',
+        backdropFilter: 'none',
+        WebkitBackdropFilter: 'none',
         display: 'flex', alignItems: 'flex-end',
-        animation: 'fade-in 0.2s ease',
+        animation: `fade-in ${lightweight ? '0.12s' : '0.18s'} ease`,
       }}
     >
       <div
         onClick={e => e.stopPropagation()}
-        className="ui-sheet-panel slide-up"
+        className={`ui-sheet-panel slide-up${lightweight ? ' is-lightweight' : ''}`}
         style={{
           width: '100%',
           background: 'var(--cream)',
@@ -302,7 +338,8 @@ function Sheet({ open, onClose, title, children, height }) {
           maxHeight: 'calc(100dvh - 16px)',
           overflowY: 'auto',
           display: 'flex', flexDirection: 'column',
-          boxShadow: '0 -24px 48px rgba(0,0,0,0.18)',
+          boxShadow: lightweight ? '0 -12px 30px rgba(0,0,0,0.16)' : '0 -24px 48px rgba(0,0,0,0.18)',
+          contain: lightweight ? 'layout paint' : undefined,
         }}
       >
         <div style={{
@@ -325,7 +362,8 @@ function Modal({ open, onClose, title, children }) {
       style={{
         position: 'fixed', inset: 0, zIndex: 200,
         background: 'rgba(30, 30, 30, 0.4)',
-        backdropFilter: 'blur(6px)',
+        backdropFilter: 'none',
+        WebkitBackdropFilter: 'none',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         animation: 'fade-in 0.15s ease',
       }}
@@ -432,6 +470,6 @@ function Confetti({ active }) {
 }
 
 Object.assign(window, {
-  Badge, Button, Card, ProgressBar, Checkbox, SectionHeader,
+  Badge, Button, Card, ProgressBar, Checkbox, SectionHeader, ModulePage,
   EmptyState, Pill, TabBar, Sheet, Modal, PrivatePhoto, PrivateMemoryPhotoGrid, Confetti, STATUS,
 });

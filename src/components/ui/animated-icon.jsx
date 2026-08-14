@@ -1,41 +1,133 @@
-import { animate, svg } from 'animejs';
-import * as Icons from 'lucide-react';
+import {
+  Building2,
+  CalendarClock,
+  CalendarDays,
+  Camera,
+  ChevronLeft,
+  ChevronRight,
+  CircleCheck,
+  CircleHelp,
+  FileText,
+  Gamepad2,
+  Heart,
+  HeartHandshake,
+  HeartPulse,
+  House,
+  LayoutGrid,
+  LoaderCircle,
+  LockKeyhole,
+  Link2,
+  Luggage,
+  Map as MapIcon,
+  Maximize2,
+  MessageCircle,
+  MessageCircleHeart,
+  MessagesSquare,
+  Mic,
+  MicOff,
+  Minimize2,
+  NotebookPen,
+  OctagonAlert,
+  Package as PackageIcon,
+  Pencil,
+  Phone,
+  PhoneOff,
+  PlaneTakeoff,
+  Plus,
+  RefreshCw,
+  Send,
+  Share2,
+  ShieldCheck,
+  Shuffle,
+  Sparkles,
+  Settings as SettingsIcon,
+  ShoppingCart,
+  SwitchCamera,
+  Target,
+  Trash2,
+  Users,
+  Video as VideoIcon,
+  VideoOff,
+  Volume2,
+  Wallet,
+  WifiOff,
+} from 'lucide-react';
 
 const { useRef, useEffect } = React;
 
-let _uid = 0;
+const ICONS = {
+  Building2,
+  CalendarClock,
+  CalendarDays,
+  Camera,
+  ChevronLeft,
+  ChevronRight,
+  CircleCheck,
+  FileText,
+  Gamepad2,
+  Heart,
+  HeartHandshake,
+  HeartPulse,
+  House,
+  LayoutGrid,
+  LoaderCircle,
+  LockKeyhole,
+  Link2,
+  Luggage,
+  Map: MapIcon,
+  Maximize2,
+  MessageCircle,
+  MessageCircleHeart,
+  MessagesSquare,
+  Mic,
+  MicOff,
+  Minimize2,
+  NotebookPen,
+  OctagonAlert,
+  Package: PackageIcon,
+  Pencil,
+  Phone,
+  PhoneOff,
+  PlaneTakeoff,
+  Plus,
+  RefreshCw,
+  Send,
+  Share2,
+  ShieldCheck,
+  Shuffle,
+  Sparkles,
+  Settings: SettingsIcon,
+  ShoppingCart,
+  SwitchCamera,
+  Target,
+  Trash2,
+  Users,
+  Video: VideoIcon,
+  VideoIcon,
+  VideoOff,
+  Volume2,
+  Wallet,
+  WifiOff,
+};
 
 function AnimatedIcon({ name, size = 22, play, style, ...props }) {
-  const uidRef = useRef(`ai-${++_uid}`);
   const ref = useRef(null);
-  const timerRef = useRef(null);
 
   useEffect(() => {
     if (play == null || play === 0 || !ref.current) return;
-    const el = ref.current;
-    let cancelled = false;
-    try {
-      const svgElements = el.querySelectorAll('svg path, svg circle, svg polyline, svg rect');
-      if (svgElements.length === 0) return;
-      const uid = uidRef.current;
-      svgElements.forEach(node => node.classList.add(uid));
-      animate(svg.createDrawable(`.${uid}`), {
-        draw: ['0 0.05', '0.05 1'],
-        ease: 'inOutQuad',
-        duration: 800,
-      });
-      clearTimeout(timerRef.current);
-      timerRef.current = setTimeout(() => {
-        if (!cancelled) {
-          svgElements.forEach(node => node.classList.remove(uid));
-        }
-      }, 900);
-    } catch (e) { console.warn('AnimatedIcon:', e); }
-    return () => { cancelled = true; };
+    const reduceMotion = window.__lifeosPreferences?.motion === 'reduced'
+      || window.__lifeos?.performance.shouldUseLiteVisuals()
+      || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (reduceMotion || typeof ref.current.animate !== 'function') return;
+    const animation = ref.current.animate([
+      { transform: 'scale(0.88) rotate(-5deg)', opacity: 0.72 },
+      { transform: 'scale(1.08) rotate(2deg)', opacity: 1, offset: 0.62 },
+      { transform: 'scale(1) rotate(0deg)', opacity: 1 },
+    ], { duration: 260, easing: 'cubic-bezier(.2,.8,.2,1)' });
+    return () => animation.cancel();
   }, [play]);
 
-  const IconComponent = Icons[name];
-  if (!IconComponent) return React.createElement('span', { style: { fontSize: size } }, '?');
+  const IconComponent = ICONS[name] || CircleHelp;
 
   return React.createElement(
     'span',

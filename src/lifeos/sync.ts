@@ -130,7 +130,7 @@ export async function syncNow(
     ...overrides,
   };
 
-  if (!dependencies.configured) throw new Error('Supabase is not configured');
+  if (!dependencies.configured) throw new Error('Sync is not configured');
   if (!dependencies.userId()) throw new Error('Not signed in');
   if (!dependencies.online()) throw new Error('You are offline');
 

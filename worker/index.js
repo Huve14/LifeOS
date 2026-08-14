@@ -26,7 +26,7 @@ export default {
     if (request.method !== 'POST') return respond({ error: 'POST only' }, 405);
 
     if (!env.NVIDIA_API_KEY) {
-      return respond({ text: 'AI not configured — set NVIDIA_API_KEY via wrangler secret.' });
+      return respond({ text: 'This service is not available right now.' });
     }
 
     try {

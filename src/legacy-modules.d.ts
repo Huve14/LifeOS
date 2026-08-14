@@ -11,6 +11,10 @@ declare global {
     __SUVEDA_MOUNTED?: boolean;
     __mapLibreMap?: any;
     __lifeos?: LifeOS;
+    /** Private, user-supplied context used to personalise AI responses. */
+    __lifeosAIProfile?: unknown;
+    /** Synced visual, accessibility, Home and navigation preferences. */
+    __lifeosPreferences?: import('./lifeos/preferences').LifeOSPreferences;
     /** Set while a recording, upload or call is in flight. */
     __lifeosBusy?: boolean;
     /** A service worker update arrived while busy; reload once it clears. */

@@ -1,5 +1,8 @@
 import { createClient, type SupabaseClient, type User } from '@supabase/supabase-js';
 import type { GameType } from './lifeos/games';
+import { prepareAIProfile, type AIProfile } from './lifeos/aiProfile';
+
+export type { AIProfile } from './lifeos/aiProfile';
 
 type AppSnapshot = Record<string, unknown>;
 
@@ -204,8 +207,8 @@ export function onAuthChange(fn: (user: User | null) => void) {
   };
 }
 
-export async function signUp(email: string, password: string, name: string) {
-  if (!hasConfig) return { data: null, error: new Error('Supabase is not configured.') };
+export async function signUp(email: string, password: string, name: string, aiProfile: unknown = {}) {
+  if (!hasConfig) return { data: null, error: new Error('Account services are not configured.') };
   if (!email || !email.includes('@')) {
     return { data: null, error: new Error('Please enter a valid email address.') };
   }
@@ -216,17 +219,23 @@ export async function signUp(email: string, password: string, name: string) {
     return { data: null, error: new Error('Please enter your name.') };
   }
   const client = getAuthClient();
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
   return client.auth.signUp({
     email,
     password,
     options: {
-      data: { name: name.trim(), display_name: name.trim() },
+      data: {
+        name: name.trim(),
+        display_name: name.trim(),
+        time_zone: timeZone,
+        ai_profile: prepareAIProfile(aiProfile),
+      },
     },
   });
 }
 
 export async function signIn(email: string, password: string) {
-  if (!hasConfig) return { data: null, error: new Error('Supabase is not configured.') };
+  if (!hasConfig) return { data: null, error: new Error('Account services are not configured.') };
   if (!email || !email.includes('@')) {
     return { data: null, error: new Error('Please enter a valid email address.') };
   }
@@ -252,6 +261,7 @@ export type UserProfile = {
   handle: string;
   display_name: string;
   time_zone: string;
+  ai_profile: AIProfile;
 };
 
 export type CallProfile = Pick<UserProfile, 'user_id' | 'handle' | 'display_name'>;
@@ -338,7 +348,7 @@ export async function loadMyProfile(): Promise<UserProfile | null> {
 
   const { data, error } = await getAuthClient()
     .from('lifeos_profiles')
-    .select('user_id, handle, display_name, time_zone')
+    .select('user_id, handle, display_name, time_zone, ai_profile')
     .eq('user_id', user.id)
     .maybeSingle();
 
@@ -349,11 +359,12 @@ export async function loadMyProfile(): Promise<UserProfile | null> {
 export async function updateMyProfile(patch: {
   display_name?: string;
   time_zone?: string;
+  ai_profile?: unknown;
 }): Promise<UserProfile> {
   const user = getCurrentUser();
   if (!hasConfig || !user) throw new Error('Sign in to update your profile.');
 
-  const safePatch: { display_name?: string; time_zone?: string } = {};
+  const safePatch: { display_name?: string; time_zone?: string; ai_profile?: AIProfile } = {};
   if (typeof patch.display_name === 'string') {
     const displayName = patch.display_name.trim();
     if (!displayName) throw new Error('Please enter your name.');
@@ -362,24 +373,31 @@ export async function updateMyProfile(patch: {
   if (typeof patch.time_zone === 'string' && patch.time_zone.trim()) {
     safePatch.time_zone = patch.time_zone.trim().slice(0, 80);
   }
+  if (patch.ai_profile !== undefined) {
+    safePatch.ai_profile = prepareAIProfile(patch.ai_profile);
+  }
 
   const { data, error } = await getAuthClient()
     .from('lifeos_profiles')
     .update(safePatch)
     .eq('user_id', user.id)
-    .select('user_id, handle, display_name, time_zone')
+    .select('user_id, handle, display_name, time_zone, ai_profile')
     .single();
 
   if (error || !data) throw new Error(error?.message || 'Your profile could not be updated.');
 
-  if (safePatch.display_name) {
+  if (safePatch.display_name || safePatch.time_zone || safePatch.ai_profile) {
     // Keep Auth metadata aligned for features that consume the current session
     // directly, while `lifeos_profiles` remains the private source of truth.
+    const authMetadata: Record<string, unknown> = {};
+    if (safePatch.display_name) {
+      authMetadata.name = safePatch.display_name;
+      authMetadata.display_name = safePatch.display_name;
+    }
+    if (safePatch.time_zone) authMetadata.time_zone = safePatch.time_zone;
+    if (safePatch.ai_profile) authMetadata.ai_profile = safePatch.ai_profile;
     const { data: authData } = await getAuthClient().auth.updateUser({
-      data: {
-        name: safePatch.display_name,
-        display_name: safePatch.display_name,
-      },
+      data: authMetadata,
     });
     if (authData.user) window.__suvedaUser = authData.user;
   }

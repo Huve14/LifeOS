@@ -46,6 +46,7 @@ async function watchNetwork(onChange: (online: boolean) => void): Promise<void> 
 // ---------- Haptics ----------
 
 export async function tap(style: 'light' | 'medium' | 'heavy' = 'light'): Promise<void> {
+  if (window.__lifeosPreferences?.haptics === false) return;
   if (!isNative()) return;
   const styles = {
     light: ImpactStyle.Light,
@@ -60,6 +61,7 @@ export async function tap(style: 'light' | 'medium' | 'heavy' = 'light'): Promis
 }
 
 export async function notifyHaptic(kind: 'success' | 'warning' | 'error'): Promise<void> {
+  if (window.__lifeosPreferences?.haptics === false) return;
   if (!isNative()) return;
   const types = {
     success: NotificationType.Success,

@@ -196,7 +196,9 @@ async function bootstrap() {
     window.dispatchEvent(new CustomEvent('lifeos:open-screen', { detail: data }));
   });
 
-  // Load the legacy modules in the same order they were included in index.html.
+  // Load only the application shell. Feature screens are fetched on demand by
+  // LazyLegacyScreen, which keeps first launch and the More menu light on
+  // older phones instead of parsing the whole application up front.
   // @ts-expect-error legacy global JSX modules are injected for compatibility.
   await import('../ios-frame.jsx');
   // @ts-expect-error legacy global JSX modules are injected for compatibility.
@@ -208,35 +210,13 @@ async function bootstrap() {
   // @ts-expect-error legacy global JSX modules are injected for compatibility.
   await import('../data.jsx');
   // @ts-expect-error legacy global JSX modules are injected for compatibility.
-  await import('../screens-home.jsx');
-  // @ts-expect-error legacy global JSX modules are injected for compatibility.
-  await import('../screens-modules.jsx');
-  // @ts-expect-error legacy global JSX modules are injected for compatibility.
-  await import('../auth.jsx');
-  // @ts-expect-error legacy global JSX modules are injected for compatibility.
-  await import('../shared-list.jsx');
-  // @ts-expect-error legacy global JSX modules are injected for compatibility.
-  await import('./components/ui/map-utils.jsx');
-  // @ts-expect-error legacy global JSX modules are injected for compatibility.
-  await import('./components/ui/memory-photo-grid.jsx');
-  // @ts-expect-error legacy global JSX modules are injected for compatibility.
   await import('./components/ui/animated-icon.jsx');
-  // @ts-expect-error legacy global JSX modules are injected for compatibility.
-  await import('./components/ui/glass-calendar.jsx');
-  // @ts-expect-error legacy global JSX modules are injected for compatibility.
-  await import('../screens-map.jsx');
-  // @ts-expect-error legacy global JSX modules are injected for compatibility.
-  await import('../video-journal.jsx');
-  // @ts-expect-error legacy global JSX modules are injected for compatibility.
-  await import('../daily-prompt.jsx');
-  // @ts-expect-error legacy global JSX modules are injected for compatibility.
-  await import('../trip-board.jsx');
-  // @ts-expect-error legacy global JSX modules are injected for compatibility.
-  await import('../call.jsx');
-  // @ts-expect-error legacy global JSX modules are injected for compatibility.
-  await import('../games.jsx');
-  // @ts-expect-error legacy global JSX modules are injected for compatibility.
-  await import('../space.jsx');
+  await Promise.all([
+    // @ts-expect-error legacy global JSX modules are injected for compatibility.
+    import('../screens-home.jsx'),
+    // @ts-expect-error legacy global JSX modules are injected for compatibility.
+    import('../auth.jsx'),
+  ]);
   // @ts-expect-error legacy global JSX modules are injected for compatibility.
   await import('../app.jsx');
 

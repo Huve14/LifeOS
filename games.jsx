@@ -650,7 +650,7 @@ function GamesScreen({ profile, initialCode = '', onBack, demo = false }) {
     setMessage('');
     try {
       const next = demo ? makeDemoGameBundle(gameType, profile) : await api?.create(gameType);
-      if (!next) throw new Error('Supabase could not create the room.');
+      if (!next) throw new Error('The room could not be created.');
       setBundle(next);
       void window.__lifeos?.native.notifyHaptic('success');
     } catch (nextError) {
@@ -668,7 +668,7 @@ function GamesScreen({ profile, initialCode = '', onBack, demo = false }) {
       const next = demo
         ? makeDemoGameBundle('connect-four', profile)
         : await api?.join(code);
-      if (!next) throw new Error('Supabase could not find that room.');
+      if (!next) throw new Error('That room could not be found.');
       setBundle(next);
       void window.__lifeos?.native.notifyHaptic('success');
     } catch (nextError) {
