@@ -97,20 +97,40 @@ async function currentSpaceId(client: SupabaseClient): Promise<string | null> {
 // Only modules that actually changed get written back.
 let lastSaved: Record<string, string> = {};
 
+/** The pre-0009 single blob, keyed by user rather than by space. */
+async function loadLegacyState(client: SupabaseClient): Promise<AppSnapshot | null> {
+  const { data, error } = await client
+    .from('suveda_app_state')
+    .select('payload')
+    .eq('id', getStoreId())
+    .maybeSingle();
+
+  if (error || !data?.payload || typeof data.payload !== 'object') return null;
+  return data.payload as AppSnapshot;
+}
+
 function createRemoteStore(client: SupabaseClient): SuvedaStore {
   return {
     hasConfig: true,
     ready: Promise.resolve(true),
     async loadAppState() {
       const spaceId = await currentSpaceId(client);
-      if (!spaceId) return null;
+
+      // Before 0009 has run there is no space and no space state. Reading the
+      // old per-user row keeps the app working through the gap, so deploying
+      // the client and running the migration do not have to be simultaneous.
+      // Without this, an un-migrated database makes the app look wiped: no
+      // state comes back, and onboarding starts from scratch over data that
+      // is still sitting safely in the old table.
+      if (!spaceId) return loadLegacyState(client);
 
       const { data, error } = await client
         .from('lifeos_space_state')
         .select('module, payload')
         .eq('space_id', spaceId);
 
-      if (error || !data || data.length === 0) return null;
+      if (error) return loadLegacyState(client);
+      if (data.length === 0) return loadLegacyState(client);
 
       const snapshot: AppSnapshot = {};
       lastSaved = {};
@@ -134,7 +154,16 @@ function createRemoteStore(client: SupabaseClient): SuvedaStore {
     },
     async saveAppState(payload: AppSnapshot) {
       const spaceId = await currentSpaceId(client);
-      if (!spaceId) return;
+
+      // Same gap. Keep writing where the app can still read from.
+      if (!spaceId) {
+        await client.from('suveda_app_state').upsert({
+          id: getStoreId(),
+          payload,
+          updated_at: new Date().toISOString(),
+        });
+        return;
+      }
 
       const changed = Object.entries(payload)
         .filter(([module, value]) => {
