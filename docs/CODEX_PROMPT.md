@@ -13,9 +13,9 @@ Codex executes this document. It does not redesign it.
 
 ## Ground rules
 
-1. **Branch.** Work on `claude/sa-app-redesign-codex-h71jcd`. It is **level with
-   `origin/main` (0 ahead, 0 behind)**. Do not rebase, do not `checkout -B`, do not reset.
-   Any instruction you have seen elsewhere about this branch being "behind" is stale.
+1. **Branch.** Work on `claude/sa-app-redesign-codex-h71jcd`. It was cut directly from
+   `origin/main` at **`54f3835`** and its first commit is this document. Do not rebase, do not
+   `checkout -B`, and do not reset it based on an older claim that the branch is "behind".
 2. **Baselines are green today.** `npm run typecheck` passes. `npm run lint` passes.
    `npx vitest run` → **290 passed / 28 files**. That is the number to protect.
    Do not delete a test to go green.
@@ -68,13 +68,14 @@ stale twice already. If `git rev-parse HEAD` is not `54f3835`, re-locate everyth
 
 ```sh
 grep -rn "SABIS" --include=*.jsx --include=*.ts .        # A1
+grep -rn "LegacyBudgetScreen" .                          # dead code
 grep -rn "suvedap@" --include=*.jsx .                    # B3
 grep -n  "lifeos.local" auth.jsx                         # A3
-grep -rn "LegacyBudgetScreen\|CountdownHero" .           # dead code, C1
 grep -n  "partner: all.find" src/lifeos/spaces.ts        # A5
 ```
 
-Line numbers move; the strings do not. Trust the strings.
+Those are the five structural re-anchor checks. Re-run the separate `CountdownHero` search
+before C1. Line numbers move; the strings do not. Trust the strings.
 
 ### D — The migration chain cannot run cleanly *(blocks every later phase)*
 
@@ -98,7 +99,9 @@ migrations on top of this chain.
 (`select * from supabase_migrations.schema_migrations order by version`), then reconcile:
 decide whether trips are space-shared or owner-private, make the newer migration idempotent
 and guarded, and prove it by running the whole chain against a scratch Supabase branch before
-writing `0013`. Do not edit an already-applied migration — add a corrective one.
+writing `0013`. If `20260814230211` is confirmed unapplied everywhere, guard its creates with
+`if not exists` and guard any replacement/drop path with `drop ... if exists`; if it has been
+applied anywhere, do not rewrite history — add an append-only corrective migration instead.
 
 Related, and a decision you must record: trips are now per-`owner_id` while the rest of the
 app is space-scoped. Note also that `20260814230211` sets `cost_currency` default `'AED'` —
@@ -122,11 +125,12 @@ what actually remains.
 
 ### A — Live single-user assumptions (user-visible to strangers)
 
-**A1. `SABIS`, a real employer, appears in live UI.** After the dead function goes, four
-sites remain:
+**A1. `SABIS`, a real employer, appears in live UI.** After the dead function goes, six
+occurrences remain (five user-visible values plus one adjacent comment):
 - `screens-modules.jsx:1679` — the badge string `'SABIS'` rendered when
   `category.coveredByEmployer` is true.
 - `screens-modules.jsx:1952` — Housing subtitle `"SABIS provides housing — make it yours"`.
+- `screens-modules.jsx:1956` — the adjacent `SABIS info card` comment.
 - `screens-modules.jsx:1961` — `"Housing covered by SABIS"` card.
 - `src/budget/store.ts:51` — seed income row `'SABIS Salary', amount: 8800`.
 - `screens-map.jsx:319` — clinic tip `"SABIS health insurance covers visits"`.
@@ -280,6 +284,9 @@ wiped on next load.
 
 Phases are gates. Do not start N+1 until N is committed and CI is green.
 
+**Required order:** P0 migration reconciliation + CI gate → P1 Shop & Save + pricing →
+P2 Community + 5-tab shell → P3 identity and personal-data removal → P4 automations.
+
 The order is set by product priority: **Shop & Save and Community ship first.** Identity work
 (real email signup, removing personal data) is P3 — necessary, but not a blocker for building.
 Two items nonetheless cannot move, and here is why:
@@ -407,7 +414,8 @@ test this before any community table is readable from a screen.**
 
 #### 2b. Schema — `supabase/migrations/0014_community.sql`
 
-Append-only. The private half **already shipped**: `20260814163629_private_user_accounts.sql`
+Append-only, and only after Phase 0 proves the repaired migration chain. The private half
+**already shipped**: `20260814163629_private_user_accounts.sql`
 creates `lifeos_user_state` and `lifeos_chat_messages`, both owner-scoped under RLS. Build
 only the community half on top of it, and **do not touch** the private tables (`lifeos_user_state`,
 `lifeos_chat_messages`, video notes, prompts, trips).
@@ -452,18 +460,25 @@ create policy "author deletes" on public.lifeos_<t>
   for delete to authenticated using (author_id = auth.uid());
 ```
 
-Exceptions: `lifeos_profiles` stays readable only to yourself, people you share a space with,
+Ownership-column exceptions are explicit: `lifeos_event_rsvps` uses
+`user_id = auth.uid()` and `lifeos_reports` uses `reporter_id = auth.uid()` instead of
+`author_id`. `lifeos_profiles` stays readable only to yourself, people you share a space with,
 **or** anyone if `visible_in_directory` is true — extend the existing policy, do not replace
 it. `lifeos_reports` is insert-only for members and readable only by the reported row's author
 and moderators.
 
+An unauthenticated stranger reads no community or profile row. An authenticated account may
+read community rows from accounts outside its private space, but never their private state,
+chat messages, video notes, prompts or trips.
+
 **Reuse the existing security-definer predicates** — `current_space_id()`,
 `is_space_member()`, `lifeos_shares_space_with()`. Do not write parallel ones.
 
-**Moderation, stated explicitly so an unmoderated feed cannot ship:** a row with
-`report_count >= 3` is excluded from every `select` policy via a `hidden boolean` column the
-report trigger sets. Hidden rows remain visible to their own author, who sees a "hidden
-pending review" badge. Nothing is hard-deleted by a report.
+**Moderation, stated explicitly so an unmoderated feed cannot ship:** enforce one report per
+`(reporter_id, target_table, target_id)`. The third distinct report atomically sets the target
+row's `hidden = true`; every public community `select` policy excludes hidden rows. Hidden
+rows remain visible to their own author, who sees a "hidden pending review" badge, and to
+moderators. A report never hard-deletes content, and only a moderator may unhide it.
 
 #### 2d. Screens
 
@@ -517,7 +532,7 @@ nothing outside `supabase/migrations/`.
 
 ---
 
-## Automations
+### Phase 4 — Automations
 
 Notification plumbing already exists and is reusable as-is: `lifeos_notifications` and the
 `lifeos_queue_notification()` trigger (`supabase/migrations/0008_lifeos_devices.sql:63-147`),
