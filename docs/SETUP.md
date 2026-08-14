@@ -33,11 +33,15 @@ settings and redeploy before going further.
 
 ## Step 1: both accounts must exist first
 
-**This has to happen before any migration runs.** `0001` seeds the allowlist by
-looking up accounts in `auth.users`. If only one of you has ever signed in,
-only one member gets seeded, and the other person is locked out of every
-shared surface. The notification trigger also looks for "the other member" and
-quietly does nothing when there is only one.
+**This has to happen before any migration runs**, for one specific reason:
+`0001` seeds the original pair by looking them up in `auth.users` by email, and
+`0009` then carries whoever it found into a shared space along with all the
+existing content. If only one of you has signed in when `0001` runs, the other
+ends up in a separate empty space and none of the history follows them.
+
+New accounts created later need none of this. `0009` installs a trigger that
+gives every signup a profile and a space automatically, and `0010` backfills
+anyone who predates it. This step is about your two accounts specifically.
 
 So: both of you open the app and sign in once. Then check what actually landed:
 
@@ -70,6 +74,13 @@ idempotent, so re-running one is safe.
 | `0006_lifeos_trips.sql` | Trip board tables |
 | `0007_lifeos_trip_seed.sql` | The October trip |
 | `0008_lifeos_devices.sql` | Push tokens, notification queue, triggers |
+| `0009_lifeos_spaces.sql` | Replaces the allowlist with spaces. Rewrites every policy. |
+| `0010_lifeos_pairing.sql` | Couple match codes, and the merge that pairing performs |
+
+`0009` is the one to watch. It rewrites about 25 policies and then drops
+`lifeos_members` and `is_member()`, so it is not re-runnable from a half
+applied state. Check it completes without error before running `0010`. If you
+have a Supabase branch database available, run both there first.
 
 `0003_tighten_legacy_policies.sql` is **optional and deliberately separate**.
 It closes a hole where any signed-in account can read the legacy `suveda_*`
@@ -83,9 +94,32 @@ its checks first.
 Paste this whole block. Every line should come back as described.
 
 ```sql
--- Two members, one per timezone.
-select display_name, time_zone from public.lifeos_members;
--- expect 2 rows: Africa/Johannesburg and Asia/Dubai
+-- One profile per account, and one space each.
+select p.display_name, p.time_zone
+from public.lifeos_profiles p
+order by p.created_at;
+
+-- Everyone is in exactly one space. Both of you should share the same id.
+select m.space_id, p.display_name
+from public.lifeos_space_members m
+join public.lifeos_profiles p on p.user_id = m.user_id
+order by m.space_id, p.display_name;
+
+-- Counts must match: no account without a profile, none without a space.
+select
+  (select count(*) from auth.users) as users,
+  (select count(*) from public.lifeos_profiles) as profiles,
+  (select count(*) from public.lifeos_space_members) as memberships;
+
+-- The allowlist is gone. Both of these should return nothing.
+select 1 from pg_proc where proname = 'is_member';
+select 1 from pg_tables where tablename = 'lifeos_members';
+
+-- Nothing orphaned: every shared row belongs to a space.
+select
+  (select count(*) from public.lifeos_video_notes where space_id is null) as notes,
+  (select count(*) from public.lifeos_prompt_answers where space_id is null) as answers,
+  (select count(*) from public.lifeos_trips where space_id is null) as trips;
 
 -- All nine tables exist with RLS switched on. Every row must say true.
 select c.relname, c.relrowsecurity as rls_enabled
@@ -139,15 +173,16 @@ begin;
   );
   set local role authenticated;
 
-  select public.is_member();          -- expect true
+  select public.current_space_id();   -- expect a uuid
   select count(*) from public.lifeos_video_notes;
   select count(*) from public.lifeos_prompts;   -- expect 365
 rollback;
 ```
 
-Then try it with a uuid that is not on the allowlist. `is_member()` should be
-false and every count should be zero. That is the guarantee the whole design
-rests on, so it is worth seeing it fail for a stranger.
+**The test that matters most now.** Make a throwaway third account, then run
+the same block with its uuid. It should get its own space id, and zero video
+notes, zero answers and zero trips. If it can see any of yours, stop and tell
+me: that is the multi-user model failing, and it is the whole point of `0009`.
 
 ### Testing the reveal gate
 
@@ -174,14 +209,40 @@ Once both have answered, both see 2.
 
 ---
 
+## Step 3b: check pairing end to end
+
+Worth doing with two throwaway accounts before trusting it with real content,
+because the merge is not reversible.
+
+1. Sign in as throwaway A, go to **More > Pairing**, create a code.
+2. Sign in as throwaway B, add something identifiable (a trip, a note).
+3. Enter A's code as B. B should land in A's space.
+4. Check B's content is now visible to A.
+
+```sql
+-- One space, two people.
+select m.space_id, count(*) from public.lifeos_space_members m
+group by m.space_id;
+
+-- The code is spent and cannot be reused.
+select code, redeemed_at, redeemed_by from public.lifeos_invites;
+```
+
+Then unpair from B and confirm B gets a fresh empty space while A keeps
+everything. That asymmetry is deliberate and documented on the screen, but
+see it once so it is not a surprise later.
+
 ## Step 4: close the front door
 
-**Authentication > Sign In / Providers > Email**, turn off *Allow new users to
-sign up*.
+This one now depends on what you want.
 
-Both accounts exist by now, and the `lifeos_*` tables are gated on the
-allowlist regardless, but an open signup form on a private app is not worth
-keeping.
+**If the app stays private to the two of you**, go to **Authentication > Sign
+In / Providers > Email** and turn off *Allow new users to sign up*.
+
+**If you want other people to use it**, leave signups on. Every new account
+gets its own empty space and can see nothing of yours. Before you do, satisfy
+yourself of that with the throwaway account test in step 3, and settle the two
+open items at the end of this document.
 
 ---
 
@@ -297,8 +358,10 @@ over TLS on port 443" counts.
 | Skipped | Symptom |
 |---|---|
 | Both accounts signing in before `0001` | One or both see "This account is not on the list" |
-| `0001` | Every shared screen says not on the list |
+| `0001` before both have signed in | The other person lands in an empty space with none of the shared history |
 | `0005` | Prompt screen shows "Question unavailable offline" |
 | `0007` | Trip board says "No trip yet" |
 | `0008` | Everything works, no notifications |
+| `0009` | Every shared screen fails; the old policies reference a dropped function |
+| `0010` | Pairing screen loads but creating or entering a code errors |
 | Wrong Supabase project | Migrations appear to work, app sees none of it |
