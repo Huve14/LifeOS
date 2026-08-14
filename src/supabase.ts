@@ -81,29 +81,77 @@ function createFallbackStore(): SuvedaStore {
   };
 }
 
+/**
+ * App state lives per space, split one row per top-level module.
+ *
+ * The old shape was a single jsonb document keyed by user id. Two people
+ * sharing one space would have made every save a race: whoever debounced last
+ * would overwrite the other's edit to a completely unrelated screen. Splitting
+ * by module means editing the budget cannot clobber a packing list.
+ */
+async function currentSpaceId(client: SupabaseClient): Promise<string | null> {
+  const { data } = await client.from('lifeos_space_members').select('space_id').limit(1);
+  return data?.[0]?.space_id ?? null;
+}
+
+// Only modules that actually changed get written back.
+let lastSaved: Record<string, string> = {};
+
 function createRemoteStore(client: SupabaseClient): SuvedaStore {
   return {
     hasConfig: true,
     ready: Promise.resolve(true),
     async loadAppState() {
-      const { data, error } = await client
-        .from('suveda_app_state')
-        .select('payload')
-        .eq('id', getStoreId())
-        .maybeSingle();
+      const spaceId = await currentSpaceId(client);
+      if (!spaceId) return null;
 
-      if (error || !data?.payload || typeof data.payload !== 'object') {
-        return null;
+      const { data, error } = await client
+        .from('lifeos_space_state')
+        .select('module, payload')
+        .eq('space_id', spaceId);
+
+      if (error || !data || data.length === 0) return null;
+
+      const snapshot: AppSnapshot = {};
+      lastSaved = {};
+
+      for (const row of data as Array<{ module: string; payload: unknown }>) {
+        // The migration parks the old single blob under 'legacy'. Unpack it
+        // once so nothing is lost, then let the per-module rows take over.
+        if (row.module === 'legacy' && row.payload && typeof row.payload === 'object') {
+          Object.assign(snapshot, row.payload as AppSnapshot);
+          continue;
+        }
+        // A module carried over from a joiner keeps its own key so it is not
+        // silently binned, but it is not part of the live state.
+        if (row.module.endsWith(':joined')) continue;
+
+        snapshot[row.module] = (row.payload as { value: unknown }).value;
+        lastSaved[row.module] = JSON.stringify((row.payload as { value: unknown }).value);
       }
 
-      return data.payload as AppSnapshot;
+      return Object.keys(snapshot).length > 0 ? snapshot : null;
     },
     async saveAppState(payload: AppSnapshot) {
-      await client.from('suveda_app_state').upsert({
-        id: getStoreId(),
-        payload,
-        updated_at: new Date().toISOString(),
-      });
+      const spaceId = await currentSpaceId(client);
+      if (!spaceId) return;
+
+      const changed = Object.entries(payload)
+        .filter(([module, value]) => {
+          const serialised = JSON.stringify(value);
+          if (lastSaved[module] === serialised) return false;
+          lastSaved[module] = serialised;
+          return true;
+        })
+        .map(([module, value]) => ({
+          space_id: spaceId,
+          module,
+          payload: { value },
+          updated_at: new Date().toISOString(),
+        }));
+
+      if (changed.length === 0) return;
+      await client.from('lifeos_space_state').upsert(changed, { onConflict: 'space_id,module' });
     },
     async loadChatMessages() {
       const { data, error } = await client

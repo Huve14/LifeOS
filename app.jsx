@@ -183,7 +183,7 @@ function App() {
         const restored = pickStoredState(saved);
         if (restored) {
           setState(restored);
-          setView(restored.onboardingDone ? 'home' : 'onboarding');
+          setView(restored.onboardingDone ? 'map' : 'onboarding');
         } else {
           setView('onboarding');
         }
@@ -268,7 +268,7 @@ function App() {
       return <Onboarding user={user} initialDate={tweaks.moveDate} onDone={({ moveDate }) => {
         setTweak('moveDate', moveDate);
         setState(s => ({ ...s, moveDate, onboardingDone: true }));
-        setView('home');
+        setView('map');
       }} />;
     }
 
@@ -291,6 +291,7 @@ function App() {
       journal: <VideoJournalScreen onBack={() => setView('home')} />,
       prompt:  <DailyPromptScreen onBack={() => setView('home')} />,
       trip:    <TripBoardScreen onBack={() => setView('home')} />,
+      space:   <SpaceScreen onBack={() => setView('home')} />,
       call:    <CallScreen
                 onBack={() => setView('home')}
                 onRecordInstead={() => {
@@ -328,7 +329,7 @@ function App() {
     return <Onboarding user={null} initialDate={tweaks.moveDate} onDone={({ moveDate }) => {
       setTweak('moveDate', moveDate);
       setState(s => ({ ...s, moveDate, onboardingDone: true }));
-      setView('home');
+      setView('map');
     }} />;
   }
 
@@ -507,6 +508,7 @@ function SuvedaTweaks({ tweaks, setTweak, setView }) {
             { id: 'prompt',     label: '💬 Prompt' },
             { id: 'trip',       label: '🧳 Trip' },
             { id: 'call',       label: '📞 Call' },
+            { id: 'space',      label: '💞 Pairing' },
             { id: 'memory',     label: '💭 Memory' },
             { id: 'habits',     label: '🎯 Habits' },
             { id: 'map',        label: '🗺️ Map' },
@@ -531,14 +533,15 @@ function SuvedaTweaks({ tweaks, setTweak, setView }) {
 
 // ---------- Bottom navigation ----------
 const PRIMARY_NAV = [
+  { id: 'map',     label: 'Map',       icon: 'Map' },
   { id: 'home',    label: 'Home',      icon: 'House' },
-  { id: 'packing', label: 'Packing',   icon: 'Package' },
   { id: 'docs',    label: 'Documents', icon: 'FileText' },
   { id: 'budget',  label: 'Budget',    icon: 'Wallet' },
 ];
 
 const MORE_NAV = [
   { id: 'journal',  label: 'Video',    icon: 'Video' },
+  { id: 'packing',  label: 'Packing',  icon: 'Package' },
   { id: 'prompt',   label: 'Prompt',   icon: 'MessageCircle' },
   { id: 'trip',     label: 'Trip',     icon: 'Luggage' },
   { id: 'call',     label: 'Call',     icon: 'Phone' },
@@ -547,8 +550,8 @@ const MORE_NAV = [
   { id: 'housing',  label: 'Housing',  icon: 'Building2' },
   { id: 'memory',   label: 'Memory',   icon: 'Camera' },
   { id: 'habits',   label: 'Habits',   icon: 'Target' },
-  { id: 'map',      label: 'Map',      icon: 'Map' },
   { id: 'people',   label: 'People',   icon: 'Users' },
+  { id: 'space',    label: 'Pairing',  icon: 'Heart' },
 ];
 
 const NAV_ITEMS = [...PRIMARY_NAV, ...MORE_NAV];
