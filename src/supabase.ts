@@ -20,6 +20,8 @@ type SuvedaStore = {
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL?.trim() ?? '';
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim() ?? '';
 const hasConfig = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
+
+export { SUPABASE_URL, SUPABASE_ANON_KEY, hasConfig };
 const LOCAL_STATE_KEY = 'suveda:app-state';
 const LOCAL_CHAT_KEY = 'suveda:chat-main';
 
@@ -79,29 +81,106 @@ function createFallbackStore(): SuvedaStore {
   };
 }
 
+/**
+ * App state lives per space, split one row per top-level module.
+ *
+ * The old shape was a single jsonb document keyed by user id. Two people
+ * sharing one space would have made every save a race: whoever debounced last
+ * would overwrite the other's edit to a completely unrelated screen. Splitting
+ * by module means editing the budget cannot clobber a packing list.
+ */
+async function currentSpaceId(client: SupabaseClient): Promise<string | null> {
+  const { data } = await client.from('lifeos_space_members').select('space_id').limit(1);
+  return data?.[0]?.space_id ?? null;
+}
+
+// Only modules that actually changed get written back.
+let lastSaved: Record<string, string> = {};
+
+/** The pre-0009 single blob, keyed by user rather than by space. */
+async function loadLegacyState(client: SupabaseClient): Promise<AppSnapshot | null> {
+  const { data, error } = await client
+    .from('suveda_app_state')
+    .select('payload')
+    .eq('id', getStoreId())
+    .maybeSingle();
+
+  if (error || !data?.payload || typeof data.payload !== 'object') return null;
+  return data.payload as AppSnapshot;
+}
+
 function createRemoteStore(client: SupabaseClient): SuvedaStore {
   return {
     hasConfig: true,
     ready: Promise.resolve(true),
     async loadAppState() {
-      const { data, error } = await client
-        .from('suveda_app_state')
-        .select('payload')
-        .eq('id', getStoreId())
-        .maybeSingle();
+      const spaceId = await currentSpaceId(client);
 
-      if (error || !data?.payload || typeof data.payload !== 'object') {
-        return null;
+      // Before 0009 has run there is no space and no space state. Reading the
+      // old per-user row keeps the app working through the gap, so deploying
+      // the client and running the migration do not have to be simultaneous.
+      // Without this, an un-migrated database makes the app look wiped: no
+      // state comes back, and onboarding starts from scratch over data that
+      // is still sitting safely in the old table.
+      if (!spaceId) return loadLegacyState(client);
+
+      const { data, error } = await client
+        .from('lifeos_space_state')
+        .select('module, payload')
+        .eq('space_id', spaceId);
+
+      if (error) return loadLegacyState(client);
+      if (data.length === 0) return loadLegacyState(client);
+
+      const snapshot: AppSnapshot = {};
+      lastSaved = {};
+
+      for (const row of data as Array<{ module: string; payload: unknown }>) {
+        // The migration parks the old single blob under 'legacy'. Unpack it
+        // once so nothing is lost, then let the per-module rows take over.
+        if (row.module === 'legacy' && row.payload && typeof row.payload === 'object') {
+          Object.assign(snapshot, row.payload as AppSnapshot);
+          continue;
+        }
+        // A module carried over from a joiner keeps its own key so it is not
+        // silently binned, but it is not part of the live state.
+        if (row.module.endsWith(':joined')) continue;
+
+        snapshot[row.module] = (row.payload as { value: unknown }).value;
+        lastSaved[row.module] = JSON.stringify((row.payload as { value: unknown }).value);
       }
 
-      return data.payload as AppSnapshot;
+      return Object.keys(snapshot).length > 0 ? snapshot : null;
     },
     async saveAppState(payload: AppSnapshot) {
-      await client.from('suveda_app_state').upsert({
-        id: getStoreId(),
-        payload,
-        updated_at: new Date().toISOString(),
-      });
+      const spaceId = await currentSpaceId(client);
+
+      // Same gap. Keep writing where the app can still read from.
+      if (!spaceId) {
+        await client.from('suveda_app_state').upsert({
+          id: getStoreId(),
+          payload,
+          updated_at: new Date().toISOString(),
+        });
+        return;
+      }
+
+      const changed = Object.entries(payload)
+        .filter(([module, value]) => {
+          const serialised = JSON.stringify(value);
+          if (lastSaved[module] === serialised) return false;
+          lastSaved[module] = serialised;
+          return true;
+        })
+        .map(([module, value]) => ({
+          space_id: spaceId,
+          module,
+          payload: { value },
+          updated_at: new Date().toISOString(),
+        }));
+
+      if (changed.length === 0) return;
+      await client.from('lifeos_space_state').upsert(changed, { onConflict: 'space_id,module' });
     },
     async loadChatMessages() {
       const { data, error } = await client
@@ -139,7 +218,7 @@ let authInitialized = false;
 
 const authListeners: Array<(user: User | null) => void> = [];
 
-function getAuthClient(): SupabaseClient {
+export function getAuthClient(): SupabaseClient {
   if (!authClient) {
     authClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       auth: {

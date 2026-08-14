@@ -2,9 +2,15 @@
 
 const { useState, useEffect, useMemo, useRef, useCallback } = React;
 
-// Force SW update on page load — reloads if new version available
+// Force SW update on page load — reloads if new version available.
+// Deferred while a recording, upload or call is in flight, otherwise an update
+// can destroy a clip that has not reached the server yet.
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (window.__lifeosBusy) {
+      window.__lifeosPendingReload = true;
+      return;
+    }
     window.location.reload();
   });
 }
@@ -60,6 +66,74 @@ const DEFAULT_TWEAKS = window.__suvedaDefaults || {
   dark: false,
 };
 
+// Face ID gate. Only ever active in the native app with the lock switched on;
+// in a browser lockAvailability reports unavailable and this renders nothing.
+function useAppLock() {
+  const api = window.__lifeos;
+  const [state, setState] = useState('checking'); // checking | open | locked
+
+  const attempt = useCallback(async () => {
+    const result = await api?.lock.unlock('Unlock LifeOS');
+    if (result === 'unlocked' || result === 'unavailable') {
+      api?.lock.markUnlocked();
+      setState('open');
+    } else {
+      setState('locked');
+    }
+  }, [api]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function check() {
+      const enabled = await api?.lock.isLockEnabled();
+      if (cancelled) return;
+      if (!enabled) { setState('open'); return; }
+      await attempt();
+    }
+
+    void check();
+
+    // Re-lock after a spell in the background, not on every glance away.
+    const onResume = () => {
+      void (async () => {
+        const enabled = await api?.lock.isLockEnabled();
+        if (enabled && api?.lock.needsUnlock()) setState('locked');
+      })();
+    };
+    window.addEventListener('lifeos:resumed', onResume);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('lifeos:resumed', onResume);
+    };
+  }, [api, attempt]);
+
+  return { state, attempt };
+}
+
+function LockScreen({ onUnlock }) {
+  return (
+    <div style={{
+      minHeight: '100%', width: '100%',
+      display: 'flex', flexDirection: 'column',
+      alignItems: 'center', justifyContent: 'center', gap: 18,
+      background: 'var(--cream)', padding: '40px 24px',
+    }}>
+      <div style={{
+        width: 72, height: 72, borderRadius: 24,
+        background: 'linear-gradient(135deg, var(--terracotta) 0%, var(--gold) 100%)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontSize: 32,
+      }}>🔒</div>
+      <h1 style={{ fontSize: 20 }}>LifeOS is locked</h1>
+      <p style={{ fontSize: 14, color: 'var(--muted)', textAlign: 'center', maxWidth: 280, lineHeight: 1.5 }}>
+        Unlock to see your notes and answers.
+      </p>
+      <Button onClick={onUnlock}>Unlock</Button>
+    </div>
+  );
+}
+
 function App() {
   // Shared shopping list route — handle both hash (#shared/TOKEN) and path (/s/TOKEN) formats.
   // Path format catches cases where the old SW intercepts /s/ and serves index.html.
@@ -88,6 +162,8 @@ function App() {
     return unsub;
   }, []);
 
+  const lock = useAppLock();
+
   // App state
   const [view, setView] = useState(null); // null=loading | onboarding | home | packing | docs | tasks | budget | shopping | housing
   const [state, setState] = useState(() => createSeedState(tweaks));
@@ -107,7 +183,7 @@ function App() {
         const restored = pickStoredState(saved);
         if (restored) {
           setState(restored);
-          setView(restored.onboardingDone ? 'home' : 'onboarding');
+          setView(restored.onboardingDone ? 'map' : 'onboarding');
         } else {
           setView('onboarding');
         }
@@ -154,6 +230,21 @@ function App() {
     lastPctRef.current = completed;
   }, [state]);
 
+  // A tapped notification names the screen it was about.
+  useEffect(() => {
+    function onOpenScreen(event) {
+      const screen = event.detail?.screen;
+      if (screen) setView(screen);
+    }
+    window.addEventListener('lifeos:open-screen', onOpenScreen);
+    return () => window.removeEventListener('lifeos:open-screen', onOpenScreen);
+  }, []);
+
+  // Keep the native status bar legible against the app background.
+  useEffect(() => {
+    void window.__lifeos?.native.setStatusBarForTheme(tweaks.dark);
+  }, [tweaks.dark]);
+
   // Map accent tweak to CSS variable
   const accentMap = {
     terracotta: 'var(--terracotta)',
@@ -177,7 +268,7 @@ function App() {
       return <Onboarding user={user} initialDate={tweaks.moveDate} onDone={({ moveDate }) => {
         setTweak('moveDate', moveDate);
         setState(s => ({ ...s, moveDate, onboardingDone: true }));
-        setView('home');
+        setView('map');
       }} />;
     }
 
@@ -197,6 +288,18 @@ function App() {
       habits:  <HabitsScreen state={state} setState={setState} onBack={() => setView('home')} />,
       people:  <ContactsScreen state={state} setState={setState} onBack={() => setView('home')} />,
       map:     <MapScreen state={state} setState={setState} onBack={() => setView('home')} />,
+      journal: <VideoJournalScreen onBack={() => setView('home')} />,
+      prompt:  <DailyPromptScreen onBack={() => setView('home')} />,
+      trip:    <TripBoardScreen onBack={() => setView('home')} />,
+      space:   <SpaceScreen onBack={() => setView('home')} />,
+      call:    <CallScreen
+                onBack={() => setView('home')}
+                onRecordInstead={() => {
+                  // Phase 4 falling back into Phase 1: land on the journal
+                  // with the recorder already open.
+                  window.dispatchEvent(new CustomEvent('lifeos:record-video-note'));
+                  setView('journal');
+                }} />,
     };
     return screens[view] || screens.home;
   }
@@ -204,7 +307,11 @@ function App() {
   // Derive user info for display
   const displayName = user?.user_metadata?.name || user?.email?.split('@')[0] || 'User';
 
-  if (!authReady || !storageReady) {
+  if (lock.state === 'locked') {
+    return <LockScreen onUnlock={lock.attempt} />;
+  }
+
+  if (!authReady || !storageReady || lock.state === 'checking') {
     return (
       <div style={{
         minHeight: '100%', width: '100%',
@@ -222,7 +329,7 @@ function App() {
     return <Onboarding user={null} initialDate={tweaks.moveDate} onDone={({ moveDate }) => {
       setTweak('moveDate', moveDate);
       setState(s => ({ ...s, moveDate, onboardingDone: true }));
-      setView('home');
+      setView('map');
     }} />;
   }
 
@@ -397,6 +504,11 @@ function SuvedaTweaks({ tweaks, setTweak, setView }) {
             { id: 'budget',     label: '💰 Budget' },
             { id: 'shopping',   label: '🛍️ Shopping' },
             { id: 'housing',    label: '🏠 Housing' },
+            { id: 'journal',    label: '🎥 Video' },
+            { id: 'prompt',     label: '💬 Prompt' },
+            { id: 'trip',       label: '🧳 Trip' },
+            { id: 'call',       label: '📞 Call' },
+            { id: 'space',      label: '💞 Pairing' },
             { id: 'memory',     label: '💭 Memory' },
             { id: 'habits',     label: '🎯 Habits' },
             { id: 'map',        label: '🗺️ Map' },
@@ -421,28 +533,122 @@ function SuvedaTweaks({ tweaks, setTweak, setView }) {
 
 // ---------- Bottom navigation ----------
 const PRIMARY_NAV = [
+  { id: 'map',     label: 'Map',       icon: 'Map' },
   { id: 'home',    label: 'Home',      icon: 'House' },
-  { id: 'packing', label: 'Packing',   icon: 'Package' },
   { id: 'docs',    label: 'Documents', icon: 'FileText' },
   { id: 'budget',  label: 'Budget',    icon: 'Wallet' },
 ];
 
 const MORE_NAV = [
+  { id: 'journal',  label: 'Video',    icon: 'Video' },
+  { id: 'packing',  label: 'Packing',  icon: 'Package' },
+  { id: 'prompt',   label: 'Prompt',   icon: 'MessageCircle' },
+  { id: 'trip',     label: 'Trip',     icon: 'Luggage' },
+  { id: 'call',     label: 'Call',     icon: 'Phone' },
   { id: 'tasks',    label: 'Timeline', icon: 'CalendarDays' },
   { id: 'shopping', label: 'Shopping', icon: 'ShoppingCart' },
   { id: 'housing',  label: 'Housing',  icon: 'Building2' },
   { id: 'memory',   label: 'Memory',   icon: 'Camera' },
   { id: 'habits',   label: 'Habits',   icon: 'Target' },
-  { id: 'map',      label: 'Map',      icon: 'Map' },
   { id: 'people',   label: 'People',   icon: 'Users' },
+  { id: 'space',    label: 'Pairing',  icon: 'Heart' },
 ];
 
 const NAV_ITEMS = [...PRIMARY_NAV, ...MORE_NAV];
+
+// Which nav entries currently have something waiting.
+function navNeedsAttention(id, unwatched, promptWaiting) {
+  if (id === 'journal') return unwatched > 0;
+  if (id === 'prompt') return promptWaiting;
+  return false;
+}
+
+function moreNeedsAttention(current, unwatched, promptWaiting) {
+  const journal = unwatched > 0 && current !== 'journal';
+  const prompt = promptWaiting && current !== 'prompt';
+  return journal || prompt;
+}
+
+// Small dot for "there is something waiting here".
+function NavDot({ show, offset = 4 }) {
+  if (!show) return null;
+  return (
+    <span style={{
+      position: 'absolute', top: offset, right: offset,
+      width: 9, height: 9, borderRadius: '50%',
+      background: 'var(--terracotta)',
+      border: '2px solid var(--white)',
+    }} />
+  );
+}
+
+function FaceIdRow() {
+  const api = window.__lifeos;
+  const [label, setLabel] = useState(null);
+  const [enabled, setEnabled] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const availability = await api?.lock.lockAvailability();
+      if (cancelled || !availability?.available) return;
+      setLabel(availability.label);
+      setEnabled(await api.lock.isLockEnabled());
+    })();
+    return () => { cancelled = true; };
+  }, [api]);
+
+  if (!label) return null;
+
+  async function toggle() {
+    const next = !enabled;
+    // Prove it works before switching it on, so nobody locks themselves out.
+    if (next) {
+      const result = await api.lock.unlock(`Turn on ${label}`);
+      if (result !== 'unlocked') return;
+      api.lock.markUnlocked();
+    }
+    await api.lock.setLockEnabled(next);
+    setEnabled(next);
+    void api.native.tap('light');
+  }
+
+  return (
+    <button
+      onClick={toggle}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 10, width: '100%',
+        padding: '14px 4px', marginTop: 8, borderTop: '1px solid var(--line)',
+        background: 'none', border: 'none', borderTopWidth: 1, borderTopStyle: 'solid',
+        cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
+      }}
+    >
+      <span style={{ fontSize: 18 }}>🔒</span>
+      <span style={{ flex: 1, fontSize: 14, fontWeight: 600, color: 'var(--dark)' }}>
+        Require {label}
+      </span>
+      <span style={{
+        width: 44, height: 26, borderRadius: 999, flexShrink: 0,
+        background: enabled ? 'var(--teal)' : 'var(--line)',
+        display: 'flex', alignItems: 'center',
+        padding: 3, transition: 'background 0.18s',
+      }}>
+        <span style={{
+          width: 20, height: 20, borderRadius: '50%', background: '#fff',
+          transform: enabled ? 'translateX(18px)' : 'translateX(0)',
+          transition: 'transform 0.18s',
+        }} />
+      </span>
+    </button>
+  );
+}
 
 function BottomNav({ current, onNavigate }) {
   const [isDesktop, setDesktop] = useState(window.innerWidth >= 640);
   const [playTriggers, setPlayTriggers] = useState({});
   const [moreOpen, setMoreOpen] = useState(false);
+  const unwatched = useUnwatchedCount();
+  const promptWaiting = useUnansweredToday();
 
   useEffect(() => {
     const mq = window.matchMedia('(min-width: 640px)');
@@ -499,6 +705,7 @@ function BottomNav({ current, onNavigate }) {
                 }}
                 onMouseEnter={() => setPlayTriggers(t => ({ ...t, [item.id]: (t[item.id] || 0) + 1 }))}
                 style={{
+                  position: 'relative',
                   display: 'flex', flexDirection: 'column', alignItems: 'center',
                   justifyContent: 'center',
                   gap: isDesktop ? 2 : 4,
@@ -526,6 +733,7 @@ function BottomNav({ current, onNavigate }) {
                   letterSpacing: '0.01em', whiteSpace: 'nowrap',
                   lineHeight: 1,
                 }}>{item.label}</span>
+                <NavDot show={navNeedsAttention(item.id, unwatched, promptWaiting)} />
               </button>
             );
           })}
@@ -534,6 +742,7 @@ function BottomNav({ current, onNavigate }) {
             <button
               onClick={() => setMoreOpen(o => !o)}
               style={{
+                position: 'relative',
                 display: 'flex', flexDirection: 'column', alignItems: 'center',
                 justifyContent: 'center',
                 gap: 4,
@@ -564,6 +773,7 @@ function BottomNav({ current, onNavigate }) {
                 letterSpacing: '0.01em', whiteSpace: 'nowrap',
                 lineHeight: 1,
               }}>{activeMoreItem ? activeMoreItem.label : 'More'}</span>
+              <NavDot show={moreNeedsAttention(current, unwatched, promptWaiting)} />
             </button>
           )}
         </div>
@@ -584,6 +794,7 @@ function BottomNav({ current, onNavigate }) {
                   key={item.id}
                   onClick={() => { onNavigate(item.id); setMoreOpen(false); }}
                   style={{
+                    position: 'relative',
                     display: 'flex', flexDirection: 'column', alignItems: 'center',
                     gap: 8, padding: '16px 8px', borderRadius: 16,
                     background: active ? 'rgba(196, 113, 74, 0.10)' : 'rgba(0,0,0,0.04)',
@@ -600,10 +811,12 @@ function BottomNav({ current, onNavigate }) {
                     color: active ? 'var(--terracotta)' : 'var(--dark)',
                     lineHeight: 1,
                   }}>{item.label}</span>
+                  <NavDot show={navNeedsAttention(item.id, unwatched, promptWaiting)} offset={8} />
                 </button>
               );
             })}
           </div>
+          <FaceIdRow />
         </Sheet>
       )}
     </>

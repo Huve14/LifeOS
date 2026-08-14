@@ -2,7 +2,7 @@ import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { createPortal } from 'react-dom';
 
-// Map utility — lightweight MapLibre GL wrapper for legacy Suveda modules
+// Map utility / lightweight MapLibre GL wrapper for the legacy modules
 // Uses inline styles to match the existing codebase (no Tailwind dependency)
 
 const { useEffect, useRef, useState, useCallback, useMemo } = React;

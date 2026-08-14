@@ -5,10 +5,19 @@
   "functions": {
     "api/deepseek.js": {
       "maxDuration": 60
+    },
+    "api/livekit-token.js": {
+      "maxDuration": 10
     }
   },
   "rewrites": [
-    { "source": "/s/:token", "destination": "/shared.html" },
-    { "source": "/(.*)", "destination": "/index.html" }
+    {
+      "source": "/s/:token",
+      "destination": "/shared.html"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
   ]
 }

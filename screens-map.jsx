@@ -1,4 +1,4 @@
-// screens-map.jsx — Abu Dhabi Map with Huve AI location guide
+// screens-map.jsx / Map with an AI location guide
 
 const { useState, useCallback, useEffect } = React;
 
@@ -14,7 +14,7 @@ const ABU_DHABI_LOCATIONS = [
     emoji: '🕌',
     description: 'One of the world\'s largest mosques, with 82 domes, over 1,000 columns, and the world\'s largest hand-knotted carpet.',
     tip: 'Free entry · Modest dress required (abaya provided) · Open 9AM–10PM · Visit at sunset for stunning lighting',
-    huvePrompt: 'Tell Suveda about visiting Sheikh Zayed Grand Mosque in Abu Dhabi — what to expect, the best time to go, and interesting facts about the architecture.',
+    huvePrompt: 'Tell me about visiting Sheikh Zayed Grand Mosque in Abu Dhabi — what to expect, the best time to go, and interesting facts about the architecture.',
     address: 'Sheikh Rashid Bin Saeed St, Abu Dhabi',
   },
   {
@@ -26,7 +26,7 @@ const ABU_DHABI_LOCATIONS = [
     emoji: '🏛️',
     description: 'A stunning "museum city" on Saadiyat Island with a breathtaking dome ceiling that creates a "rain of light" effect.',
     tip: 'Adult AED 63 · Mon–Thu 10AM–6:30PM · Fri–Sat 10AM–8:30PM · Closed Mon · Book online for discounts',
-    huvePrompt: 'Tell Suveda about the Louvre Abu Dhabi — the architecture of the dome, the collection highlights, and tips for visiting.',
+    huvePrompt: 'Tell me about the Louvre Abu Dhabi — the architecture of the dome, the collection highlights, and tips for visiting.',
     address: 'Saadiyat Island, Abu Dhabi',
   },
   {
@@ -38,7 +38,7 @@ const ABU_DHABI_LOCATIONS = [
     emoji: '🏛️',
     description: 'The Presidential Palace — a working palace that opens its doors to the public, featuring stunning white granite architecture.',
     tip: 'Adult AED 65 · Daily 10AM–7PM · Light show at 7:30PM · Check the Great Hall and the Spirit of Collaboration room',
-    huvePrompt: 'Tell Suveda about Qasr Al Watan — what to see inside the Presidential Palace, the library, and the evening light show.',
+    huvePrompt: 'Tell me about Qasr Al Watan — what to see inside the Presidential Palace, the library, and the evening light show.',
     address: 'Al Ras Al Akhdar, Abu Dhabi',
   },
   {
@@ -50,7 +50,7 @@ const ABU_DHABI_LOCATIONS = [
     emoji: '🎢',
     description: 'Entertainment hub with Ferrari World, Warner Bros World, Yas Waterworld, and the Yas Marina F1 Circuit.',
     tip: 'Ferrari World AED 315 · Warner Bros AED 295 · Yas Waterworld AED 265 · Multi-park passes available',
-    huvePrompt: 'Tell Suveda about Yas Island — what parks are there, which is best for a day out, and how to get there from Al Khalifa City.',
+    huvePrompt: 'Tell me about Yas Island — what parks are there, which is best for a day out, and how to get there from the city.',
     address: 'Yas Island, Abu Dhabi',
   },
   {
@@ -62,7 +62,7 @@ const ABU_DHABI_LOCATIONS = [
     emoji: '🏨',
     description: 'Iconic 7-star hotel with gold-leaf interiors, 1 km private beach, and the famous gold-flaked cappuccino.',
     tip: 'Visit for afternoon tea or the gold cappuccino (AED 75) · Dress smart-casual · Valet parking available',
-    huvePrompt: 'Tell Suveda about Emirates Palace — can non-guests visit, what\'s the famous gold cappuccino, and is it worth a visit?',
+    huvePrompt: 'Tell me about Emirates Palace — can non-guests visit, what\'s the famous gold cappuccino, and is it worth a visit?',
     address: 'West Corniche, Abu Dhabi',
   },
   {
@@ -74,7 +74,7 @@ const ABU_DHABI_LOCATIONS = [
     emoji: '🌊',
     description: 'An 8-km beachfront promenade with cycle paths, cafes, playgrounds, and several public beach areas.',
     tip: 'Free access · Public beaches open 8AM–8PM · Best for sunrise walks · Bike rentals available · Great skyline views',
-    huvePrompt: 'Tell Suveda about the Abu Dhabi Corniche — what to do there, the best time to visit, and why it\'s a great spot for a weekend walk.',
+    huvePrompt: 'Tell me about the Abu Dhabi Corniche — what to do there, the best time to visit, and why it\'s a great spot for a weekend walk.',
     address: 'Corniche Road, Abu Dhabi',
   },
   {
@@ -85,8 +85,8 @@ const ABU_DHABI_LOCATIONS = [
     lat: 24.2150,
     emoji: '🌴',
     description: 'UNESCO World Heritage site — a 1,200-hectare oasis with ancient falaj irrigation systems and over 147,000 date palms.',
-    tip: 'Free entry · 90 min drive from Al Khalifa City · Great day trip · Visit Al Ain Zoo & Jebel Hafeet nearby',
-    huvePrompt: 'Tell Suveda about Al Ain Oasis — how to get there, what makes it special, and why it\'s a UNESCO site. Suggest a day trip itinerary from Abu Dhabi.',
+    tip: 'Free entry · 90 min drive from the city · Great day trip · Visit Al Ain Zoo & Jebel Hafeet nearby',
+    huvePrompt: 'Tell me about Al Ain Oasis — how to get there, what makes it special, and why it\'s a UNESCO site. Suggest a day trip itinerary from Abu Dhabi.',
     address: 'Al Ain, Abu Dhabi Emirate',
   },
   {
@@ -98,7 +98,7 @@ const ABU_DHABI_LOCATIONS = [
     emoji: '🛶',
     description: 'Protected mangrove forest with kayaking trails, boardwalks, and abundant birdlife including flamingos.',
     tip: 'Kayak rental ~AED 100–150 · Best at sunrise · Guided tours available · Free boardwalk access',
-    huvePrompt: 'Tell Suveda about the Eastern Mangroves in Abu Dhabi — the kayaking experience, what wildlife she might see, and why it\'s a peaceful escape from the city.',
+    huvePrompt: 'Tell me about the Eastern Mangroves in Abu Dhabi — the kayaking experience, what wildlife I might see, and why it\'s a peaceful escape from the city.',
     address: 'Eastern Mangrove Lagoon, Abu Dhabi',
   },
   {
@@ -110,7 +110,7 @@ const ABU_DHABI_LOCATIONS = [
     emoji: '🏘️',
     description: 'Reconstructed traditional Bedouin village with crafts, a souk, and views of the Abu Dhabi skyline.',
     tip: 'Free entry · Sat–Thu 9AM–4PM · Fri 3PM–9PM · Great for souvenir shopping · Near Marina Mall',
-    huvePrompt: 'Tell Suveda about the Heritage Village in Abu Dhabi — what she can see and do there, the traditional crafts, and the photo opportunities.',
+    huvePrompt: 'Tell me about the Heritage Village in Abu Dhabi — what I can see and do there, the traditional crafts, and the photo opportunities.',
     address: 'Corniche Road, Abu Dhabi',
   },
   // ── Essential / Practical ──
@@ -123,7 +123,7 @@ const ABU_DHABI_LOCATIONS = [
     emoji: '✈️',
     description: 'Major international airport with flights to 100+ destinations. New Terminal A opened in 2024.',
     tip: 'Taxi to Al Khalifa City: ~AED 80–100 · Bus A2 connects to city · Free WiFi · Plenty of lounges',
-    huvePrompt: 'Tell Suveda about arriving at Abu Dhabi Airport — what to expect at immigration, how to get to Al Khalifa City, and tips for a smooth arrival.',
+    huvePrompt: 'Tell me about arriving at Abu Dhabi Airport — what to expect at immigration, how to get to Al Khalifa City, and tips for a smooth arrival.',
     address: 'Abu Dhabi International Airport',
   },
   {
@@ -135,7 +135,7 @@ const ABU_DHABI_LOCATIONS = [
     emoji: '🏡',
     description: 'Your new home! A quiet residential suburb ~25 min from Abu Dhabi city centre. Known for its villas, family-friendly vibe, and proximity to the airport.',
     tip: 'Nearest mall: Al Raha Mall (10 min) · Nearest mosque: walking distance · 20 min to airport · 30 min to Yas Island',
-    huvePrompt: 'Tell Suveda about Al Khalifa City, Abu Dhabi — what the neighbourhood is like, nearby amenities, the community vibe, and what she should know about settling in.',
+    huvePrompt: 'Tell me about Al Khalifa City, Abu Dhabi — what the neighbourhood is like, nearby amenities, the community vibe, and what to know about settling in.',
     address: 'Al Khalifa City, Abu Dhabi',
   },
   {
@@ -147,7 +147,7 @@ const ABU_DHABI_LOCATIONS = [
     emoji: '🏥',
     description: 'World-class hospital on Al Maryah Island with specialist care and 24/7 emergency services.',
     tip: 'Part of the US Cleveland Clinic network · Located on Al Maryah Island · Emergency: 800 2223 · Urgent care available',
-    huvePrompt: 'Tell Suveda about healthcare in Abu Dhabi — how to register for a health card, hospitals near Al Khalifa City, and the quality of medical care.',
+    huvePrompt: 'Tell me about healthcare in Abu Dhabi — how to register for a health card, hospitals near Al Khalifa City, and the quality of medical care.',
     address: 'Al Maryah Island, Abu Dhabi',
   },
   {
@@ -159,7 +159,7 @@ const ABU_DHABI_LOCATIONS = [
     emoji: '👮',
     description: 'For emergencies, immigration services, and vehicle-related paperwork.',
     tip: 'Emergency: 999 · Non-emergency: 800 2626 · Traffic fines & vehicle registration online via TAMM app',
-    huvePrompt: 'Tell Suveda about safety and emergency services in Abu Dhabi — emergency numbers, the TAMM app, and how to get help if needed.',
+    huvePrompt: 'Tell me about safety and emergency services in Abu Dhabi — emergency numbers, the TAMM app, and how to get help if needed.',
     address: 'Al Dhafrah, Abu Dhabi',
   },
   {
@@ -170,8 +170,8 @@ const ABU_DHABI_LOCATIONS = [
     lat: 24.4456,
     emoji: '🛍️',
     description: 'Large shopping mall with Carrefour hypermarket, food court, cinema, and Etisalat/du stores.',
-    tip: 'Carrefour for groceries · Etisalat/du for SIM cards · Bus station downstairs · 25 min from Al Khalifa City',
-    huvePrompt: 'Tell Suveda about shopping in Abu Dhabi — where are the best malls near Al Khalifa City, what she can buy, and tips for getting a SIM card.',
+    tip: 'Carrefour for groceries · Etisalat/du for SIM cards · Bus station downstairs · 25 min from the city',
+    huvePrompt: 'Tell me about shopping in Abu Dhabi — where are the best malls near Al Khalifa City, what I can buy, and tips for getting a SIM card.',
     address: 'Al Wahda, Abu Dhabi',
   },
   {
@@ -183,7 +183,7 @@ const ABU_DHABI_LOCATIONS = [
     emoji: '🛒',
     description: 'Your go-to grocery store near Al Khalifa City. Fresh produce, household items, and international foods.',
     tip: 'Open daily 8AM–12AM · Wide selection of Indian/Asian products · Affordable prices · Delivery via Lulu app',
-    huvePrompt: 'Tell Suveda about grocery shopping in Abu Dhabi — which stores near Al Khalifa City are best for different needs, delivery options, and approximate prices.',
+    huvePrompt: 'Tell me about grocery shopping in Abu Dhabi — which stores near Al Khalifa City are best for different needs, delivery options, and approximate prices.',
     address: 'Al Khalifa City, Abu Dhabi',
   },
   // ── Neighbourhood ──
@@ -196,7 +196,7 @@ const ABU_DHABI_LOCATIONS = [
     emoji: '🏪',
     description: 'Smaller neighbourhood mall with Spinneys supermarket, cafes, pharmacy, and food court. Closest mall to Al Khalifa City.',
     tip: 'Spinneys for premium groceries · This is your closest mall (~10 min) · Has a pharmacy & ATM · Al Fanar restaurant inside',
-    huvePrompt: 'Tell Suveda about Al Raha Mall — what stores are there, how to get there from Al Khalifa City, and good spots for coffee.',
+    huvePrompt: 'Tell me about Al Raha Mall — what stores are there, how to get there from the city, and good spots for coffee.',
     address: 'Al Raha, Abu Dhabi',
   },
   {
@@ -207,8 +207,8 @@ const ABU_DHABI_LOCATIONS = [
     lat: 24.2156,
     emoji: '🎓',
     description: 'The UAE\'s oldest and most prestigious university. Beautiful campus with libraries, sports facilities, and cultural events.',
-    tip: '~45 min drive from Al Khalifa City · Public access to library · Cultural events open to public · Nice campus walks',
-    huvePrompt: 'Tell Suveda about UAE University in Al Ain — can the public visit the campus, are there cultural events, and is it worth a visit?',
+    tip: '~45 min drive from the city · Public access to library · Cultural events open to public · Nice campus walks',
+    huvePrompt: 'Tell me about UAE University in Al Ain — can the public visit the campus, are there cultural events, and is it worth a visit?',
     address: 'Al Ain, Abu Dhabi',
   },
   {
@@ -220,7 +220,7 @@ const ABU_DHABI_LOCATIONS = [
     emoji: '🕌',
     description: 'Neighbourhood mosque within walking distance from most Al Khalifa City studios. Five daily prayers and Friday sermons.',
     tip: 'Walking distance from home · Prayer times posted weekly · Women\'s section available · Friday sermon at ~12:15PM',
-    huvePrompt: 'Tell Suveda about mosques in Al Khalifa City — where to find the nearest one, prayer times, and the Muslim community in the area.',
+    huvePrompt: 'Tell me about mosques in Al Khalifa City — where to find the nearest one, prayer times, and the Muslim community in the area.',
     address: 'Al Khalifa City, Abu Dhabi',
   },
   {
@@ -232,7 +232,7 @@ const ABU_DHABI_LOCATIONS = [
     emoji: '🦒',
     description: 'One of the largest zoos in the Middle East, home to over 4,000 animals in spacious habitats.',
     tip: 'Adult AED 63 · Daily 9AM–8PM · Safari ride (extra) · Great for families · Near Jebel Hafeet',
-    huvePrompt: 'Tell Suveda about Al Ain Zoo — what animals she can see, the safari experience, and why it\'s a nice day trip from Al Khalifa City.',
+    huvePrompt: 'Tell me about Al Ain Zoo — what animals I can see, the safari experience, and why it\'s a nice day trip from the city.',
     address: 'Al Ain, Abu Dhabi',
   },
   {
@@ -244,7 +244,7 @@ const ABU_DHABI_LOCATIONS = [
     emoji: '🏰',
     description: 'One of the UAE\'s largest forts, built in the 1890s. Home to a museum about explorer Sir Wilfred Thesiger.',
     tip: 'Free entry · Daily 9AM–5PM · Great photo spot · Learn about Bedouin history and the Empty Quarter',
-    huvePrompt: 'Tell Suveda about Al Jahili Fort in Al Ain — the history, what to see inside, and who Sir Wilfred Thesiger was.',
+    huvePrompt: 'Tell me about Al Jahili Fort in Al Ain — the history, what to see inside, and who Sir Wilfred Thesiger was.',
     address: 'Al Ain, Abu Dhabi',
   },
   // ── Al Khalifa City neighbourhood ──
@@ -257,7 +257,7 @@ const ABU_DHABI_LOCATIONS = [
     emoji: '🏫',
     description: 'Your school in Al Khalifa City. A modern campus serving the local community.',
     tip: 'Walking distance from most studios in Al Khalifa City A · Carpool with colleagues · Nearby bus route',
-    huvePrompt: 'Tell Suveda about Al Choufeit School in Al Khalifa City, Abu Dhabi — what the campus is like, the community feel, and tips for settling in as a new teacher.',
+    huvePrompt: 'Tell me about Al Choufeit School in Al Khalifa City, Abu Dhabi — what the campus is like, the community feel, and tips for settling in as a new teacher.',
     address: 'Al Khalifa City, Abu Dhabi',
   },
   {
@@ -267,9 +267,9 @@ const ABU_DHABI_LOCATIONS = [
     lng: 54.4298,
     lat: 24.1638,
     emoji: '🛒',
-    description: 'The go-to grocery store for fresh produce, international foods, and household essentials. Walkable from Al Khalifa City A.',
+    description: 'The go-to grocery store for fresh produce, international foods, and household essentials. Walkable from the city A.',
     tip: 'Open 8AM–midnight · Fresh bread section · Halal meat · Great for spice mixes and South Asian staples',
-    huvePrompt: 'Tell Suveda about Lulu Hypermarket in Al Khalifa City — what to buy there, the best times to shop, and how it compares to back home.',
+    huvePrompt: 'Tell me about Lulu Hypermarket in Al Khalifa City — what to buy there, the best times to shop, and how it compares to back home.',
     address: 'Al Khalifa City, Abu Dhabi',
   },
   {
@@ -281,7 +281,7 @@ const ABU_DHABI_LOCATIONS = [
     emoji: '🌳',
     description: 'A small green neighbourhood park with walking paths, shaded benches, and a children\'s play area.',
     tip: 'Great for morning walks or evening breaks · Family-friendly · Free entry · Open until 10PM',
-    huvePrompt: 'Tell Suveda about Al Khalifa City Park — what facilities it has, the best time to go for a walk, and the surrounding neighbourhood vibe.',
+    huvePrompt: 'Tell me about Al Khalifa City Park — what facilities it has, the best time to go for a walk, and the surrounding neighbourhood vibe.',
     address: 'Al Khalifa City, Abu Dhabi',
   },
   {
@@ -293,7 +293,7 @@ const ABU_DHABI_LOCATIONS = [
     emoji: '🕌',
     description: 'The local mosque in Al Khalifa City, within walking distance of the school and residential areas.',
     tip: 'Walking distance from Al Choufeit School · Prayer times vary by season · Respectful dress required',
-    huvePrompt: 'Tell Suveda about the local mosque in Al Khalifa City — etiquette, prayer times, and community atmosphere.',
+    huvePrompt: 'Tell me about the local mosque in Al Khalifa City — etiquette, prayer times, and community atmosphere.',
     address: 'Al Khalifa City, Abu Dhabi',
   },
   {
@@ -304,8 +304,8 @@ const ABU_DHABI_LOCATIONS = [
     lat: 24.2245,
     emoji: '🛍️',
     description: 'A small shopping centre near Al Khalifa City with a Carrefour, pharmacy, food court, and retail shops.',
-    tip: '5 min drive from Al Khalifa City · Has a pharmacy, ATM, and coffee shops · Good for quick errands',
-    huvePrompt: 'Tell Suveda about Al Rahba Mall — what stores are there, how to get there from Al Khalifa City, and tips for shopping locally.',
+    tip: '5 min drive from the city · Has a pharmacy, ATM, and coffee shops · Good for quick errands',
+    huvePrompt: 'Tell me about Al Rahba Mall — what stores are there, how to get there from the city, and tips for shopping locally.',
     address: 'Abu Dhabi, near Al Khalifa City',
   },
   {
@@ -317,7 +317,7 @@ const ABU_DHABI_LOCATIONS = [
     emoji: '🏥',
     description: 'A medical centre in Al Khalifa City offering GP consultations, dental, and basic lab services.',
     tip: 'Near Al Choufeit School · Walk-in or appointment · SABIS health insurance covers visits · Check hours before going',
-    huvePrompt: 'Tell Suveda about the Khalifa City Medical Centre — what services are available, how to make an appointment, and what to bring.',
+    huvePrompt: 'Tell me about the Khalifa City Medical Centre — what services are available, how to make an appointment, and what to bring.',
     address: 'Al Khalifa City, Abu Dhabi',
   },
   {
@@ -327,10 +327,10 @@ const ABU_DHABI_LOCATIONS = [
     lng: 54.3837,
     lat: 24.2429,
     emoji: '🛍️',
-    description: 'A larger mall with VOX Cinemas, a food court, Carrefour, and international brands. 10 min drive from Al Khalifa City.',
+    description: 'A larger mall with VOX Cinemas, a food court, Carrefour, and international brands. 10 min drive from the city.',
     tip: 'Weekend family destination · Cinema with latest releases · Food court has McDonald\'s, KFC, and local options',
-    huvePrompt: 'Tell Suveda about Mushrif Mall in Abu Dhabi — how far it is from Al Khalifa City, what entertainment options it has, and tips for a weekend visit.',
-    address: 'Abu Dhabi, 10 min from Al Khalifa City',
+    huvePrompt: 'Tell me about Mushrif Mall in Abu Dhabi — how far it is from the city, what entertainment options it has, and tips for a weekend visit.',
+    address: 'Abu Dhabi, 10 min from the city',
   },
 ];
 
