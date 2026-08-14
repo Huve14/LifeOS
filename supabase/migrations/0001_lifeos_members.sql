@@ -29,10 +29,10 @@ returns boolean
 language sql
 stable
 security definer
-set search_path = public
+set search_path = ''
 as $$
   select exists (
-    select 1 from public.lifeos_members m where m.user_id = auth.uid()
+    select 1 from public.lifeos_members m where m.user_id = (select auth.uid())
   );
 $$;
 
@@ -40,6 +40,12 @@ revoke all on function public.is_member() from public, anon;
 grant execute on function public.is_member() to authenticated;
 
 alter table public.lifeos_members enable row level security;
+
+-- Data API privileges are explicit so this migration is safe on projects
+-- where newly-created public tables are not exposed automatically.
+revoke all on table public.lifeos_members from anon;
+grant select on table public.lifeos_members to authenticated;
+grant update (display_name, time_zone) on table public.lifeos_members to authenticated;
 
 -- Members can see each other. Needed to render author names and to convert
 -- timestamps into the other person's local clock.
@@ -58,13 +64,14 @@ create policy "member updates own profile"
 on public.lifeos_members
 for update
 to authenticated
-using (user_id = auth.uid())
-with check (user_id = auth.uid());
+using (user_id = (select auth.uid()))
+with check (user_id = (select auth.uid()));
 
 -- Guard against a member escalating by reassigning their row to someone else.
 create or replace function public.lifeos_members_guard()
 returns trigger
 language plpgsql
+set search_path = ''
 as $$
 begin
   if new.user_id is distinct from old.user_id then
@@ -93,8 +100,8 @@ select
   coalesce(nullif(u.raw_user_meta_data ->> 'name', ''), split_part(u.email, '@', 1)),
   v.time_zone
 from (values
-  ('huve14@gmail.com',  'Africa/Johannesburg'),
-  ('suvedap@gmail.com', 'Asia/Dubai')
+  ('simphiwe@suveda.app', 'Africa/Johannesburg'),
+  ('suveda@suveda.app',   'Asia/Dubai')
 ) as v (email, time_zone)
 join auth.users u on lower(u.email) = lower(v.email)
 on conflict (user_id) do nothing;

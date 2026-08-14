@@ -61,7 +61,7 @@ export type UnlockResult = 'unlocked' | 'failed' | 'unavailable';
  * Falls back to the device passcode, so a failed face scan in bad light does
  * not lock someone out of their own app.
  */
-export async function unlock(reason = 'Unlock LifeOS'): Promise<UnlockResult> {
+export async function unlock(reason = 'Unlock Life OS'): Promise<UnlockResult> {
   if (!isNative()) return 'unavailable';
 
   try {

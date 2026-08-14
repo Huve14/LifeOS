@@ -318,7 +318,7 @@ function AnswerBlock({ answer, name, highlight }) {
   return (
     <div style={{
       padding: '12px 14px',
-      background: highlight ? 'rgba(196, 113, 74, 0.08)' : 'var(--sand)',
+      background: highlight ? 'rgba(246, 209, 16, 0.16)' : 'var(--sand)',
       borderRadius: 14,
       marginTop: 10,
     }}>

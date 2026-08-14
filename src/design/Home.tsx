@@ -52,7 +52,7 @@ export default function Home() {
 
   return (
     <div style={{ display: 'flex', justifyContent: 'center', padding: 24 }}>
-      <IOSDevice title="LifeOS">
+      <IOSDevice title="Life OS">
         <div style={{ marginBottom: 14 }}>
           <div style={{ fontSize: 13, color: '#666', marginBottom: 6 }}>Packing</div>
           <div style={{ fontSize: 22, fontWeight: 700 }}>{readyCount}/{items.length} ready</div>

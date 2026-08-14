@@ -3,33 +3,34 @@
 // ---------- Module page wrapper ----------
 function ModulePage({ title, subtitle, emoji, icon, onBack, children, action }) {
   return (
-    <div className="fade-in" style={{ padding: '14px 18px 20px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
+    <main className="module-page fade-in">
+      <header className="module-page-header">
         <button
           onClick={onBack}
+          className="module-page-back"
+          type="button"
+          aria-label="Back to home"
           style={{
-            width: 36, height: 36, borderRadius: '50%',
             background: 'var(--white)', border: '1px solid var(--line)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: 16, fontWeight: 700, color: 'var(--dark)',
             boxShadow: 'var(--shadow)',
           }}
         >‹</button>
-        <div style={{ flex: 1 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div className="module-page-heading">
+          <div className="module-page-title-row">
             {icon ? (
               <AnimatedIcon name={icon} size={20} style={{ color: 'var(--terracotta)' }} />
             ) : (
               <span style={{ fontSize: 20 }}>{emoji}</span>
             )}
-            <h1 style={{ fontSize: 22 }}>{title}</h1>
+            <h1>{title}</h1>
           </div>
-          {subtitle && <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{subtitle}</div>}
+          {subtitle && <div className="module-page-subtitle">{subtitle}</div>}
         </div>
-        {action}
-      </div>
-      {children}
-    </div>
+        {action && <div className="module-page-action">{action}</div>}
+      </header>
+      <div className="module-page-content">{children}</div>
+    </main>
   );
 }
 
@@ -125,12 +126,12 @@ function PackingScreen({ state, setState, onBack, onAsk }) {
               onClick={() => setRoom(r.id)}
               style={{
                 flexShrink: 0, padding: '10px 14px', borderRadius: 16,
-                background: active ? 'var(--terracotta)' : 'var(--white)',
-                color: active ? '#fff' : 'var(--dark)',
+                background: active ? 'var(--honey)' : 'var(--white)',
+                color: active ? '#17272D' : 'var(--dark)',
                 border: `1px solid ${active ? 'transparent' : 'var(--line)'}`,
                 display: 'flex', alignItems: 'center', gap: 8,
                 fontSize: 13, fontWeight: 600, fontFamily: 'inherit',
-                boxShadow: active ? '0 4px 12px rgba(196,113,74,0.3)' : 'var(--shadow)',
+                boxShadow: active ? '0 4px 12px rgba(45,114,139,0.3)' : 'var(--shadow)',
                 transition: 'all 0.15s',
               }}
             >
@@ -237,15 +238,15 @@ function PackingScreen({ state, setState, onBack, onAsk }) {
 
 // ---------- DOCUMENTS (inspired by Notion) ----------
 const DOC_PHASES = [
-  { id: 'predeparture', label: 'Before you fly', color: 'var(--gold)' },
-  { id: 'arrival', label: 'First 30 days', color: 'var(--teal)' },
-  { id: 'settle', label: 'Settle in', color: 'var(--terracotta)' },
+  { id: 'identity', label: 'Identity & residency', color: 'var(--gold)' },
+  { id: 'health', label: 'Health & home', color: 'var(--teal)' },
+  { id: 'records', label: 'Work & records', color: 'var(--terracotta)' },
+  { id: 'personal', label: 'My documents', color: 'var(--blue-ink)' },
 ];
 
 const DOC_PHASE_MAP = {
-  passport: 'predeparture', attest: 'predeparture',
-  medical: 'arrival', eid: 'arrival',
-  license: 'arrival',
+  passport: 'identity', eid: 'identity', license: 'identity',
+  medical: 'health', attest: 'records',
 };
 
 function DocumentsScreen({ state, setState, onBack, onAsk }) {
@@ -254,10 +255,12 @@ function DocumentsScreen({ state, setState, onBack, onAsk }) {
   const [newName, setNewName] = React.useState('');
   const [newNote, setNewNote] = React.useState('');
   const [uploading, setUploading] = React.useState(false);
-  const [newFileUrl, setNewFileUrl] = React.useState('');
-  const [newFileName, setNewFileName] = React.useState('');
+  const [selectedFile, setSelectedFile] = React.useState(null);
+  const [uploadError, setUploadError] = React.useState('');
+  const [openingId, setOpeningId] = React.useState('');
   const fileRef = React.useRef(null);
-  const done = state.documents.filter(d => d.status === 'done').length;
+  const documents = state.documents || [];
+  const done = documents.filter(d => d.status === 'done').length;
 
   function toggle(id) {
     setState(s => ({
@@ -266,29 +269,83 @@ function DocumentsScreen({ state, setState, onBack, onAsk }) {
     }));
   }
 
-  function deleteDoc(id) {
-    setState(s => ({ ...s, documents: (s.documents || []).filter(d => d.id !== id) }));
+  async function deleteDoc(doc) {
+    if (doc.filePath) await window.__suvedaDocuments?.del(doc.filePath);
+    else if (doc.fileUrl) await window.__suvedaPhotos?.del(doc.fileUrl);
+    setState(s => ({ ...s, documents: (s.documents || []).filter(d => d.id !== doc.id) }));
   }
 
-  async function onFileChange(e) {
+  function resetAddForm() {
+    setNewName('');
+    setNewNote('');
+    setSelectedFile(null);
+    setUploadError('');
+    setUploading(false);
+    if (fileRef.current) fileRef.current.value = '';
+  }
+
+  function closeAdd() {
+    if (uploading) return;
+    setShowAdd(false);
+    resetAddForm();
+  }
+
+  function onFileChange(e) {
     const file = e.target.files?.[0];
     if (!file) return;
-    setUploading(true);
-    try {
-      const url = await window.__suvedaPhotos?.upload(file);
-      if (url) { setNewFileUrl(url); setNewFileName(file.name); }
-    } catch (err) { console.warn('Upload failed:', err); }
-    setUploading(false);
+    setSelectedFile(file);
+    setUploadError('');
+    if (!newName.trim()) setNewName(file.name.replace(/\.[^.]+$/, ''));
   }
 
-  function addDoc() {
+  async function addDoc() {
     if (!newName.trim()) return;
+    setUploading(true);
+    setUploadError('');
+
+    let filePath = '';
+    if (selectedFile) {
+      try {
+        filePath = await window.__suvedaDocuments?.upload(selectedFile) || '';
+      } catch (error) {
+        console.warn('Document upload failed:', error);
+      }
+      if (!filePath) {
+        setUploading(false);
+        setUploadError('Upload failed. Check your connection and try again.');
+        return;
+      }
+    }
+
     const id = `custom-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     setState(s => ({
       ...s,
-      documents: [...s.documents, { id, name: newName.trim(), status: 'pending', emoji: '📄', note: newNote.trim() || '', fileUrl: newFileUrl, fileName: newFileName }],
+      documents: [...(s.documents || []), {
+        id,
+        name: newName.trim(),
+        status: 'pending',
+        emoji: '📄',
+        note: newNote.trim(),
+        filePath,
+        fileName: selectedFile?.name || '',
+      }],
     }));
-    setNewName(''); setNewNote(''); setNewFileUrl(''); setNewFileName(''); setShowAdd(false);
+    setShowAdd(false);
+    resetAddForm();
+  }
+
+  async function openDocument(doc, event) {
+    event.stopPropagation();
+    setOpeningId(doc.id);
+    try {
+      const url = doc.filePath
+        ? await window.__suvedaDocuments?.signedUrl(doc.filePath)
+        : await window.__suvedaPhotos?.signedUrl(doc.fileUrl);
+      if (url) window.open(url, '_blank', 'noopener,noreferrer');
+      else setUploadError('This file could not be opened. Please try again.');
+    } finally {
+      setOpeningId('');
+    }
   }
 
   const inputStyle = {
@@ -299,7 +356,7 @@ function DocumentsScreen({ state, setState, onBack, onAsk }) {
 
   const grouped = DOC_PHASES.map(phase => ({
     ...phase,
-    items: state.documents.filter(d => (DOC_PHASE_MAP[d.id] || 'predeparture') === phase.id),
+    items: documents.filter(d => (DOC_PHASE_MAP[d.id] || 'personal') === phase.id),
   }));
 
   const filtered = filter === 'all'
@@ -309,34 +366,35 @@ function DocumentsScreen({ state, setState, onBack, onAsk }) {
   return (
     <ModulePage
       title="Documents"
-      subtitle={`${done} of ${state.documents.length} sorted`}
+      subtitle={`${done} of ${documents.length} organised`}
       icon="FileText"
       onBack={onBack}
       action={
         <div style={{ display: 'flex', gap: 4 }}>
-          <Button size="sm" variant="ghost" icon="✨" onClick={() => onAsk('What documents do I need to enter UAE on an employment visa?')}>AI</Button>
+          <Button size="sm" variant="ghost" icon="✨" onClick={() => onAsk('Help me organise the documents I use for everyday life in the UAE. Point me to official sources for any legal or residency requirements.')}>AI</Button>
         </div>
       }
     >
-      <Card padding="18px" style={{ background: 'linear-gradient(135deg, var(--teal) 0%, #1e524f 100%)', color: '#fff', border: 'none', marginBottom: 16 }}>
+      <Card padding="18px" style={{ background: 'linear-gradient(135deg, var(--blue-ink) 0%, #2D829F 100%)', color: '#fff', border: 'none', marginBottom: 16 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <div style={{ fontSize: 12, opacity: 0.85, fontWeight: 600 }}>Document readiness</div>
-            <div style={{ fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif', fontSize: 28, fontWeight: 800, marginTop: 2 }}>{Math.round((done / state.documents.length) * 100)}%</div>
+            <div style={{ fontSize: 12, opacity: 0.85, fontWeight: 600 }}>Private document vault</div>
+            <div style={{ fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif', fontSize: 28, fontWeight: 800, marginTop: 2 }}>{documents.length > 0 ? Math.round((done / documents.length) * 100) : 0}%</div>
           </div>
           <div style={{ textAlign: 'right', fontSize: 12, opacity: 0.8 }}>
             <div>{done} done</div>
-            <div>{state.documents.length - done} remaining</div>
+            <div>{documents.length - done} to organise</div>
+            <div style={{ marginTop: 3 }}>Only your signed-in account can open files</div>
           </div>
         </div>
         <div style={{ marginTop: 10 }}>
-          <ProgressBar value={done} total={state.documents.length} color="var(--gold)" height={8} />
+          <ProgressBar value={done} total={documents.length} color="var(--gold)" height={8} />
         </div>
       </Card>
 
       <div style={{ display: 'flex', gap: 6, marginBottom: 14, overflowX: 'auto', paddingBottom: 4 }}>
         {[
-          { id: 'all', label: `All ${state.documents.length}`, color: 'var(--dark)' },
+          { id: 'all', label: `All ${documents.length}`, color: 'var(--dark)' },
           { id: 'pending', label: 'To do', color: 'var(--muted)' },
           { id: 'done', label: 'Done', color: '#66bb6a' },
         ].map(f => (
@@ -383,7 +441,16 @@ function DocumentsScreen({ state, setState, onBack, onAsk }) {
                           color: isDone ? 'var(--muted)' : 'var(--dark)',
                         }}>{doc.name}</div>
                         {hasNote && !isDone && <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{doc.note}</div>}
-                        {doc.fileUrl && !isDone && <div style={{ fontSize: 11, color: 'var(--terracotta)', marginTop: 2 }}>📎 {doc.fileName || 'Attached'}</div>}
+                        {(doc.filePath || doc.fileUrl) && (
+                          <button
+                            onClick={event => openDocument(doc, event)}
+                            style={{
+                              display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 5,
+                              padding: 0, border: 'none', background: 'none', cursor: 'pointer',
+                              color: 'var(--terracotta)', fontFamily: 'inherit', fontSize: 11, fontWeight: 700,
+                            }}
+                          >📎 {openingId === doc.id ? 'Opening…' : (doc.fileName || 'Open attachment')}</button>
+                        )}
                       </div>
                       <div style={{
                         width: 24, height: 24, borderRadius: '50%', flexShrink: 0,
@@ -393,7 +460,7 @@ function DocumentsScreen({ state, setState, onBack, onAsk }) {
                         color: '#fff', fontSize: 11, fontWeight: 700,
                       }}>{isDone ? '✓' : ''}</div>
                       {isCustom && !isDone && (
-                        <button onClick={e => { e.stopPropagation(); deleteDoc(doc.id); }} style={{
+                        <button aria-label={`Delete ${doc.name}`} onClick={e => { e.stopPropagation(); void deleteDoc(doc); }} style={{
                           width: 28, height: 28, borderRadius: 8, border: 'none',
                           background: 'var(--cream)', color: 'var(--muted)',
                           fontSize: 14, cursor: 'pointer', display: 'flex',
@@ -416,23 +483,25 @@ function DocumentsScreen({ state, setState, onBack, onAsk }) {
         fontFamily: 'inherit', fontSize: 13, fontWeight: 600,
         color: 'var(--muted)', display: 'flex', alignItems: 'center',
         justifyContent: 'center', gap: 6,
-      }}>＋ Add document</button>
+      }}>＋ Upload or add document</button>
 
       {showAdd && (
-        <Modal open={showAdd} onClose={() => { setShowAdd(false); setNewFileUrl(''); setUploading(false); }}>
+        <Modal open={showAdd} onClose={closeAdd}>
           <div style={{ padding: 20 }}>
             <h2 style={{ fontSize: 18, marginBottom: 16 }}>Add document</h2>
-            <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Name</label>
-            <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="e.g. Marriage certificate" style={inputStyle} />
+            <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Document name</label>
+            <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="e.g. Health insurance card" style={inputStyle} />
             <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', display: 'block', marginTop: 14, marginBottom: 4 }}>Note (optional)</label>
             <textarea value={newNote} onChange={e => setNewNote(e.target.value)} placeholder="Any details…" rows={2} style={{ ...inputStyle, resize: 'vertical', fontFamily: 'inherit' }} />
-            <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', display: 'block', marginTop: 14, marginBottom: 4 }}>File (optional — PDF or image)</label>
+            <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', display: 'block', marginTop: 14, marginBottom: 4 }}>Private file (PDF, Word, or image)</label>
             <input ref={fileRef} type="file" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.webp" onChange={onFileChange} style={{ fontSize: 12, color: 'var(--muted)', width: '100%' }} />
-            {uploading && <div style={{ fontSize: 12, color: 'var(--terracotta)', marginTop: 6 }}>Uploading…</div>}
-            {newFileUrl && <div style={{ fontSize: 12, color: '#66bb6a', marginTop: 6 }}>✓ File attached</div>}
+            {selectedFile && !uploading && <div style={{ fontSize: 12, color: '#4a8b55', marginTop: 6 }}>✓ {selectedFile.name} ready to upload</div>}
+            {uploading && <div style={{ fontSize: 12, color: 'var(--terracotta)', marginTop: 6 }}>Uploading securely…</div>}
+            {uploadError && <div role="alert" style={{ fontSize: 12, color: 'var(--terracotta)', marginTop: 6 }}>{uploadError}</div>}
+            <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 8, lineHeight: 1.45 }}>Files are stored privately and opened with a short-lived secure link.</div>
             <div style={{ display: 'flex', gap: 8, marginTop: 18 }}>
-              <Button full variant="ghost" onClick={() => { setShowAdd(false); setNewFileUrl(''); setUploading(false); }}>Cancel</Button>
-              <Button full onClick={addDoc} disabled={!newName.trim()}>Add</Button>
+              <Button full variant="ghost" onClick={closeAdd} disabled={uploading}>Cancel</Button>
+              <Button full onClick={addDoc} disabled={!newName.trim() || uploading}>{uploading ? 'Uploading…' : (selectedFile ? 'Upload document' : 'Add reference')}</Button>
             </div>
           </div>
         </Modal>
@@ -443,7 +512,7 @@ function DocumentsScreen({ state, setState, onBack, onAsk }) {
 
 // ---------- TASKS / TIMELINE (inspired by Linear) ----------
 function TasksScreen({ state, setState, onBack }) {
-  const groups = ['90+ days', '60 days', '30 days', '14 days', '7 days', 'Move day', 'After'];
+  const groups = ['Today', 'This week', 'This month', 'Ongoing'];
   const [adding, setAdding] = React.useState(false);
   const [newTask, setNewTask] = React.useState('');
   const [newWhen, setNewWhen] = React.useState(groups[0]);
@@ -452,26 +521,18 @@ function TasksScreen({ state, setState, onBack }) {
     when: g,
     items: state.tasks.filter(t => t.when === g),
   }));
-  const days = daysUntil(state.moveDate);
   const allDone = state.tasks.filter(t => t.status === 'done').length;
-  const moveDate = new Date(state.moveDate + 'T00:00:00');
 
   const tasksWithDates = React.useMemo(() => {
     const now = new Date(); now.setHours(0,0,0,0);
     return state.tasks.map(t => {
-      let date = null;
-      if (t.when === 'Move day') date = new Date(moveDate);
-      else if (t.when === 'After') date = null;
-      else {
-        const num = parseInt(t.when);
-        if (!isNaN(num)) {
-          date = new Date(now);
-          date.setDate(date.getDate() + num);
-        }
-      }
+      const date = new Date(now);
+      if (t.when === 'This week') date.setDate(date.getDate() + 7);
+      else if (t.when === 'This month') date.setDate(date.getDate() + 30);
+      else if (t.when !== 'Today') return { ...t, date: null };
       return { ...t, date };
     });
-  }, [state.tasks, moveDate]);
+  }, [state.tasks]);
 
   function toggle(id) {
     setState(s => ({
@@ -500,8 +561,8 @@ function TasksScreen({ state, setState, onBack }) {
 
   return (
     <ModulePage
-      title="Timeline"
-      subtitle={`${days} days · ${allDone} of ${state.tasks.length} done`}
+      title="Life admin"
+      subtitle={`${allDone} of ${state.tasks.length} complete`}
       icon="CalendarDays"
       onBack={onBack}
       action={
@@ -509,7 +570,7 @@ function TasksScreen({ state, setState, onBack }) {
           <Button size="sm" variant="ghost" icon={view === 'calendar' ? '📋' : '📅'} onClick={() => setView(v => v === 'calendar' ? 'list' : 'calendar')}>
             {view === 'calendar' ? 'List' : 'Calendar'}
           </Button>
-          <Button size="sm" variant="ghost" icon="＋" onClick={() => setAdding(true)}>Add</Button>
+          <Button size="sm" variant="ghost" icon="＋" onClick={() => { setAdding(true); setView('list'); }}>Add</Button>
         </div>
       }
     >
@@ -522,15 +583,15 @@ function TasksScreen({ state, setState, onBack }) {
         ) : <div style={{ padding: 40, textAlign: 'center', opacity: 0.5 }}>Loading calendar...</div>
       ) : (
         <>
-          {/* Countdown hero */}
+          {/* Everyday progress */}
           <Card padding="18px" style={{
-            background: 'linear-gradient(135deg, var(--gold) 0%, #c49a3a 100%)', color: '#fff', border: 'none', marginBottom: 18,
+            background: 'linear-gradient(135deg, var(--honey) 0%, var(--butter) 100%)', color: '#17272D', border: 'none', marginBottom: 18,
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <div style={{ fontSize: 12, opacity: 0.85, fontWeight: 600 }}>Countdown</div>
+                <div style={{ fontSize: 12, opacity: 0.85, fontWeight: 600 }}>Everyday progress</div>
                 <div style={{ fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif', fontSize: 36, fontWeight: 800, marginTop: 2 }}>
-                  {days}<span style={{ fontSize: 16, fontWeight: 600, opacity: 0.85, marginLeft: 4 }}>days</span>
+                  {state.tasks.length > 0 ? Math.round((allDone / state.tasks.length) * 100) : 0}<span style={{ fontSize: 16, fontWeight: 600, opacity: 0.85, marginLeft: 4 }}>%</span>
                 </div>
               </div>
               <div style={{ textAlign: 'right' }}>
@@ -539,7 +600,7 @@ function TasksScreen({ state, setState, onBack }) {
               </div>
             </div>
             <div style={{ marginTop: 10 }}>
-              <ProgressBar value={allDone} total={state.tasks.length} color="#fff" height={6} />
+              <ProgressBar value={allDone} total={state.tasks.length} color="var(--blue-ink)" height={6} />
             </div>
           </Card>
 
@@ -554,8 +615,6 @@ function TasksScreen({ state, setState, onBack }) {
               const groupDone = group.items.filter(t => t.status === 'done').length;
               const allGroupDone = groupDone === group.items.length;
               const anyDone = groupDone > 0;
-              const daysNum = parseInt(group.when);
-              const urgency = !isNaN(daysNum) && daysNum <= days ? 'overdue' : (anyDone ? 'progress' : 'pending');
               return (
                 <div key={group.when} style={{ marginBottom: 18, position: 'relative' }}>
                   <div style={{
@@ -578,9 +637,6 @@ function TasksScreen({ state, setState, onBack }) {
                       {group.when}
                       {allGroupDone && <span style={{ fontSize: 11, color: '#66bb6a' }}>✓ All done</span>}
                     </span>
-                    {urgency === 'overdue' && (
-                      <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--terracotta)', background: 'var(--terracotta)15', padding: '2px 8px', borderRadius: 999 }}>OVERDUE</span>
-                    )}
                     {allGroupDone && <span style={{ fontSize: 14 }}>🎯</span>}
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -613,7 +669,7 @@ function TasksScreen({ state, setState, onBack }) {
                           {!isDone && (
                             <div style={{
                               width: 4, height: 4, borderRadius: '50%',
-                              background: urgency === 'overdue' ? 'var(--terracotta)' : 'var(--muted)',
+                              background: 'var(--muted)',
                               flexShrink: 0, opacity: 0.4,
                             }} />
                           )}
@@ -666,7 +722,7 @@ function TasksScreen({ state, setState, onBack }) {
 // ---------- BUDGET (inspired by YNAB / Monzo / Copilot) ----------
 const MONTHLY_BUDGET = window.MONTHLY_BUDGET;
 
-function BudgetScreen({ state, setState, onBack }) {
+function LegacyBudgetScreen({ state, setState, onBack }) {
   const [tab, setTab] = React.useState('overview');
   const monthly = state.budget.monthly || MONTHLY_BUDGET;
   const income = state.budget.monthlyIncome || 8800;
@@ -857,7 +913,7 @@ function BudgetScreen({ state, setState, onBack }) {
           }}>−</button>
           <button onClick={() => tweakFn(c.id, 100)} style={{
             width: 28, height: 28, borderRadius: 8, border: 'none',
-            background: 'var(--terracotta)', color: '#fff', fontSize: 16, fontWeight: 700,
+            background: 'var(--honey)', color: '#17272D', fontSize: 16, fontWeight: 700,
             cursor: 'pointer', fontFamily: 'inherit',
           }}>＋</button>
         </div>
@@ -884,7 +940,7 @@ function BudgetScreen({ state, setState, onBack }) {
     <>
       {/* Hero income card */}
       <div style={{
-        background: 'linear-gradient(135deg, var(--teal) 0%, #1e524f 100%)', borderRadius: 20,
+        background: 'linear-gradient(135deg, var(--blue-ink) 0%, #2D829F 100%)', borderRadius: 20,
         padding: '20px 22px', marginBottom: 14, color: '#fff',
         boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
       }}>
@@ -1019,7 +1075,7 @@ function BudgetScreen({ state, setState, onBack }) {
 
   const monthlyContent = (
     <>
-      <Card padding="14px" style={{ background: 'var(--teal)', color: '#fff', border: 'none', marginBottom: 16 }}>
+      <Card padding="14px" style={{ background: 'var(--blue)', color: '#17272D', border: 'none', marginBottom: 16 }}>
         <div style={{ fontSize: 12, fontWeight: 600, opacity: 0.9, marginBottom: 2 }}>SABIS covers</div>
         <div style={{ fontSize: 13, lineHeight: 1.5, opacity: 0.85 }}>
           Housing (Rent), Health Insurance, Transport — all handled by your employer.
@@ -1061,7 +1117,7 @@ function BudgetScreen({ state, setState, onBack }) {
 
   const moveContent = (
     <>
-      <Card padding="20px" style={{ background: 'linear-gradient(135deg, var(--teal) 0%, #1e524f 100%)', color: '#fff', border: 'none', marginBottom: 16 }}>
+      <Card padding="20px" style={{ background: 'linear-gradient(135deg, var(--blue-ink) 0%, #2D829F 100%)', color: '#fff', border: 'none', marginBottom: 16 }}>
         <div style={{ fontSize: 12, opacity: 0.85, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Move checklist</div>
         <div style={{ fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif', fontWeight: 800, fontSize: 36, lineHeight: 1, marginTop: 4 }}>
           {conv(totalMoveSpent).toLocaleString()}
@@ -1100,7 +1156,7 @@ function BudgetScreen({ state, setState, onBack }) {
                     {isSABIS && (
                       <span style={{
                         marginLeft: 8, fontSize: 10, fontWeight: 700, padding: '2px 8px',
-                        borderRadius: 999, background: 'var(--teal)', color: '#fff',
+                        borderRadius: 999, background: 'var(--blue)', color: '#17272D',
                       }}>SABIS</span>
                     )}
                   </div>
@@ -1133,7 +1189,7 @@ function BudgetScreen({ state, setState, onBack }) {
                 }}>−</button>
                 <button onClick={() => tweakMove(c.id, 100)} style={{
                   width: 28, height: 28, borderRadius: 8, border: 'none',
-                  background: 'var(--terracotta)', color: '#fff', fontSize: 16, fontWeight: 700,
+                  background: 'var(--honey)', color: '#17272D', fontSize: 16, fontWeight: 700,
                   cursor: 'pointer', fontFamily: 'inherit',
                 }}>＋</button>
               </div>
@@ -1182,6 +1238,336 @@ function BudgetScreen({ state, setState, onBack }) {
       {tab === 'overview' && overviewContent}
       {tab === 'monthly' && monthlyContent}
       {tab === 'move' && moveContent}
+    </ModulePage>
+  );
+}
+
+// ---------- ABU DHABI BUDGET ----------
+// A calm, manual-first plan: every dirham has a job, everyday spending has a
+// safe pace, and irregular costs build up as rollover funds.
+function BudgetScreen({ state, setState, onBack }) {
+  const api = window.__lifeos?.budget;
+  const budget = state.budget || {};
+  const monthly = budget.monthly || MONTHLY_BUDGET;
+  const income = Number(budget.monthlyIncome) || 8800;
+  const transactions = budget.transactions || [];
+  const currentTransactions = transactions.filter(transaction => {
+    const date = new Date(transaction.date);
+    const now = new Date();
+    return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
+  });
+  const summary = api?.summarizeBudget?.(monthly, income) || {
+    planned: monthly.reduce((sum, item) => sum + (item.planned || 0), 0),
+    tracked: monthly.reduce((sum, item) => sum + (item.spent || 0), 0),
+    leftToAssign: income - monthly.reduce((sum, item) => sum + (item.planned || 0), 0),
+    savingsPlanned: 0, savingsTracked: 0, savingsRate: 0,
+    flexibleRemaining: 0, safePerDay: 0, daysRemaining: 1,
+  };
+  const [tab, setTab] = React.useState('today');
+  const [showExpense, setShowExpense] = React.useState(false);
+  const [expenseAmount, setExpenseAmount] = React.useState('');
+  const [expenseCategory, setExpenseCategory] = React.useState(monthly.find(item => item.bucket !== 'covered')?.id || 'groceries');
+  const [expenseNote, setExpenseNote] = React.useState('');
+  const [draft, setDraft] = React.useState(null);
+  const [incomeDraft, setIncomeDraft] = React.useState(String(income));
+
+  const money = value => `${Math.round(Number(value) || 0).toLocaleString()} AED`;
+  const bucketMeta = {
+    essentials: { label: 'Essentials', detail: 'The practical basics', color: 'var(--blue)' },
+    lifestyle: { label: 'Life & joy', detail: 'Flexible spending without guilt', color: 'var(--honey)' },
+    future: { label: 'Future you', detail: 'Savings and sinking funds', color: '#BDE2D0' },
+    covered: { label: 'Employer covered', detail: 'Benefits that protect this plan', color: 'var(--butter)' },
+  };
+  const activeCategories = monthly.filter(item => item.bucket !== 'covered' && !item.coveredByEmployer);
+  const monthName = new Intl.DateTimeFormat('en', { month: 'long', year: 'numeric' }).format(new Date());
+
+  function patchBudget(patch) {
+    setState(current => ({ ...current, budget: { ...current.budget, ...patch } }));
+  }
+
+  function setIncome(value) {
+    patchBudget({ monthlyIncome: Math.max(0, Number(value) || 0) });
+  }
+
+  function recordExpense() {
+    const amount = Math.round((Number(expenseAmount) || 0) * 100) / 100;
+    if (amount <= 0 || !expenseCategory) return;
+    const transaction = {
+      id: uid(), categoryId: expenseCategory, amount,
+      note: expenseNote.trim(), date: new Date().toISOString(),
+    };
+    setState(current => ({
+      ...current,
+      budget: {
+        ...current.budget,
+        monthly: (current.budget.monthly || MONTHLY_BUDGET).map(category =>
+          category.id === expenseCategory ? { ...category, spent: (category.spent || 0) + amount } : category
+        ),
+        transactions: [transaction, ...(current.budget.transactions || [])].slice(0, 200),
+      },
+    }));
+    setExpenseAmount(''); setExpenseNote(''); setShowExpense(false);
+  }
+
+  function removeTransaction(transaction) {
+    setState(current => ({
+      ...current,
+      budget: {
+        ...current.budget,
+        monthly: (current.budget.monthly || MONTHLY_BUDGET).map(category =>
+          category.id === transaction.categoryId
+            ? { ...category, spent: Math.max(0, (category.spent || 0) - transaction.amount) }
+            : category
+        ),
+        transactions: (current.budget.transactions || []).filter(item => item.id !== transaction.id),
+      },
+    }));
+  }
+
+  function openCategory(category) {
+    setDraft({ ...category, isNew: false });
+  }
+
+  function newCategory() {
+    setDraft({ id: uid(), label: '', emoji: '📌', planned: 0, spent: 0, bucket: 'lifestyle', note: '', rollover: false, fixed: false, isNew: true });
+  }
+
+  function saveCategory() {
+    if (!draft?.label?.trim()) return;
+    const clean = {
+      ...draft,
+      label: draft.label.trim(),
+      planned: Math.max(0, Number(draft.planned) || 0),
+      spent: Math.max(0, Number(draft.spent) || 0),
+    };
+    delete clean.isNew;
+    const next = draft.isNew ? [...monthly, clean] : monthly.map(item => item.id === clean.id ? clean : item);
+    patchBudget({ monthly: next });
+    setDraft(null);
+  }
+
+  function deleteCategory() {
+    if (!draft || draft.isNew) return setDraft(null);
+    patchBudget({
+      monthly: monthly.filter(item => item.id !== draft.id),
+      transactions: transactions.filter(item => item.categoryId !== draft.id),
+    });
+    setDraft(null);
+  }
+
+  function resetPlan() {
+    if (!window.confirm('Reset the targets to the Abu Dhabi starter plan? Your recent activity will be cleared.')) return;
+    const now = new Date();
+    patchBudget({ version: 4, period: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`, monthly: api?.createAbuDhabiBudget?.() || MONTHLY_BUDGET, transactions: [] });
+  }
+
+  const allocationWidth = Math.min(100, income > 0 ? (summary.planned / income) * 100 : 0);
+  const flexibleUsed = activeCategories
+    .filter(item => item.bucket === 'lifestyle' || (!item.fixed && item.bucket === 'essentials'))
+    .reduce((sum, item) => sum + (item.spent || 0), 0);
+  const flexiblePlan = activeCategories
+    .filter(item => item.bucket === 'lifestyle' || (!item.fixed && item.bucket === 'essentials'))
+    .reduce((sum, item) => sum + (item.planned || 0) + (item.rolloverBalance || 0), 0);
+  const upcomingBills = activeCategories
+    .filter(item => item.dueDay)
+    .map(item => {
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      let due = new Date(now.getFullYear(), now.getMonth(), Math.min(item.dueDay, new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()));
+      if (due < today) due = new Date(now.getFullYear(), now.getMonth() + 1, Math.min(item.dueDay, new Date(now.getFullYear(), now.getMonth() + 2, 0).getDate()));
+      return { ...item, due };
+    })
+    .sort((a, b) => a.due - b.due)
+    .slice(0, 3);
+
+  const expenseForm = showExpense && (
+    <Card padding="18px" style={{ marginBottom: 14, border: '2px solid var(--honey)' }}>
+      <div className="budget-form-title">Log money in seconds</div>
+      <div className="budget-expense-grid">
+        <label className="budget-field">
+          <span>Amount (AED)</span>
+          <input aria-label="Amount (AED)" autoFocus type="number" inputMode="decimal" min="0" value={expenseAmount} onChange={event => setExpenseAmount(event.target.value)} placeholder="0" />
+        </label>
+        <label className="budget-field budget-field-wide">
+          <span>Category</span>
+          <select aria-label="Category" value={expenseCategory} onChange={event => setExpenseCategory(event.target.value)}>
+            {activeCategories.map(category => <option key={category.id} value={category.id}>{category.emoji} {category.label}</option>)}
+          </select>
+        </label>
+        <label className="budget-field budget-field-wide">
+          <span>Note (optional)</span>
+          <input aria-label="Note (optional)" value={expenseNote} onChange={event => setExpenseNote(event.target.value)} placeholder="Lunch, top-up, transfer…" onKeyDown={event => event.key === 'Enter' && recordExpense()} />
+        </label>
+      </div>
+      <div className="budget-form-actions">
+        <Button onClick={recordExpense} disabled={!Number(expenseAmount)}>Save</Button>
+        <Button variant="ghost" onClick={() => setShowExpense(false)}>Cancel</Button>
+      </div>
+    </Card>
+  );
+
+  const categoryEditor = draft && (
+    <div className="budget-editor-backdrop" onClick={() => setDraft(null)}>
+      <div className="budget-editor" onClick={event => event.stopPropagation()}>
+        <div className="budget-editor-head">
+          <div>
+            <div className="budget-kicker">{draft.isNew ? 'New category' : 'Edit plan'}</div>
+            <h2>{draft.isNew ? 'Add a money job' : draft.label}</h2>
+          </div>
+          <button className="budget-close" onClick={() => setDraft(null)} aria-label="Close">×</button>
+        </div>
+        <div className="budget-editor-grid">
+          <label className="budget-field budget-emoji-field"><span>Emoji</span><input value={draft.emoji} onChange={event => setDraft({ ...draft, emoji: event.target.value })} /></label>
+          <label className="budget-field budget-field-wide"><span>Name</span><input value={draft.label} onChange={event => setDraft({ ...draft, label: event.target.value })} placeholder="Category name" /></label>
+          <label className="budget-field"><span>Monthly target</span><input type="number" min="0" value={draft.planned} onChange={event => setDraft({ ...draft, planned: event.target.value })} /></label>
+          <label className="budget-field"><span>{draft.bucket === 'future' ? 'Saved so far' : 'Spent so far'}</span><input type="number" min="0" value={draft.spent} onChange={event => setDraft({ ...draft, spent: event.target.value })} /></label>
+          <label className="budget-field"><span>Group</span><select value={draft.bucket} onChange={event => setDraft({ ...draft, bucket: event.target.value, coveredByEmployer: event.target.value === 'covered' })}>{Object.entries(bucketMeta).map(([id, meta]) => <option key={id} value={id}>{meta.label}</option>)}</select></label>
+          <label className="budget-field"><span>Due day (optional)</span><input type="number" min="1" max="31" value={draft.dueDay || ''} onChange={event => setDraft({ ...draft, dueDay: Number(event.target.value) || undefined })} /></label>
+          <label className="budget-field budget-field-full"><span>Helpful note</span><input value={draft.note || ''} onChange={event => setDraft({ ...draft, note: event.target.value })} placeholder="What this amount is for" /></label>
+        </div>
+        <label className="budget-toggle"><input type="checkbox" checked={Boolean(draft.rollover)} onChange={event => setDraft({ ...draft, rollover: event.target.checked })} /><span><strong>Roll leftover money forward</strong><small>Useful for travel, annual costs and other sinking funds.</small></span></label>
+        <div className="budget-editor-actions">
+          <Button onClick={saveCategory}>{draft.isNew ? 'Add category' : 'Save changes'}</Button>
+          {!draft.isNew && <Button variant="ghost" onClick={deleteCategory}>Delete</Button>}
+        </div>
+      </div>
+    </div>
+  );
+
+  const todayContent = (
+    <>
+      <section className="budget-hero">
+        <div className="budget-kicker">{monthName} · Abu Dhabi</div>
+        <div className="budget-hero-grid">
+          <div>
+            <div className="budget-safe-label">Safe pace for everyday spending</div>
+            <div className="budget-safe-number">{money(summary.safePerDay)}<span> / day</span></div>
+            <p>{money(summary.flexibleRemaining)} remains across groceries, personal spending and fun for the next {summary.daysRemaining} days.</p>
+          </div>
+          <button className="budget-log-button" onClick={() => setShowExpense(true)}><span>＋</span> Log spending</button>
+        </div>
+      </section>
+
+      {expenseForm}
+
+      <div className="budget-metrics">
+        <div className="budget-metric"><span>Left to assign</span><strong className={summary.leftToAssign < 0 ? 'budget-negative' : ''}>{summary.leftToAssign === 0 ? 'Balanced ✓' : money(summary.leftToAssign)}</strong><small>{summary.leftToAssign === 0 ? 'Every dirham has a job' : summary.leftToAssign > 0 ? 'Give this money a job' : 'Targets exceed income'}</small></div>
+        <div className="budget-metric"><span>Future you</span><strong>{money(summary.savingsPlanned)}</strong><small>{summary.savingsRate}% of monthly income</small></div>
+        <div className="budget-metric"><span>Tracked</span><strong>{money(summary.tracked)}</strong><small>{currentTransactions.length} entries this month</small></div>
+      </div>
+
+      <Card padding="18px" style={{ marginBottom: 14 }}>
+        <div className="budget-card-head"><div><div className="budget-kicker">Monthly flow</div><h3>{money(income)} in, {money(summary.planned)} planned</h3></div><label className="budget-income"><span>Edit income</span><input aria-label="Monthly income" type="number" min="0" value={incomeDraft} onChange={event => setIncomeDraft(event.target.value)} onBlur={() => { setIncome(incomeDraft); setIncomeDraft(String(Math.max(0, Number(incomeDraft) || 0))); }} onKeyDown={event => event.key === 'Enter' && event.currentTarget.blur()} /></label></div>
+        <div className="budget-allocation"><div style={{ width: `${allocationWidth}%` }} /></div>
+        <div className="budget-flow-labels"><span>{Math.round(allocationWidth)}% assigned</span><span>{money(Math.abs(summary.leftToAssign))} {summary.leftToAssign >= 0 ? 'free' : 'over'}</span></div>
+      </Card>
+
+      <div className="budget-two-col">
+        <Card padding="18px">
+          <div className="budget-card-head"><div><div className="budget-kicker">This month</div><h3>Flexible spending</h3></div><strong>{money(Math.max(0, flexiblePlan - flexibleUsed))}</strong></div>
+          <ProgressBar value={flexibleUsed} total={flexiblePlan || 1} color="var(--honey)" height={10} />
+          <div className="budget-flow-labels"><span>{money(flexibleUsed)} used</span><span>{money(flexiblePlan)} limit</span></div>
+        </Card>
+        <Card padding="18px">
+          <div className="budget-card-head"><div><div className="budget-kicker">Protection</div><h3>Employer benefits</h3></div><strong>{monthly.filter(item => item.coveredByEmployer).length}</strong></div>
+          <p className="budget-card-copy">Housing, medical cover and work transport are kept outside the spendable plan. Tap any item in Plan if that changes.</p>
+        </Card>
+      </div>
+
+      <Card padding="18px" style={{ marginTop: 14 }}>
+        <div className="budget-card-head"><div><div className="budget-kicker">Coming up</div><h3>Bills & automatic transfers</h3></div><span className="budget-research-badge">Monthly</span></div>
+        <div className="budget-upcoming-list">
+          {upcomingBills.map(item => (
+            <button key={item.id} className="budget-upcoming" onClick={() => openCategory(item)}>
+              <span className="budget-category-icon">{item.emoji}</span>
+              <span className="budget-category-copy"><strong>{item.label}</strong><small>{new Intl.DateTimeFormat('en', { weekday: 'short', day: 'numeric', month: 'short' }).format(item.due)}</small></span>
+              <strong>{money(item.planned)}</strong>
+              <span className="budget-chevron">›</span>
+            </button>
+          ))}
+        </div>
+      </Card>
+
+      <Card padding="18px" style={{ marginTop: 14 }}>
+        <div className="budget-card-head"><div><div className="budget-kicker">Why these targets</div><h3>Grounded in Abu Dhabi life</h3></div><span className="budget-research-badge">2026 check</span></div>
+        <div className="budget-evidence-grid">
+          <div><strong>1,200 AED</strong><span>groceries gives room above a lean market basket</span></div>
+          <div><strong>600 AED</strong><span>dining fits regular 30 AED casual meals and coffee</span></div>
+          <div><strong>300 AED</strong><span>extra transport covers a 95 AED bus pass plus taxis</span></div>
+          <div><strong>150 AED</strong><span>Wi-Fi assumes a shared entry home plan</span></div>
+        </div>
+        <p className="budget-disclaimer">These are editable starter targets, not fixed rules. After one month, adjust them to match her real receipts.</p>
+      </Card>
+    </>
+  );
+
+  const planContent = (
+    <>
+      <div className="budget-plan-head">
+        <div><div className="budget-kicker">Zero-based plan</div><h2>{summary.leftToAssign === 0 ? `All ${money(income)} has a purpose` : `${money(Math.abs(summary.leftToAssign))} ${summary.leftToAssign > 0 ? 'still to assign' : 'over income'}`}</h2></div>
+        <div className="budget-plan-actions"><Button size="sm" onClick={newCategory}>＋ Add</Button><Button size="sm" variant="ghost" onClick={resetPlan}>Reset plan</Button></div>
+      </div>
+      {Object.entries(bucketMeta).map(([bucketId, meta]) => {
+        const items = monthly.filter(item => (item.bucket || 'lifestyle') === bucketId);
+        if (!items.length) return null;
+        const total = items.reduce((sum, item) => sum + (item.planned || 0), 0);
+        return (
+          <section className="budget-group" key={bucketId}>
+            <div className="budget-group-head"><div><span className="budget-group-dot" style={{ background: meta.color }} /> <strong>{meta.label}</strong><small>{meta.detail}</small></div><b>{bucketId === 'covered' ? 'Included' : money(total)}</b></div>
+            <div className="budget-category-list">
+              {items.map(category => {
+                const available = (category.planned || 0) + (category.rolloverBalance || 0);
+                const remaining = available - (category.spent || 0);
+                const isFuture = category.bucket === 'future';
+                const over = remaining < 0;
+                return (
+                  <button className="budget-category" key={category.id} onClick={() => openCategory(category)}>
+                    <span className="budget-category-icon">{category.emoji}</span>
+                    <span className="budget-category-copy"><strong>{category.label}</strong><small>{category.coveredByEmployer ? category.note : `${isFuture ? 'Saved this month' : 'Used'} ${money(category.spent || 0)}${isFuture && category.savedTotal ? ` · ${money(category.savedTotal)} built before this month` : ''}${category.note ? ` · ${category.note}` : ''}`}</small></span>
+                    <span className="budget-category-money"><strong>{category.coveredByEmployer ? 'Covered' : money(category.planned)}</strong><small className={over ? 'budget-negative' : ''}>{category.coveredByEmployer ? 'SABIS' : over ? `${money(Math.abs(remaining))} over` : `${money(remaining)} left`}{category.rolloverBalance ? ` · ${money(category.rolloverBalance)} rolled in` : category.rollover ? ' · rolls' : ''}</small></span>
+                    <span className="budget-chevron">›</span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        );
+      })}
+    </>
+  );
+
+  const activityContent = (
+    <>
+      <div className="budget-plan-head"><div><div className="budget-kicker">Activity</div><h2>What changed this month</h2></div><Button size="sm" onClick={() => setShowExpense(true)}>＋ Log</Button></div>
+      {expenseForm}
+      {currentTransactions.length === 0 ? (
+        <Card padding="28px" style={{ textAlign: 'center' }}><div style={{ fontSize: 34 }}>🧾</div><h3 style={{ marginTop: 8 }}>Nothing logged yet</h3><p className="budget-card-copy">Use “Log spending” after a purchase or savings transfer. It takes only an amount and a category.</p></Card>
+      ) : (
+        <div className="budget-activity-list">
+          {currentTransactions.map(transaction => {
+            const category = monthly.find(item => item.id === transaction.categoryId);
+            return (
+              <div className="budget-activity" key={transaction.id}>
+                <span className="budget-category-icon">{category?.emoji || '📌'}</span>
+                <span className="budget-category-copy"><strong>{transaction.note || category?.label || 'Budget entry'}</strong><small>{category?.label} · {new Intl.DateTimeFormat('en', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(transaction.date))}</small></span>
+                <strong>{money(transaction.amount)}</strong>
+                <button className="budget-remove" onClick={() => removeTransaction(transaction)} aria-label="Remove entry">×</button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </>
+  );
+
+  const tabs = [{ id: 'today', label: 'Today' }, { id: 'plan', label: 'Plan' }, { id: 'activity', label: 'Activity' }];
+  return (
+    <ModulePage title="Budget" subtitle={`${monthName} · ${summary.savingsRate}% planned for the future`} icon="Wallet" onBack={onBack}>
+      <div className="budget-tabs">{tabs.map(item => <button key={item.id} className={tab === item.id ? 'active' : ''} onClick={() => setTab(item.id)}>{item.label}</button>)}</div>
+      {tab === 'today' && todayContent}
+      {tab === 'plan' && planContent}
+      {tab === 'activity' && activityContent}
+      {categoryEditor}
     </ModulePage>
   );
 }
@@ -1415,7 +1801,7 @@ function HousingScreen({ state, setState, onBack, onAsk }) {
       onBack={onBack}
     >
       {/* SABIS info card */}
-      <Card padding="16px" style={{ background: 'var(--teal)', color: '#fff', border: 'none', marginBottom: 16 }}>
+      <Card padding="16px" style={{ background: 'var(--blue)', color: '#17272D', border: 'none', marginBottom: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{ fontSize: 32 }}>✅</div>
           <div>
@@ -1446,7 +1832,7 @@ function HousingScreen({ state, setState, onBack, onAsk }) {
             {room.photos.length > 0 && (
               <div style={{
                 position: 'absolute', top: 8, right: 8,
-                background: 'var(--terracotta)', color: '#fff',
+                background: 'var(--honey)', color: '#17272D',
                 fontSize: 10, fontWeight: 700, padding: '2px 6px',
                 borderRadius: 999,
               }}>{room.photos.length}</div>
@@ -1493,7 +1879,7 @@ function HousingScreen({ state, setState, onBack, onAsk }) {
                   borderRadius: 12, overflow: 'hidden',
                   background: 'var(--sand)',
                 }}>
-                  <img src={url} alt={`${activeRoom.label} ${i}`} style={{
+                  <PrivatePhoto value={url} alt={`${activeRoom.label} ${i}`} style={{
                     width: '100%', height: '100%', objectFit: 'cover',
                   }} />
                   <button
@@ -1564,6 +1950,7 @@ function MemoryScreen({ state, setState, onBack }) {
   const lastTimes = state.memories?.lastTimes || [];
   const goodbyes = state.memories?.goodbyes || [];
   const photos = state.memories?.photos || [];
+  const photoValues = React.useMemo(() => photos.map(photo => photo.url), [photos]);
   const ltDone = lastTimes.filter(m => m.done).length;
   const gbDone = goodbyes.filter(g => g.done).length;
   const [uploading, setUploading] = React.useState(false);
@@ -1666,7 +2053,7 @@ function MemoryScreen({ state, setState, onBack }) {
             >{showPhotos ? 'Collapse ↑' : 'Animate grid ↓'}</button>
           </div>
           {showPhotos ? (
-            <MemoryPhotoGrid images={photos.map(p => p.url)} />
+            <PrivateMemoryPhotoGrid values={photoValues} />
           ) : (
             <div style={{
               display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(95px, 1fr))', gap: 6,
@@ -1682,7 +2069,7 @@ function MemoryScreen({ state, setState, onBack }) {
                   onMouseEnter={e => e.currentTarget.style.opacity = '0.85'}
                   onMouseLeave={e => e.currentTarget.style.opacity = '1'}
                 >
-                  <img src={p.url} alt={p.caption || 'Memory'} style={{
+                  <PrivatePhoto value={p.url} alt={p.caption || 'Memory'} style={{
                     width: '100%', height: '100%', objectFit: 'cover',
                   }} />
                 </div>
@@ -1743,7 +2130,7 @@ function MemoryScreen({ state, setState, onBack }) {
       )}
 
       {/* One last time */}
-      <div style={{ marginBottom: 20, padding: '18px 20px', background: 'linear-gradient(135deg, var(--gold)20, var(--terracotta)15)', borderRadius: 20, border: '1px solid var(--line)' }}>
+      <div style={{ marginBottom: 20, padding: '18px 20px', background: 'linear-gradient(135deg, color-mix(in srgb, var(--honey) 20%, var(--white)), color-mix(in srgb, var(--blue) 15%, var(--white)))', borderRadius: 20, border: '1px solid var(--line)' }}>
         <div style={{ fontSize: 24, marginBottom: 8 }}>🌅</div>
         <div style={{ fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif', fontSize: 16, fontWeight: 700, marginBottom: 4 }}>One last time</div>
         <div style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.5 }}>
@@ -1860,7 +2247,7 @@ function HabitsScreen({ state, setState, onBack }) {
     >
       {/* Streak summary */}
       <Card padding="18px" style={{
-        background: 'linear-gradient(135deg, var(--teal) 0%, #1e524f 100%)',
+        background: 'linear-gradient(135deg, var(--blue-ink) 0%, #2D829F 100%)',
         color: '#fff', border: 'none', marginBottom: 16,
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -1983,9 +2370,9 @@ function ContactsScreen({ state, setState, onBack }) {
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
               <div style={{
                 width: 44, height: 44, borderRadius: '50%', flexShrink: 0,
-                background: 'linear-gradient(135deg, var(--teal), var(--gold))',
+                background: 'linear-gradient(135deg, var(--blue), var(--honey))',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: '#fff', fontSize: 18, fontWeight: 700, fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif',
+                color: '#17272D', fontSize: 18, fontWeight: 700, fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif',
               }}>{c.name.charAt(0)}</div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>

@@ -386,7 +386,7 @@ function MapScreen({ state, setState, onBack }) {
     setHuveLoading(true);
     setHuveReply('');
     try {
-      const reply = await window.askHuve(loc.huvePrompt, `Suveda is exploring Abu Dhabi. She's interested in ${loc.name} (${loc.description}).`);
+      const reply = await window.askHuve(loc.huvePrompt, `The user is exploring Abu Dhabi and is interested in ${loc.name} (${loc.description}).`);
       setHuveReply(reply);
     } catch {
       setHuveReply('Huve\'s having a moment — try again in a sec! 🌵');
@@ -425,7 +425,7 @@ function MapScreen({ state, setState, onBack }) {
       {!selected && (
         <div style={{
           padding: '16px 18px', borderRadius: 20, marginBottom: 14,
-          background: 'linear-gradient(135deg, var(--gold)25, var(--terracotta)15)',
+          background: 'linear-gradient(135deg, color-mix(in srgb, var(--honey) 25%, var(--white)), color-mix(in srgb, var(--blue) 18%, var(--white)))',
           border: '1px solid var(--line)',
         }}>
           <div style={{ fontSize: 24, marginBottom: 6 }}>🌵</div>
@@ -583,7 +583,7 @@ function MapScreen({ state, setState, onBack }) {
                 color: huveLoading ? 'var(--muted)' : '#fff',
                 boxShadow: huveLoading
                   ? 'none'
-                  : '0 4px 12px rgba(196,113,74,0.3)',
+                  : '0 4px 12px rgba(45,114,139,0.3)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
               }}
             >

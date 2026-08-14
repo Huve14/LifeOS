@@ -423,7 +423,7 @@ function RecorderSheet({ open, onClose }) {
           }}>
             <span style={{
               width: 9, height: 9, borderRadius: '50%',
-              background: 'var(--terracotta)',
+              background: '#A84242',
               animation: 'fade-in 0.8s ease-in-out infinite alternate',
             }} />
             {api.time.formatDuration(elapsed)}
@@ -510,7 +510,7 @@ function RecorderSheet({ open, onClose }) {
               disabled={!canStop}
               style={{
                 width: 76, height: 76, borderRadius: '50%',
-                background: canStop ? 'var(--terracotta)' : 'var(--line)',
+                background: canStop ? '#A84242' : 'var(--line)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 boxShadow: 'var(--shadow-lg)',
                 cursor: canStop ? 'pointer' : 'not-allowed',
@@ -535,7 +535,7 @@ function RecorderSheet({ open, onClose }) {
             >
               <span style={{
                 width: 54, height: 54, borderRadius: '50%',
-                background: 'var(--terracotta)',
+                background: '#A84242',
               }} />
             </button>
           )}
@@ -694,7 +694,7 @@ function PosterThumb({ path, unwatched }) {
         <span style={{
           position: 'absolute', top: 6, right: 6,
           width: 10, height: 10, borderRadius: '50%',
-          background: 'var(--terracotta)',
+          background: 'var(--honey)',
           border: '2px solid #fff',
         }} />
       )}

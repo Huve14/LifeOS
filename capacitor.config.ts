@@ -8,12 +8,12 @@ import type { CapacitorConfig } from '@capacitor/cli';
  */
 const config: CapacitorConfig = {
   appId: 'app.lifeos.suveda',
-  appName: 'LifeOS',
+  appName: 'Life OS',
   webDir: 'dist',
 
   ios: {
     // Matches the app background so there is no white flash on launch.
-    backgroundColor: '#FAF7F2',
+    backgroundColor: '#E6F2F4',
     // The app already handles env(safe-area-inset-*) throughout.
     contentInset: 'never',
     limitsNavigationsToAppBoundDomains: false,
@@ -22,7 +22,7 @@ const config: CapacitorConfig = {
   plugins: {
     SplashScreen: {
       launchShowDuration: 600,
-      backgroundColor: '#FAF7F2',
+      backgroundColor: '#E6F2F4',
       showSpinner: false,
       launchAutoHide: false,
     },

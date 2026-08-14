@@ -10,8 +10,8 @@
 // Usage (in an HTML file that loads React + Babel):
 //
 //   const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
-//     "primaryColor": "#D97757",
-//     "palette": ["#D97757", "#29261b", "#f6f4ef"],
+//     "primaryColor": "#F6D110",
+//     "palette": ["#F6D110", "#81CEEB", "#E6F2F4"],
 //     "fontSize": 16,
 //     "density": "regular",
 //     "dark": false
@@ -31,11 +31,11 @@
 //                        onChange={(v) => setTweak('density', v)} />
 //           <TweakSection label="Theme" />
 //           <TweakColor  label="Primary" value={t.primaryColor}
-//                        options={['#D97757', '#2A6FDB', '#1F8A5B', '#7A5AE0']}
+//                        options={['#F6D110', '#FFF9C7', '#E6F2F4', '#81CEEB']}
 //                        onChange={(v) => setTweak('primaryColor', v)} />
 //           <TweakColor  label="Palette" value={t.palette}
-//                        options={[['#D97757', '#29261b', '#f6f4ef'],
-//                                  ['#475569', '#0f172a', '#f1f5f9']]}
+//                        options={[['#F6D110', '#FFF9C7', '#E6F2F4', '#81CEEB'],
+//                                  ['#17627E', '#17272D', '#E6F2F4']]}
 //                        onChange={(v) => setTweak('palette', v)} />
 //           <TweakToggle label="Dark mode" value={t.dark}
 //                        onChange={(v) => setTweak('dark', v)} />
@@ -50,7 +50,7 @@ const __TWEAKS_STYLE = `
   .twk-panel{position:fixed;right:16px;bottom:16px;z-index:2147483646;width:280px;
     max-height:calc(100vh - 32px);display:flex;flex-direction:column;
     transform:scale(var(--dc-inv-zoom,1));transform-origin:bottom right;
-    background:rgba(250,249,247,.78);color:#29261b;
+    background:rgba(230,242,244,.84);color:#17272D;
     -webkit-backdrop-filter:blur(24px) saturate(160%);backdrop-filter:blur(24px) saturate(160%);
     border:.5px solid rgba(255,255,255,.6);border-radius:14px;
     box-shadow:0 1px 0 rgba(255,255,255,.5) inset,0 12px 40px rgba(0,0,0,.18);
@@ -58,9 +58,9 @@ const __TWEAKS_STYLE = `
   .twk-hd{display:flex;align-items:center;justify-content:space-between;
     padding:10px 8px 10px 14px;cursor:move;user-select:none}
   .twk-hd b{font-size:12px;font-weight:600;letter-spacing:.01em}
-  .twk-x{appearance:none;border:0;background:transparent;color:rgba(41,38,27,.55);
+  .twk-x{appearance:none;border:0;background:transparent;color:rgba(23,39,45,.55);
     width:22px;height:22px;border-radius:6px;cursor:default;font-size:13px;line-height:1}
-  .twk-x:hover{background:rgba(0,0,0,.06);color:#29261b}
+  .twk-x:hover{background:rgba(129,206,235,.18);color:#17272D}
   .twk-body{padding:2px 14px 14px;display:flex;flex-direction:column;gap:10px;
     overflow-y:auto;overflow-x:hidden;min-height:0;
     scrollbar-width:thin;scrollbar-color:rgba(0,0,0,.15) transparent}
@@ -73,12 +73,12 @@ const __TWEAKS_STYLE = `
   .twk-row{display:flex;flex-direction:column;gap:5px}
   .twk-row-h{flex-direction:row;align-items:center;justify-content:space-between;gap:10px}
   .twk-lbl{display:flex;justify-content:space-between;align-items:baseline;
-    color:rgba(41,38,27,.72)}
+    color:rgba(23,39,45,.72)}
   .twk-lbl>span:first-child{font-weight:500}
-  .twk-val{color:rgba(41,38,27,.5);font-variant-numeric:tabular-nums}
+  .twk-val{color:rgba(23,39,45,.5);font-variant-numeric:tabular-nums}
 
   .twk-sect{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
-    color:rgba(41,38,27,.45);padding:10px 0 0}
+    color:rgba(23,39,45,.45);padding:10px 0 0}
   .twk-sect:first-child{padding-top:0}
 
   .twk-field{appearance:none;width:100%;height:26px;padding:0 8px;
@@ -110,25 +110,25 @@ const __TWEAKS_STYLE = `
 
   .twk-toggle{position:relative;width:32px;height:18px;border:0;border-radius:999px;
     background:rgba(0,0,0,.15);transition:background .15s;cursor:default;padding:0}
-  .twk-toggle[data-on="1"]{background:#34c759}
+  .twk-toggle[data-on="1"]{background:#81CEEB}
   .twk-toggle i{position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;
     background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform .15s}
   .twk-toggle[data-on="1"] i{transform:translateX(14px)}
 
   .twk-num{display:flex;align-items:center;height:26px;padding:0 0 0 8px;
     border:.5px solid rgba(0,0,0,.1);border-radius:7px;background:rgba(255,255,255,.6)}
-  .twk-num-lbl{font-weight:500;color:rgba(41,38,27,.6);cursor:ew-resize;
+  .twk-num-lbl{font-weight:500;color:rgba(23,39,45,.6);cursor:ew-resize;
     user-select:none;padding-right:8px}
   .twk-num input{flex:1;min-width:0;height:100%;border:0;background:transparent;
     font:inherit;font-variant-numeric:tabular-nums;text-align:right;padding:0 8px 0 0;
     outline:none;color:inherit;-moz-appearance:textfield}
   .twk-num input::-webkit-inner-spin-button,.twk-num input::-webkit-outer-spin-button{
     -webkit-appearance:none;margin:0}
-  .twk-num-unit{padding-right:8px;color:rgba(41,38,27,.45)}
+  .twk-num-unit{padding-right:8px;color:rgba(23,39,45,.45)}
 
   .twk-btn{appearance:none;height:26px;padding:0 12px;border:0;border-radius:7px;
-    background:rgba(0,0,0,.78);color:#fff;font:inherit;font-weight:500;cursor:default}
-  .twk-btn:hover{background:rgba(0,0,0,.88)}
+    background:#17627E;color:#fff;font:inherit;font-weight:500;cursor:default}
+  .twk-btn:hover{background:#12536C}
   .twk-btn.secondary{background:rgba(0,0,0,.06);color:inherit}
   .twk-btn.secondary:hover{background:rgba(0,0,0,.1)}
 

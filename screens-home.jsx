@@ -1,4 +1,8 @@
-// screens-home.jsx — Home/Dashboard, Onboarding, AI sheet
+// screens-home.jsx — Home/Dashboard, written journal, Onboarding, AI sheet
+
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+
+const SolarGravityHero = React.lazy(() => import('./src/components/ui/solar-gravity-hero.tsx'));
 
 // ---------- Helpers ----------
 function daysUntil(dateStr) {
@@ -70,10 +74,10 @@ const MODULES = [
 // ---------- Onboarding (with embedded login) ----------
 function Onboarding({ onDone, initialDate, user }) {
   const [step, setStep] = React.useState(0);
-  const [date, setDate] = React.useState(initialDate);
+  const date = initialDate;
 
   // Auth state
-  const [authMode, setAuthMode] = React.useState('name');
+  const [authMode, setAuthMode] = React.useState('signin');
   const [authName, setAuthName] = React.useState('');
   const [authEmail, setAuthEmail] = React.useState('');
   const [authPassword, setAuthPassword] = React.useState('');
@@ -95,18 +99,12 @@ function Onboarding({ onDone, initialDate, user }) {
     const { signIn, signUp } = window.__suvedaAuth || {};
     if (!signIn || !signUp) { setAuthError('Auth not ready'); setAuthLoading(false); return; }
     try {
-      if (authMode === 'name') {
-        const n = authName.trim() || 'there';
-        const autoEmail = `${n.toLowerCase().replace(/\s+/g, '.')}@suveda.app`;
-        const { error: siErr } = await signIn(autoEmail, authPassword);
-        if (siErr) {
-          const { error: suErr } = await signUp(autoEmail, authPassword, n);
-          if (suErr) {
-            setAuthError(suErr.message);
-          }
-        }
+      if (authMode === 'signup') {
+        const { data, error: suErr } = await signUp(authEmail.trim(), authPassword, authName.trim());
+        if (suErr) setAuthError(suErr.message);
+        else if (!data?.session) setAuthError('Account created. Check your email to confirm it, then sign in.');
       } else {
-        const { error: siErr } = await signIn(authEmail, authPassword);
+        const { error: siErr } = await signIn(authEmail.trim(), authPassword);
         if (siErr) setAuthError(siErr.message);
       }
     } catch (err) {
@@ -119,79 +117,19 @@ function Onboarding({ onDone, initialDate, user }) {
     {
       visual: 'globe',
       title: 'Welcome',
-      body: 'Your warm, slightly bossy companion for the big move to Abu Dhabi. We\'ll go room by room, list by list — together.',
+      body: 'Your warm, practical companion for everyday life in Abu Dhabi. Keep local answers, plans, people, and private documents together.',
       cta: 'Let\'s do this',
     },
     {
       emoji: '📍',
-      title: 'Where are you headed?',
-      body: 'I\'ve set your destination already. Sandy mornings, palm shadows, late-night shawarma — you\'re going to love it.',
+      title: 'Your UAE home base',
+      body: 'Save the places you rely on, handle life admin, and keep your connection home one tap away.',
       cta: 'Continue',
     },
     {
-      emoji: '📅',
-      title: 'When do you fly?',
-      body: 'Pick a move date so I can build your timeline and remind you about the right things at the right time.',
-      cta: 'Set my date',
-      content: (
-        <div style={{
-          marginTop: 18,
-          background: 'var(--white)',
-          borderRadius: 20,
-          padding: '22px 20px',
-          boxShadow: 'var(--shadow-lg)',
-          border: '1px solid var(--line)',
-          maxWidth: 320,
-          margin: '18px auto 0',
-        }}>
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 12,
-            padding: '12px 14px',
-            border: '1.5px solid var(--line)',
-            borderRadius: 14,
-            background: 'var(--cream)',
-          }}>
-            <span style={{ fontSize: 22 }}>📅</span>
-            <input
-              type="date"
-              value={date}
-              onChange={e => setDate(e.target.value)}
-              style={{
-                flex: 1,
-                border: 'none',
-                background: 'transparent',
-                fontSize: 16,
-                fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif',
-                fontWeight: 600,
-                color: 'var(--dark)',
-                outline: 'none',
-                minWidth: 0,
-              }}
-            />
-          </div>
-          {date && (
-            <div style={{
-              marginTop: 14,
-              paddingTop: 14,
-              borderTop: '1px solid var(--line)',
-              display: 'flex', justifyContent: 'space-between',
-              alignItems: 'center',
-            }}>
-              <div style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 500 }}>
-                {Math.ceil((new Date(date + 'T00:00:00') - new Date()) / (1000 * 60 * 60 * 24))} days away
-              </div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--terracotta)' }}>
-                {new Date(date + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
-              </div>
-            </div>
-          )}
-        </div>
-      ),
-    },
-    {
       emoji: '✨',
-      title: 'You are all set',
-      body: '6 lists, 1 timeline, 0 stress. I\'ll check in with you daily. Tap me anytime — bottom right corner.',
+      title: 'Your day, all together',
+      body: 'Start with today\'s rhythm, open your UAE map, upload a document, or call home. Huve is always in the bottom corner when you need help.',
       cta: 'Open my dashboard',
     },
   ];
@@ -199,65 +137,78 @@ function Onboarding({ onDone, initialDate, user }) {
   const s = steps[step];
 
   return (
-    <div className="fade-in" style={{
-      height: '100%',
+    <div className={`onboarding-screen fade-in${!user ? ' onboarding-auth-screen' : ''}`} style={{
       background: 'linear-gradient(180deg, var(--cream) 0%, var(--sand) 100%)',
-      padding: '60px 28px 100px',
       display: 'flex', flexDirection: 'column',
     }}>
       {/* progress dots */}
-      <div style={{ display: 'flex', gap: 6, justifyContent: 'center', marginBottom: 36 }}>
-        {steps.map((_, i) => (
-          <div key={i} style={{
-            height: 4, width: i === step ? 22 : 6,
-            background: i <= step ? 'var(--terracotta)' : 'var(--line)',
-            borderRadius: 2,
-          }} />
-        ))}
-      </div>
+      {user && (
+        <div className="onboarding-progress" style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
+          {steps.map((_, i) => (
+            <div key={i} style={{
+              height: 4, width: i === step ? 22 : 6,
+              background: i <= step ? 'var(--terracotta)' : 'var(--line)',
+              borderRadius: 2,
+            }} />
+          ))}
+        </div>
+      )}
 
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', textAlign: 'center' }}>
-        <div className="pop-in" key={step} style={{ marginBottom: 26, display: 'flex', justifyContent: 'center' }}>
-          {s.visual === 'globe'
-            ? <SpinningGlobe />
-            : <div style={{ fontSize: 88 }}>{s.emoji}</div>}
+      <div className={`onboarding-content${!user ? ' onboarding-auth-content' : ''}`} style={{ flex: user ? 1 : '0 0 auto', display: 'flex', flexDirection: 'column', textAlign: 'center' }}>
+        <div className="onboarding-visual pop-in" key={step} style={{ display: 'flex', justifyContent: 'center' }} aria-hidden="true">
+          <div className="onboarding-visual-scale">
+            {s.visual === 'globe'
+              ? <SpinningGlobe />
+              : <div style={{ fontSize: 88 }}>{s.emoji}</div>}
+          </div>
         </div>
 
         {step === 0 && !user ? (
           <>
-            <h1 style={{ fontSize: 30, marginBottom: 14, lineHeight: 1.1 }}>Welcome</h1>
-            <p style={{ fontSize: 15, color: 'var(--muted)', lineHeight: 1.6, maxWidth: 320, margin: '0 auto 20px' }}>
-              Your warm companion for the move to Abu Dhabi. Enter your name to get started.
-            </p>
+            <div className="onboarding-auth-intro">
+              <div className="onboarding-auth-eyebrow">Life OS</div>
+              <h1>Welcome</h1>
+              <p>
+                Your everyday companion for life in Abu Dhabi. Sign in to continue or register your private account.
+              </p>
+            </div>
             {/* Auth form card */}
-            <div style={{
+            <div className="onboarding-auth-card" style={{
               background: 'var(--white)', borderRadius: 20, padding: '22px 20px',
               boxShadow: 'var(--shadow-lg)', border: '1px solid var(--line)',
-              maxWidth: 360, width: '100%', margin: '0 auto',
+              maxWidth: 420, width: '100%', margin: '0 auto',
             }}>
+              <div className="onboarding-auth-tabs" role="tablist" aria-label="Account access">
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={authMode === 'signin'}
+                  className={authMode === 'signin' ? 'is-active' : ''}
+                  onClick={() => { setAuthMode('signin'); setAuthError(''); }}
+                >
+                  Sign in
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={authMode === 'signup'}
+                  className={authMode === 'signup' ? 'is-active' : ''}
+                  onClick={() => { setAuthMode('signup'); setAuthError(''); }}
+                >
+                  Register
+                </button>
+              </div>
+              <div className="onboarding-auth-heading">
+                <h2>{authMode === 'signup' ? 'Create your account' : 'Welcome back'}</h2>
+                <p>{authMode === 'signup' ? 'Your private Life OS space starts here.' : 'Enter your details to open your Life OS.'}</p>
+              </div>
               <form onSubmit={handleAuth}>
-                {authMode === 'name' ? (
+                {authMode === 'signup' && (
                   <div style={{ marginBottom: 14 }}>
                     <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--muted)', marginBottom: 5, textAlign: 'left' }}>Name</label>
                     <input
                       type="text" value={authName} onChange={e => setAuthName(e.target.value)}
-                      placeholder="Your name" required autoFocus
-                      style={{
-                        width: '100%', padding: '12px 14px',
-                        border: '1px solid var(--line)', borderRadius: 12,
-                        fontSize: 15, fontFamily: 'inherit',
-                        background: 'var(--cream)', color: 'var(--dark)', outline: 'none',
-                      }}
-                      onFocus={e => { e.target.style.borderColor = 'var(--terracotta)'; }}
-                      onBlur={e => { e.target.style.borderColor = 'var(--line)'; }}
-                    />
-                  </div>
-                ) : (
-                  <div style={{ marginBottom: 14 }}>
-                    <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--muted)', marginBottom: 5, textAlign: 'left' }}>Email</label>
-                    <input
-                      type="email" value={authEmail} onChange={e => setAuthEmail(e.target.value)}
-                      placeholder="you@example.com" required
+                      placeholder="Your name" required autoComplete="name"
                       style={{
                         width: '100%', padding: '12px 14px',
                         border: '1px solid var(--line)', borderRadius: 12,
@@ -270,11 +221,28 @@ function Onboarding({ onDone, initialDate, user }) {
                   </div>
                 )}
 
+                <div style={{ marginBottom: 14 }}>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--muted)', marginBottom: 5, textAlign: 'left' }}>Email</label>
+                  <input
+                    type="email" value={authEmail} onChange={e => setAuthEmail(e.target.value)}
+                    placeholder="you@example.com" required autoComplete="email"
+                    style={{
+                      width: '100%', padding: '12px 14px',
+                      border: '1px solid var(--line)', borderRadius: 12,
+                      fontSize: 15, fontFamily: 'inherit',
+                      background: 'var(--cream)', color: 'var(--dark)', outline: 'none',
+                    }}
+                    onFocus={e => { e.target.style.borderColor = 'var(--terracotta)'; }}
+                    onBlur={e => { e.target.style.borderColor = 'var(--line)'; }}
+                  />
+                </div>
+
                 <div style={{ marginBottom: 16 }}>
                   <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--muted)', marginBottom: 5, textAlign: 'left' }}>Password</label>
                   <input
                     type="password" value={authPassword} onChange={e => setAuthPassword(e.target.value)}
                     placeholder="••••••••" required minLength={6}
+                    autoComplete={authMode === 'signup' ? 'new-password' : 'current-password'}
                     style={{
                       width: '100%', padding: '12px 14px',
                       border: '1px solid var(--line)', borderRadius: 12,
@@ -287,7 +255,7 @@ function Onboarding({ onDone, initialDate, user }) {
                 </div>
 
                 {authError && (
-                  <div style={{ background: '#fef2f2', color: '#b91c1c', padding: '10px 14px', borderRadius: 12, fontSize: 13, fontWeight: 500, marginBottom: 14 }}>
+                  <div role="status" aria-live="polite" style={{ background: '#fef2f2', color: '#b91c1c', padding: '10px 14px', borderRadius: 12, fontSize: 13, fontWeight: 500, marginBottom: 14 }}>
                     {authError}
                   </div>
                 )}
@@ -297,29 +265,18 @@ function Onboarding({ onDone, initialDate, user }) {
                   style={{
                     width: '100%', padding: '14px',
                     borderRadius: 14, border: 'none',
-                    background: authLoading ? '#aaa' : 'linear-gradient(135deg, var(--terracotta) 0%, var(--gold) 100%)',
-                    color: '#fff', fontSize: 16, fontWeight: 700,
+                    background: authLoading ? '#aaa' : 'linear-gradient(135deg, var(--honey) 0%, var(--butter) 100%)',
+                    color: '#17272D', fontSize: 16, fontWeight: 700,
                     fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif', cursor: authLoading ? 'not-allowed' : 'pointer',
                     opacity: authLoading ? 0.7 : 1,
-                    boxShadow: '0 4px 14px -4px rgba(196, 113, 74, 0.4)',
+                    boxShadow: '0 4px 14px -4px rgba(45, 114, 139, 0.4)',
                   }}
                 >
-                  {authLoading ? 'Processing…' : 'Start'}
+                  {authLoading ? 'Processing…' : authMode === 'signup' ? 'Create account' : 'Sign in'}
                 </button>
 
-                <div style={{ textAlign: 'center', marginTop: 12 }}>
-                  <button
-                    type="button"
-                    onClick={() => { setAuthMode(m => m === 'name' ? 'email' : 'name'); setAuthError(''); }}
-                    style={{ background: 'none', border: 'none', fontSize: 13, color: 'var(--muted)', fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}
-                  >
-                    {authMode === 'name'
-                      ? <>Use email instead <span style={{color:'var(--terracotta)',fontWeight:700}}>→</span></>
-                      : <>Use name instead <span style={{color:'var(--terracotta)',fontWeight:700}}>→</span></>
-                    }
-                  </button>
-                </div>
               </form>
+              <p className="onboarding-auth-privacy">🔒 Your account data is private and isolated from other users.</p>
             </div>
           </>
         ) : (
@@ -331,8 +288,9 @@ function Onboarding({ onDone, initialDate, user }) {
         )}
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 24 }}>
-          {user && step === 0 && (
+      {user && (
+        <div className="onboarding-actions" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {step === 0 && (
             <Button variant="primary" size="lg" full onClick={() => setStep(1)}>
               Let's do this
             </Button>
@@ -357,19 +315,20 @@ function Onboarding({ onDone, initialDate, user }) {
             </button>
           )}
         </div>
+      )}
     </div>
   );
 }
 
 // ---------- Countdown ----------
-function CountdownHero({ moveDate, layout, total, done }) {
+function CountdownHero({ moveDate, layout, total, done, destination }) {
   const days = daysUntil(moveDate);
   const pct = total > 0 ? Math.round((done/total) * 100) : 0;
 
   if (layout === 'cards') {
     // Compact card style
     return (
-      <Card style={{ background: 'linear-gradient(135deg, var(--terracotta) 0%, #B05A3A 100%)', color: '#fff', border: 'none' }} padding="20px">
+      <Card style={{ background: 'linear-gradient(135deg, var(--honey) 0%, var(--butter) 100%)', color: '#17272D', border: 'none' }} padding="20px">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div>
             <div style={{ fontSize: 11, opacity: 0.85, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Wheels up in</div>
@@ -406,7 +365,7 @@ function CountdownHero({ moveDate, layout, total, done }) {
   return (
     <Card padding="22px" style={{ background: 'var(--white)' }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-        <span style={{ fontSize: 13, color: 'var(--muted)', fontWeight: 600 }}>📍 {state?.destination || 'Set your destination'}</span>
+        <span style={{ fontSize: 13, color: 'var(--muted)', fontWeight: 600 }}>📍 {destination || 'Set your destination'}</span>
       </div>
       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 8 }}>
         <div>
@@ -509,347 +468,922 @@ function ModuleCard({ module, progress, onClick, progressStyle, layout }) {
   );
 }
 
-// ---------- Daily Journal ----------
-function DailyJournal({ state, setState }) {
-  const today = new Date().toISOString().slice(0, 10);
-  const entries = (state.journal || []).filter(e => e.date === today);
-  const allEntries = state.journal || [];
-  const [text, setText] = React.useState('');
-  const [mood, setMood] = React.useState(3);
+// ---------- Written Journal ----------
+const JOURNAL_MOODS = ['😔', '🙁', '😐', '🙂', '😊'];
+const JOURNAL_ITEM_HEIGHT = 52;
+const JOURNAL_CHARACTER_ANIMATION_LIMIT = 360;
 
-  function addEntry() {
-    if (!text.trim()) return;
-    setState(s => ({
-      ...s,
-      journal: [...(s.journal || []), { id: uid(), date: today, text: text.trim(), mood }],
-    }));
-    setText('');
+function journalDateParts(dateValue) {
+  const date = new Date(`${dateValue}T12:00:00`);
+  return {
+    day: Number.isNaN(date.getTime()) ? '--' : String(date.getDate()).padStart(2, '0'),
+    month: Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString('en-GB', { month: 'long' }),
+    year: Number.isNaN(date.getTime()) ? '' : date.getFullYear(),
+    weekday: Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString('en-GB', { weekday: 'long' }),
+  };
+}
+
+function JournalAnimatedText({ text, direction, reducedMotion }) {
+  let globalIndex = 0;
+  const paragraphs = text.split(/\n+/).map(value => value.trim()).filter(Boolean);
+
+  if (reducedMotion) {
+    return <div className="journal-entry-copy">{paragraphs.map((paragraph, index) => <p key={index}>{paragraph}</p>)}</div>;
   }
 
   return (
-    <Card padding="16px" style={{ marginTop: 14 }}>
-      <SectionHeader title="Daily Journal" icon="📓" />
-      {entries.length > 0 && (
-        <div style={{ marginBottom: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {entries.map(e => (
-            <div key={e.id} style={{ padding: '10px 12px', background: 'var(--sand)', borderRadius: 12 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                <span style={{ fontSize: 16 }}>{['😔','🙁','😐','🙂','😊'][e.mood - 1]}</span>
-                <button
-                  onClick={() => setState(s => ({...s, journal: (s.journal||[]).filter(x => x.id !== e.id)}))}
-                  style={{ fontSize: 12, padding: '2px', border: 'none', background: 'none', cursor: 'pointer', color: 'var(--muted)', fontFamily: 'inherit', opacity: 0.4 }}
-                >✕</button>
-              </div>
-              <div style={{ fontSize: 13, lineHeight: 1.4 }}>{e.text}</div>
-            </div>
-          ))}
+    <div className="journal-entry-copy">
+      {paragraphs.map((paragraph, paragraphIndex) => (
+        <p key={paragraphIndex}>
+          {paragraph.split(/(\s+)/).map((segment, segmentIndex) => {
+            if (/\s+/.test(segment)) return <span key={segmentIndex} className="journal-space">{segment}</span>;
+            if (globalIndex >= JOURNAL_CHARACTER_ANIMATION_LIMIT) {
+              globalIndex += Array.from(segment).length;
+              return <span key={segmentIndex} className="journal-word">{segment}</span>;
+            }
+            return (
+              <span key={segmentIndex} className="journal-word">
+                {Array.from(segment).map((character, characterIndex) => {
+                  const delay = Math.min(globalIndex++ * 0.008, 0.36);
+                  if (globalIndex > JOURNAL_CHARACTER_ANIMATION_LIMIT) return character;
+                  return (
+                    <motion.span
+                      key={`${segmentIndex}-${characterIndex}`}
+                      className="journal-character"
+                      initial={{ y: direction > 0 ? 4 : -4, opacity: 0, filter: 'blur(2px)' }}
+                      animate={{ y: 0, opacity: 1, filter: 'blur(0px)' }}
+                      exit={{ y: direction > 0 ? 4 : -4, opacity: 0, filter: 'blur(2px)' }}
+                      transition={{ type: 'spring', bounce: 0.1, duration: 0.3, delay }}
+                    >
+                      {character}
+                    </motion.span>
+                  );
+                })}
+              </span>
+            );
+          })}
+        </p>
+      ))}
+    </div>
+  );
+}
+
+function JournalNavigation({ entries, currentIndex, onChange, onEdit, onDelete }) {
+  const [direction, setDirection] = React.useState(0);
+  const reducedMotion = useReducedMotion();
+  const currentEntry = entries[currentIndex];
+  const parts = currentEntry ? journalDateParts(currentEntry.date) : null;
+
+  function move(nextIndex) {
+    if (nextIndex < 0 || nextIndex >= entries.length || nextIndex === currentIndex) return;
+    setDirection(nextIndex > currentIndex ? 1 : -1);
+    onChange(nextIndex);
+    void window.__lifeos?.native.tap('light');
+  }
+
+  function handleDragEnd(_, info) {
+    const distance = Math.abs(info.offset.y);
+    const shouldMove = distance > 18 || Math.abs(info.velocity.y) > 220;
+    if (!shouldMove) return;
+    const steps = Math.max(1, Math.round(distance / JOURNAL_ITEM_HEIGHT));
+    move(currentIndex + (info.offset.y < 0 ? steps : -steps));
+  }
+
+  function handleKeyDown(event) {
+    if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      move(currentIndex - 1);
+    }
+    if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+      event.preventDefault();
+      move(currentIndex + 1);
+    }
+  }
+
+  if (!currentEntry) {
+    return (
+      <div className="journal-navigation-card is-empty">
+        <div className="journal-empty-mark" aria-hidden="true">✦</div>
+        <h2>Your journal starts here</h2>
+        <p>Capture one thought, moment, or feeling from today.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="journal-navigation-card" tabIndex="0" onKeyDown={handleKeyDown} aria-label="Journal entry navigation">
+      <aside className="journal-date-rail" aria-label="Journal dates">
+        <div className="journal-rail-fade is-top" />
+        <div className="journal-rail-track-anchor">
+          <motion.div
+            drag="y"
+            dragElastic={0.08}
+            dragConstraints={{
+              top: -(currentIndex * JOURNAL_ITEM_HEIGHT),
+              bottom: (entries.length - 1 - currentIndex) * JOURNAL_ITEM_HEIGHT,
+            }}
+            onDragEnd={handleDragEnd}
+            animate={{ y: -(currentIndex * JOURNAL_ITEM_HEIGHT) }}
+            transition={{ type: 'spring', stiffness: 260, damping: 32, mass: 0.6 }}
+            className="journal-date-track"
+          >
+            {entries.map((entry, index) => {
+              const active = index === currentIndex;
+              const entryDate = journalDateParts(entry.date);
+              return (
+                <motion.button
+                  type="button"
+                  key={entry.id}
+                  onClick={() => move(index)}
+                  animate={{ scale: active ? 1.18 : 1 }}
+                  aria-label={`Open ${entryDate.month} ${entryDate.day}`}
+                  aria-current={active ? 'date' : undefined}
+                  className={active ? 'is-active' : ''}
+                >
+                  {entryDate.day}
+                </motion.button>
+              );
+            })}
+          </motion.div>
         </div>
-      )}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
-        {[1,2,3,4,5].map(m => (
-          <button key={m} onClick={() => setMood(m)} style={{
-            fontSize: 20, padding: '4px 8px', borderRadius: 8, border: mood === m ? '2px solid var(--teal)' : '2px solid transparent',
-            background: 'none', cursor: 'pointer',
-          }}>{['😔','🙁','😐','🙂','😊'][m - 1]}</button>
+        <div className="journal-rail-fade is-bottom" />
+      </aside>
+
+      <section className="journal-entry-panel">
+        <header className="journal-entry-header">
+          <div className="journal-entry-date" aria-label={`${parts.weekday}, ${parts.month} ${parts.day}, ${parts.year}`}>
+            <AnimatePresence mode="popLayout" custom={direction}>
+              <motion.span
+                key={`${parts.month}-${parts.day}-${parts.year}`}
+                initial={{ y: direction > 0 ? 4 : -4, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: direction > 0 ? 4 : -4, opacity: 0 }}
+                transition={{ duration: reducedMotion ? 0 : 0.24, ease: 'easeOut' }}
+              >
+                {parts.month} {parts.day}<small>{parts.year}</small>
+              </motion.span>
+            </AnimatePresence>
+          </div>
+          <div className="journal-entry-navigation">
+            <button type="button" onClick={() => move(currentIndex - 1)} disabled={currentIndex === 0} aria-label="Previous journal entry">
+              <AnimatedIcon name="ChevronLeft" size={19} />
+            </button>
+            <button type="button" onClick={() => move(currentIndex + 1)} disabled={currentIndex === entries.length - 1} aria-label="Next journal entry">
+              <AnimatedIcon name="ChevronRight" size={19} />
+            </button>
+          </div>
+        </header>
+
+        <div className="journal-entry-body">
+          <AnimatePresence mode="popLayout" custom={direction}>
+            <motion.div
+              className="journal-entry-motion"
+              key={currentEntry.id}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: reducedMotion ? 0 : 0.22 }}
+            >
+              <JournalAnimatedText text={currentEntry.text} direction={direction} reducedMotion={reducedMotion} />
+            </motion.div>
+          </AnimatePresence>
+        </div>
+
+        <footer className="journal-entry-footer">
+          <span className="journal-entry-mood" title="Mood for this entry">{JOURNAL_MOODS[currentEntry.mood - 1]}</span>
+          <span>{parts.weekday}</span>
+          <div>
+            <button type="button" onClick={() => onEdit(currentEntry)}><AnimatedIcon name="Pencil" size={15} /> Edit</button>
+            <button type="button" className="is-delete" onClick={() => onDelete(currentEntry)} aria-label="Delete this journal entry"><AnimatedIcon name="Trash2" size={15} /></button>
+          </div>
+        </footer>
+      </section>
+    </div>
+  );
+}
+
+function NotesJournalScreen({ state, setState, onBack }) {
+  const api = window.__lifeos;
+  const entries = React.useMemo(() => api.journal.prepareJournalEntries(state.journal), [api, state.journal]);
+  const [currentId, setCurrentId] = React.useState(() => entries.at(-1)?.id || null);
+  const [editor, setEditor] = React.useState(null);
+  const currentIndex = Math.max(0, entries.findIndex(entry => entry.id === currentId));
+
+  React.useEffect(() => {
+    if (entries.length === 0) {
+      setCurrentId(null);
+      return;
+    }
+    if (!entries.some(entry => entry.id === currentId)) setCurrentId(entries.at(-1).id);
+  }, [currentId, entries]);
+
+  function openNewEntry() {
+    const today = new Date();
+    const localDate = new Date(today.getTime() - today.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
+    setEditor({ id: uid(), date: localDate, text: '', mood: 3, isNew: true });
+  }
+
+  function saveEntry(event) {
+    event.preventDefault();
+    if (!editor?.text.trim()) return;
+    const savedId = editor.id;
+    setState(current => ({
+      ...current,
+      journal: api.journal.saveJournalEntry(current.journal, {
+        id: savedId,
+        date: editor.date,
+        text: editor.text,
+        mood: editor.mood,
+      }),
+    }));
+    setCurrentId(savedId);
+    setEditor(null);
+    void api.native.notifyHaptic('success');
+  }
+
+  function deleteEntry(entry) {
+    if (!window.confirm('Delete this journal entry? This cannot be undone.')) return;
+    setState(current => ({ ...current, journal: api.journal.removeJournalEntry(current.journal, entry.id) }));
+    void api.native.tap('light');
+  }
+
+  return (
+    <ModulePage
+      title="Journal"
+      subtitle={entries.length === 0 ? 'A private place for everyday thoughts' : `${entries.length} ${entries.length === 1 ? 'entry' : 'entries'} · private to your account`}
+      icon="NotebookPen"
+      onBack={onBack}
+      action={<Button size="sm" onClick={openNewEntry} icon="＋">New entry</Button>}
+    >
+      <div className="journal-screen-shell">
+        <JournalNavigation
+          entries={entries}
+          currentIndex={currentIndex}
+          onChange={index => setCurrentId(entries[index]?.id || null)}
+          onEdit={entry => setEditor({ ...entry, isNew: false })}
+          onDelete={deleteEntry}
+        />
+        <p className="journal-privacy-note"><AnimatedIcon name="LockKeyhole" size={14} /> Only you can open these written entries.</p>
+      </div>
+
+      <Modal open={Boolean(editor)} onClose={() => setEditor(null)} title={editor?.isNew ? 'New journal entry' : 'Edit journal entry'}>
+        {editor && (
+          <form className="journal-editor" onSubmit={saveEntry}>
+            <label htmlFor="journal-entry-date">Date</label>
+            <input
+              id="journal-entry-date"
+              type="date"
+              value={editor.date}
+              onChange={event => setEditor(current => ({ ...current, date: event.target.value }))}
+              required
+            />
+            <fieldset>
+              <legend>How did it feel?</legend>
+              <div className="journal-mood-picker">
+                {JOURNAL_MOODS.map((emoji, index) => (
+                  <button
+                    key={emoji}
+                    type="button"
+                    className={editor.mood === index + 1 ? 'is-active' : ''}
+                    onClick={() => setEditor(current => ({ ...current, mood: index + 1 }))}
+                    aria-label={`Mood ${index + 1} of 5`}
+                    aria-pressed={editor.mood === index + 1}
+                  >{emoji}</button>
+                ))}
+              </div>
+            </fieldset>
+            <label htmlFor="journal-entry-text">Your entry</label>
+            <textarea
+              id="journal-entry-text"
+              value={editor.text}
+              onChange={event => setEditor(current => ({ ...current, text: event.target.value }))}
+              placeholder="What do you want to remember about today?"
+              maxLength="4000"
+              autoFocus
+              required
+            />
+            <div className="journal-editor-count">{editor.text.length.toLocaleString()} / 4,000</div>
+            <div className="journal-editor-actions">
+              <Button variant="ghost" onClick={() => setEditor(null)}>Cancel</Button>
+              <Button type="submit" disabled={!editor.text.trim()}>Save entry</Button>
+            </div>
+          </form>
+        )}
+      </Modal>
+    </ModulePage>
+  );
+}
+
+// ---------- Journey home ----------
+function HomeSectionHeader({ eyebrow, title, action }) {
+  return (
+    <div className="home-section-header">
+      <div>
+        {eyebrow && <div className="home-section-eyebrow">{eyebrow}</div>}
+        <h2>{title}</h2>
+      </div>
+      {action}
+    </div>
+  );
+}
+
+function HomeProgress({ value, total, color = 'var(--gold)' }) {
+  const pct = total > 0 ? Math.min(100, Math.round((value / total) * 100)) : 0;
+  return (
+    <div className="home-progress" aria-label={`${pct}% complete`}>
+      <div style={{ width: `${pct}%`, background: color }} />
+    </div>
+  );
+}
+
+function JourneyHero({ model, onOpen }) {
+  const { journey, dailyModeCopy, setupDone, setupTotal, priorities } = model;
+  const pct = setupTotal > 0 ? Math.round((setupDone / setupTotal) * 100) : 0;
+  const next = priorities[0];
+
+  return (
+    <section className="home-journey-hero">
+      <React.Suspense fallback={<div className="home-solar-scene home-solar-scene-loading" aria-hidden="true" />}>
+        <SolarGravityHero />
+      </React.Suspense>
+      <div className="home-hero-content">
+        <div className="home-hero-eyebrow">{journey.eyebrow}</div>
+        <div className="home-hero-time">{journey.timeLabel}</div>
+        <h2>{journey.title}</h2>
+        <p>{dailyModeCopy?.heroLine || journey.description}</p>
+        <button className="home-hero-action" onClick={() => onOpen(next?.module || 'tasks')}>
+          {next ? (dailyModeCopy?.cta || 'Start with what matters') : 'Open your plan'}
+          <span aria-hidden="true">→</span>
+        </button>
+        <div className="home-hero-progress-row">
+          <div>
+            <span>Life admin</span>
+            <strong>{setupTotal > 0 ? `${setupDone}/${setupTotal}` : 'Ready to begin'}</strong>
+          </div>
+          <div className="home-hero-progress-track">
+            <div style={{ width: `${pct}%` }} />
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function DailyModeSelector({ value, onChange }) {
+  const modes = window.__lifeos.home.DAILY_MODES;
+  const active = modes.find(mode => mode.id === value) || modes[0];
+
+  return (
+    <section className="home-mode-card" aria-label="Choose how today should feel">
+      <div className="home-mode-intro">
+        <span className="home-mode-kicker">TODAY'S PACE</span>
+        <strong>How should today feel?</strong>
+        <small>{active.description}</small>
+      </div>
+      <div className="home-mode-options">
+        {modes.map(mode => (
+          <button
+            key={mode.id}
+            className={mode.id === value ? 'is-active' : ''}
+            onClick={() => onChange(mode.id)}
+            aria-pressed={mode.id === value}
+          >
+            <span>{mode.emoji}</span>
+            <span><strong>{mode.label}</strong><small>{mode.shortLabel}</small></span>
+          </button>
         ))}
       </div>
-      <div style={{ display: 'flex', gap: 8 }}>
-        <input
-          value={text}
-          onChange={e => setText(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && addEntry()}
-          placeholder="How was your day?"
-          style={{
-            flex: 1, padding: '10px 12px', border: '1px solid var(--line)',
-            borderRadius: 8, fontSize: 13, fontFamily: 'inherit',
-            background: 'var(--cream)', outline: 'none',
-          }}
-        />
-        <Button size="sm" onClick={addEntry}>Log</Button>
+    </section>
+  );
+}
+
+function PriorityRow({ action, onOpen, onComplete }) {
+  return (
+    <div className="home-priority-row">
+      {action.toggleable ? (
+        <button
+          className="home-priority-check"
+          onClick={() => onComplete(action)}
+          aria-label={`Mark ${action.title} complete`}
+          title="Mark complete"
+        >
+          <span />
+        </button>
+      ) : (
+        <div className="home-priority-link-dot" aria-hidden="true">→</div>
+      )}
+      <button className="home-priority-copy" onClick={() => onOpen(action.module)}>
+        <span className="home-priority-emoji" aria-hidden="true">{action.emoji}</span>
+        <span className="home-priority-text">
+          <span className="home-priority-eyebrow">{action.eyebrow}</span>
+          <strong>{action.title}</strong>
+          <small>{action.detail}</small>
+        </span>
+        <span className="home-priority-arrow" aria-hidden="true">›</span>
+      </button>
+    </div>
+  );
+}
+
+function SetupMetric({ metric, onOpen }) {
+  const pct = metric.total > 0 ? Math.round((metric.done / metric.total) * 100) : 0;
+  return (
+    <button className="home-setup-metric" onClick={() => onOpen(metric.module)}>
+      <div className="home-metric-topline">
+        <span>{metric.label}</span>
+        <strong>{metric.total > 0 ? `${metric.done}/${metric.total}` : '—'}</strong>
+      </div>
+      <HomeProgress value={metric.done} total={metric.total} color={metric.color} />
+      <small>{metric.total > 0 ? `${pct}% complete` : 'Set it up'}</small>
+    </button>
+  );
+}
+
+function DailyRhythm({ habits, today, setState, onOpen }) {
+  const done = habits.filter(habit => habit.lastDone === today).length;
+
+  function toggleHabit(id) {
+    setState(s => ({
+      ...s,
+      habits: (s.habits || []).map(habit => {
+        if (habit.id !== id) return habit;
+        const alreadyDone = habit.lastDone === today;
+        return {
+          ...habit,
+          lastDone: alreadyDone ? '' : today,
+          streak: Math.max(0, (habit.streak || 0) + (alreadyDone ? -1 : 1)),
+        };
+      }),
+    }));
+    void window.__lifeos?.native.tap('light');
+  }
+
+  return (
+    <Card padding="18px" style={{ height: '100%' }}>
+      <HomeSectionHeader
+        eyebrow="Your daily reset"
+        title="Feel like yourself"
+        action={<button className="home-text-button" onClick={() => onOpen('habits')}>{done}/{habits.length} today</button>}
+      />
+      <p className="home-card-description">A new country asks a lot of you. Keep the basics kind and easy.</p>
+      <div className="home-habit-list">
+        {habits.slice(0, 4).map(habit => {
+          const isDone = habit.lastDone === today;
+          return (
+            <button
+              key={habit.id}
+              className={`home-habit-chip${isDone ? ' is-done' : ''}`}
+              onClick={() => toggleHabit(habit.id)}
+              aria-pressed={isDone}
+            >
+              <span>{habit.emoji || '✨'}</span>
+              <span>{habit.name}</span>
+              <span className="home-habit-check">{isDone ? '✓' : ''}</span>
+            </button>
+          );
+        })}
+      </div>
+      {habits.length === 0 && (
+        <button className="home-empty-action" onClick={() => onOpen('habits')}>Create a grounding routine →</button>
+      )}
+    </Card>
+  );
+}
+
+function LoveNoteCard({ whyNote, whyNote2, onWhyChange, onWhy2Change }) {
+  const [editing, setEditing] = React.useState(false);
+  const hasNote = Boolean(whyNote.trim() || whyNote2.trim());
+
+  return (
+    <Card padding="20px" style={{
+      height: '100%',
+      background: 'linear-gradient(145deg, color-mix(in srgb, var(--gold) 9%, var(--white)) 0%, var(--white) 72%)',
+      border: '1px solid rgba(246, 209, 16, 0.46)',
+    }}>
+      <HomeSectionHeader
+        eyebrow="Keep this close"
+        title="A note for you"
+        action={<button className="home-text-button" onClick={() => setEditing(value => !value)}>{editing ? 'Done' : 'Edit'}</button>}
+      />
+      {editing ? (
+        <div className="home-note-editor">
+          <textarea value={whyNote} onChange={event => onWhyChange(event.target.value)} placeholder="Write something steady for yourself…" rows={3} />
+          <textarea value={whyNote2} onChange={event => onWhy2Change(event.target.value)} placeholder="Add another thought…" rows={2} />
+        </div>
+      ) : hasNote ? (
+        <div className="home-love-note">
+          {whyNote.trim() && <p>“{whyNote.trim()}”</p>}
+          {whyNote2.trim() && <p className="home-love-note-second">{whyNote2.trim()}</p>}
+        </div>
+      ) : (
+        <button className="home-note-empty" onClick={() => setEditing(true)}>
+          <span>💌</span>
+          <span>Add something you can return to on a hard day.</span>
+        </button>
+      )}
+    </Card>
+  );
+}
+
+function LandingKit({ first48, onAsk, onOpen }) {
+  const items = [
+    {
+      icon: '📶', label: 'Stay connected',
+      value: first48?.simCard?.provider,
+      prompt: 'Help me choose and set up a local mobile plan in Abu Dhabi.',
+    },
+    {
+      icon: '🛒', label: 'Stock the kitchen',
+      value: first48?.groceries?.store,
+      prompt: 'Help me make a simple first-week grocery plan for Abu Dhabi.',
+    },
+    {
+      icon: '🚕', label: 'Move around easily',
+      value: first48?.transport?.app,
+      prompt: 'Help me understand my practical transport options in Abu Dhabi.',
+    },
+  ];
+
+  return (
+    <Card padding="18px">
+      <HomeSectionHeader
+        eyebrow="Local anchors"
+        title="Make the city feel smaller"
+        action={<button className="home-text-button" onClick={() => onOpen('map')}>Open map</button>}
+      />
+      <div className="home-landing-grid">
+        {items.map(item => (
+          <button key={item.label} className="home-landing-item" onClick={() => onAsk(item.prompt)}>
+            <span className="home-landing-icon">{item.icon}</span>
+            <strong>{item.value || item.label}</strong>
+            <small>{item.value ? item.label : 'Plan with Huve'} <span aria-hidden="true">→</span></small>
+          </button>
+        ))}
       </div>
     </Card>
   );
 }
 
-// ---------- Dashboard ----------
-function Dashboard({ state, setState, onModule, onAsk, layout = 'classic', progressStyle = 'bar', syncStatus = '', userName = 'there' }) {
-  const progress = moduleProgress(state);
-  const overall = overallProgress(state);
-  const days = daysUntil(state.moveDate);
+function ConnectionBridge({ connection, onOpen }) {
+  return (
+    <article className="home-everyday-card home-connection-card">
+      <div className="home-everyday-topline">
+        <div>
+          <div className="home-section-eyebrow">Across the distance</div>
+          <h2>Us, right now</h2>
+        </div>
+        <span className="home-live-pill"><i /> Live</span>
+      </div>
+
+      <div className="home-clock-grid">
+        <div>
+          <span>Abu Dhabi</span>
+          <strong>{connection.abuDhabiTime}</strong>
+          <small>Her time</small>
+        </div>
+        <div className="home-clock-bridge" aria-hidden="true"><span>↔</span></div>
+        <div>
+          <span>Johannesburg</span>
+          <strong>{connection.johannesburgTime}</strong>
+          <small>Home time</small>
+        </div>
+      </div>
+
+      <div className={`home-call-window${connection.isGoodWindow ? ' is-good' : ''}`}>
+        <span />{connection.status}
+      </div>
+      <div className="home-connection-actions">
+        <button onClick={() => onOpen('call', { mode: 'video', autoStart: true })}><span>▣</span> Video call</button>
+        <button onClick={() => onOpen('call', { mode: 'audio', autoStart: true })}><span>☎</span> Audio call</button>
+      </div>
+      <button className="home-connection-note" onClick={() => onOpen('journal')}>
+        Can’t talk now? Send a video note <span aria-hidden="true">→</span>
+      </button>
+    </article>
+  );
+}
+
+function DailyPhraseCard({ phrase, onAsk }) {
+  const canSpeak = 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window;
+
+  function speak() {
+    if (!canSpeak) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(phrase.arabic);
+    utterance.lang = 'ar-AE';
+    utterance.rate = 0.78;
+    window.speechSynthesis.speak(utterance);
+    void window.__lifeos?.native.tap('light');
+  }
+
+  return (
+    <article className="home-everyday-card home-phrase-card">
+      <div className="home-everyday-topline">
+        <div>
+          <div className="home-section-eyebrow">Arabic for real life</div>
+          <h2>One phrase today</h2>
+        </div>
+        <span className="home-phrase-mark">ع</span>
+      </div>
+      <div className="home-arabic-phrase" lang="ar" dir="rtl">{phrase.arabic}</div>
+      <div className="home-phrase-pronunciation">{phrase.transliteration}</div>
+      <strong className="home-phrase-meaning">{phrase.meaning}</strong>
+      <p>{phrase.context}</p>
+      <div className="home-phrase-actions">
+        <button onClick={speak} disabled={!canSpeak}><span>🔊</span> Hear it</button>
+        <button onClick={() => onAsk(`Help me practise the Arabic phrase "${phrase.transliteration}" and give me one simple example of when to use it.`)}>Practise <span>→</span></button>
+      </div>
+    </article>
+  );
+}
+
+function HomeSyncAction({ feedback, onSync, disabled = false }) {
+  const status = feedback?.status || 'idle';
+  const message = feedback?.message || 'Sync now';
+  const detail = feedback?.detail || '';
+  const showStatus = status !== 'idle';
+  const showAction = status === 'idle' || status === 'error' || status === 'offline';
+  const icon = {
+    syncing: 'LoaderCircle',
+    success: 'CircleCheck',
+    error: 'OctagonAlert',
+    offline: 'WifiOff',
+  }[status] || 'RefreshCw';
+
+  return (
+    <div className={`home-sync-feedback is-${status}`} aria-live="polite">
+      <div className="home-sync-feedback-panel">
+        {showStatus && (
+          <div className="home-sync-feedback-message" role="status" title={detail || message}>
+            <span className={`home-sync-feedback-icon${status === 'syncing' ? ' is-spinning' : ''}`}>
+              <AnimatedIcon key={status} name={icon} size={19} play={status === 'success' ? 1 : 0} />
+            </span>
+            <span>{message}</span>
+          </div>
+        )}
+        {showAction && (
+          <button
+            type="button"
+            className="home-sync-action-button"
+            onClick={onSync}
+            disabled={disabled}
+            aria-label={status === 'idle' ? 'Sync Life OS to Supabase now' : 'Retry Supabase sync'}
+            title={disabled
+              ? 'Supabase sync is unavailable'
+              : detail || (status === 'idle' ? 'Sync to Supabase now' : 'Retry sync')}
+          >
+            <AnimatedIcon name="RefreshCw" size={20} play={0} />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Dashboard({
+  state,
+  setState,
+  onModule,
+  onAsk,
+  syncStatus = '',
+  syncFeedback,
+  onSync,
+  syncDisabled = false,
+  userName = 'there',
+  userEmail = '',
+}) {
+  const [clockNow, setClockNow] = React.useState(() => new Date());
+  React.useEffect(() => {
+    const timer = setInterval(() => setClockNow(new Date()), 30_000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const model = window.__lifeos.home.buildHomeModel(state, clockNow);
+  const connection = window.__lifeos.home.getConnectionSnapshot(clockNow);
+  const { journey, dailyMode, phrase, priorities, metrics, money, todayKey } = model;
   const [whyNote, setWhyNote] = React.useState(state.whyNote || '');
   const [whyNote2, setWhyNote2] = React.useState(state.whyNote2 || '');
   const [showExport, setShowExport] = React.useState(false);
-
-  const h = new Date().getHours();
-  const timeGreeting = h < 12 ? 'morning' : h < 18 ? 'afternoon' : 'evening';
-
-  const isAfterMove = days <= 0;
-  const totalModules = 9;
-  const completedModules = Object.entries(progress).filter(([, v]) => v.total > 0 && v.done === v.total && !v.isMoney).length;
-  const milestoneMessages = [
-    'First checklist done — that\'s a real step! 🌱',
-    'Two lists complete — this is really happening! 🌿',
-    'Halfway there — you\'re on fire! 🔥',
-    'Almost there — Abu Dhabi is calling! ✈️',
-    'Every list done — nothing can stop you now! 🌟',
-  ];
-  const milestoneIdx = Math.min(completedModules, milestoneMessages.length - 1);
-
-  const today = new Date().toISOString().slice(0, 10);
-  const habitsDone = (state.habits || []).filter(h => h.lastDone === today).length;
-  const habitsTotal = (state.habits || []).length;
-  const totalStreak = (state.habits || []).reduce((a, h) => a + (h.streak || 0), 0);
-
-  const huveGreeting = isAfterMove
-    ? `Welcome home! You've been here ${Math.abs(days)} days. How's the new chapter? 🇦🇪`
-    : completedModules === 0
-      ? `Ready to start planning your move? Let's go! 🌵`
-      : `${completedModules} of ${totalModules} lists done — keep going! ✨`;
-
-  const streakMsg = totalStreak > 0 ? ` · 🔥 ${totalStreak} total habit streak` : '';
-  const huveSubtext = habitsDone === habitsTotal && habitsTotal > 0
-    ? `All habits done today${streakMsg}! You're unstoppable ✨`
-    : habitsTotal > 0
-      ? `${habitsDone}/${habitsTotal} habits checked off today${streakMsg}`
-      : `${Math.abs(days)} ${isAfterMove ? 'days in Abu Dhabi' : 'days to go'}`;
-
-  const aiSuggestions = isAfterMove ? [
-    'Where is the best coffee near me?',
-    'How do I set up utilities in Abu Dhabi?',
-    'What should I do this weekend?',
-    'Tips for making friends as a new expat',
-    'What\'s the best gym near me?',
-  ] : [
-    'What should I pack for August in Abu Dhabi?',
-    'How do I get a residency visa?',
-    'What is the cost of living where I am moving?',
-    'Give me a weekly prep timeline',
-    'What should I do in my first week?',
+  const name = (!userName || userName === 'User' || userName === 'there') ? 'there' : userName.split(' ')[0];
+  const todayLabel = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+  const moneyRemaining = new Intl.NumberFormat('en-AE', { maximumFractionDigits: 0 }).format(money.remaining);
+  const moneySpent = new Intl.NumberFormat('en-AE', { maximumFractionDigits: 0 }).format(money.spent);
+  const habits = state.habits || [];
+  const journalEntryCount = window.__lifeos.journal.prepareJournalEntries(state.journal).length;
+  const hasPrivateNote = userEmail.trim().toLowerCase() === 'suvedap@gmail.com';
+  const aiSuggestions = ['Plan my week in Abu Dhabi', 'Help me feel at home', 'What should I handle next?'];
+  const tools = [
+    { id: 'map', label: 'My UAE map', emoji: '🗺️', detail: 'Saved places' },
+    { id: 'docs', label: 'Document vault', emoji: '🪪', detail: 'Private files' },
+    { id: 'budget', label: 'Money', emoji: '💳', detail: 'AED overview' },
+    { id: 'tasks', label: 'Life admin', emoji: '🗓️', detail: 'Next steps' },
+    { id: 'notes', label: 'Journal', emoji: '📓', detail: `${journalEntryCount} ${journalEntryCount === 1 ? 'entry' : 'entries'}` },
+    { id: 'people', label: 'My people', emoji: '🤝', detail: `${model.contactCount} saved` },
+    { id: 'housing', label: 'Home base', emoji: '🏠', detail: `${model.homePhotoCount} moments` },
+    { id: 'games', label: 'Game night', emoji: '🎲', detail: 'Play together live' },
   ];
 
-  // Sync whyNote(s) to app state
-  function updateWhy(val) {
-    setWhyNote(val);
-    setState?.(s => ({ ...s, whyNote: val }));
+  function updateWhy(value) {
+    setWhyNote(value);
+    setState(s => ({ ...s, whyNote: value }));
   }
-  function updateWhy2(val) {
-    setWhyNote2(val);
-    setState?.(s => ({ ...s, whyNote2: val }));
+
+  function updateWhy2(value) {
+    setWhyNote2(value);
+    setState(s => ({ ...s, whyNote2: value }));
+  }
+
+  function setDailyMode(value) {
+    setState(s => ({ ...s, dailyMode: { date: todayKey, value } }));
+    void window.__lifeos?.native.tap('light');
+  }
+
+  function completePriority(action) {
+    setState(s => {
+      if (action.kind === 'document') {
+        return { ...s, documents: (s.documents || []).map(item => item.id === action.sourceId ? { ...item, status: 'done' } : item) };
+      }
+      if (action.kind === 'task') {
+        return { ...s, tasks: (s.tasks || []).map(item => item.id === action.sourceId ? { ...item, status: 'done' } : item) };
+      }
+      if (action.kind === 'habit') {
+        return {
+          ...s,
+          habits: (s.habits || []).map(item => item.id === action.sourceId
+            ? { ...item, lastDone: todayKey, streak: (item.streak || 0) + 1 }
+            : item),
+        };
+      }
+      if (action.kind === 'packing') {
+        return {
+          ...s,
+          packing: {
+            ...s.packing,
+            rooms: (s.packing?.rooms || []).map(room => ({
+              ...room,
+              items: (room.items || []).map(item => item.id === action.sourceId ? { ...item, status: 'packed' } : item),
+            })),
+          },
+        };
+      }
+      if (action.kind === 'shopping') {
+        return { ...s, shopping: (s.shopping || []).map(item => item.id === action.sourceId ? { ...item, status: 'packed' } : item) };
+      }
+      return s;
+    });
+    void window.__lifeos?.native.notifyHaptic('success');
   }
 
   function exportData() {
     const data = JSON.stringify(state, null, 2);
     const blob = new Blob([data], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `lifeos-export-${today}.json`;
-    a.click();
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `lifeos-export-${todayKey}.json`;
+    anchor.click();
     URL.revokeObjectURL(url);
     setShowExport(false);
   }
 
   return (
-    <div className="fade-in" style={{ padding: '20px 18px 20px' }}>
-      {/* Top greeting with Huve's daily check-in */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+    <main className="home-dashboard fade-in">
+      <header className="home-topbar">
         <div>
-          <div style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>{new Date().toLocaleDateString('en-US', { weekday: 'long' })}</div>
-          <h1 style={{ fontSize: 26, marginTop: 2 }}>Hi {userName} 👋</h1>
-          {syncStatus && (
-            <div style={{ marginTop: 4, fontSize: 11, fontWeight: 600, color: 'var(--muted)' }}>{syncStatus}</div>
-          )}
+          <div className="home-date">{todayLabel}</div>
+          <h1>Hi {name} <span aria-hidden="true">👋</span></h1>
+          {syncStatus && <div className="home-sync"><span />{syncStatus}</div>}
         </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <button
-            onClick={() => setShowExport(true)}
-            style={{
-              width: 36, height: 36, borderRadius: '50%', border: '1px solid var(--line)',
-              background: 'var(--white)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'pointer', fontSize: 16,
-            }}
-            title="Export data"
-          >📥</button>
-          <img
-            src="/logo-mark.svg"
-            width="44" height="44" alt="LifeOS"
-            style={{ borderRadius: 12, boxShadow: 'var(--shadow)', display: 'block' }}
-          />
+        <div className="home-topbar-actions">
+          <HomeSyncAction feedback={syncFeedback} onSync={onSync} disabled={syncDisabled} />
+          <button className="home-icon-button" onClick={() => setShowExport(true)} title="Export data" aria-label="Export data">↗</button>
+          <button className="home-icon-button" onClick={() => onModule('settings')} title="Settings" aria-label="Open settings">⚙</button>
+          <img src="/logo-mark.svg" width="46" height="46" alt="Life OS" />
         </div>
-      </div>
+      </header>
 
-      {/* Huve daily check-in */}
-      <Card padding="14px 16px" style={{ marginBottom: 14, background: 'linear-gradient(135deg, var(--teal) 0%, #1e524f 100%)', color: '#fff', border: 'none' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{
-            width: 40, height: 40, borderRadius: '50%',
-            background: 'rgba(255,255,255,0.2)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            flexShrink: 0, overflow: 'hidden',
-          }}>
-            <img src="/favicon.svg" width="36" height="36" alt="" style={{ borderRadius: '50%' }} />
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 13, fontWeight: 600, opacity: 0.85 }}>Good {timeGreeting}</div>
-            <div style={{ fontSize: 14, fontWeight: 700, fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif', marginTop: 1 }}>{huveGreeting}</div>
-            <div style={{ fontSize: 12, opacity: 0.8, marginTop: 2 }}>{huveSubtext}</div>
-          </div>
-        </div>
-      </Card>
+      <JourneyHero model={model} onOpen={onModule} />
 
-      {/* Why I'm doing this — twin notes */}
-      <Card padding="18px 18px" style={{
-        marginBottom: 14,
-        background: 'linear-gradient(135deg, #fdf6ee 0%, #f5efe4 100%)',
-        border: '1px solid var(--gold)',
-        borderRadius: 18,
-        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.6), 0 4px 12px rgba(212,168,83,0.12)',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-          <span style={{ fontSize: 22 }}>💫</span>
-          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--gold)', letterSpacing: '0.04em', textTransform: 'uppercase' }}>A note from your love</span>
-        </div>
-        <textarea
-          value={whyNote}
-          onChange={e => updateWhy(e.target.value)}
-          placeholder="Write something for her..."
-          rows={3}
-          style={{
-            width: '100%', border: 'none', background: 'transparent',
-            fontSize: 14, fontWeight: 500, fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif',
-            color: 'var(--dark)', outline: 'none', resize: 'none',
-            lineHeight: 1.6, fontStyle: 'italic',
-          }}
+      <DailyModeSelector value={dailyMode} onChange={setDailyMode} />
+
+      <section className="home-section">
+        <HomeSectionHeader
+          eyebrow="Today"
+          title="A clear next step"
+          action={<button className="home-text-button" onClick={() => onModule('tasks')}>See full plan</button>}
         />
-        <div style={{
-          marginTop: 10, paddingTop: 12, borderTop: '1px solid rgba(212,168,83,0.25)',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-            <span style={{ fontSize: 14 }}>💖</span>
-            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--terracotta)', letterSpacing: '0.03em', textTransform: 'uppercase' }}>And another</span>
-          </div>
-          <textarea
-            value={whyNote2}
-            onChange={e => updateWhy2(e.target.value)}
-            placeholder="One more thought..."
-            rows={3}
-            style={{
-              width: '100%', border: 'none', background: 'transparent',
-              fontSize: 14, fontWeight: 500, fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif',
-              color: 'var(--terracotta)', outline: 'none', resize: 'none',
-              lineHeight: 1.6, fontStyle: 'italic',
-            }}
-          />
-        </div>
-      </Card>
+        <Card padding="0" style={{ overflow: 'hidden' }}>
+          {priorities.map(action => (
+            <PriorityRow key={action.id} action={action} onOpen={onModule} onComplete={completePriority} />
+          ))}
+        </Card>
+      </section>
 
-      {/* Hero countdown */}
-      <CountdownHero moveDate={state.moveDate} layout={layout} total={overall.total} done={overall.done} />
+      <section className="home-section home-everyday-grid">
+        <ConnectionBridge connection={connection} onOpen={onModule} />
+        <DailyPhraseCard phrase={phrase} onAsk={onAsk} />
+      </section>
 
-      {/* Milestone bar */}
-      {completedModules > 0 && (
-        <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', background: 'var(--sand)', borderRadius: 14 }}>
-          <span style={{ fontSize: 22 }}>🏆</span>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 13, fontWeight: 700 }}>{completedModules} of {totalModules} lists complete</div>
-            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 1 }}>{milestoneMessages[milestoneIdx]}</div>
-          </div>
-          <span style={{ fontSize: 18 }}>{['🎒', '🌟', '🎯', '✈️'][milestoneIdx]}</span>
+      <section className="home-section">
+        <HomeSectionHeader eyebrow="Everyday overview" title="Your life at a glance" />
+        <div className="home-metrics-grid">
+          {metrics.map(metric => <SetupMetric key={metric.id} metric={metric} onOpen={onModule} />)}
         </div>
+      </section>
+
+      <section className="home-section home-snapshot-grid">
+        <button className="home-snapshot-card home-money-card" onClick={() => onModule('budget')}>
+          <span className="home-snapshot-icon">💳</span>
+          <span className="home-snapshot-label">Available this month</span>
+          <strong>{moneyRemaining} <small>{money.currency}</small></strong>
+          <span className="home-snapshot-meta">{moneySpent} spent · {money.spentPercent}% of income</span>
+          <HomeProgress value={money.spent} total={money.income} color="var(--terracotta)" />
+        </button>
+        <button className="home-snapshot-card home-map-card" onClick={() => onModule('map')}>
+          <span className="home-map-pin">⌖</span>
+          <span className="home-snapshot-label">Your UAE map</span>
+          <strong>Find your anchors</strong>
+          <span className="home-snapshot-meta">Home, essentials, favourites</span>
+          <span className="home-card-link">Open map <span aria-hidden="true">→</span></span>
+        </button>
+      </section>
+
+      <section className="home-section">
+        <button type="button" className="home-game-night-card" onClick={() => onModule('games')}>
+          <span className="home-game-night-copy">
+            <span className="home-section-eyebrow">LIFE OS PLAY</span>
+            <strong>Turn tonight into game night.</strong>
+            <small>Create a private room and play live, wherever everyone is.</small>
+            <span className="home-game-night-cta">Choose a game <i>→</i></span>
+          </span>
+          <span className="home-game-night-art" aria-hidden="true">
+            <i>○</i><i>×</i><i>✦</i>
+          </span>
+        </button>
+      </section>
+
+      {journey.isAfterMove && journey.daysSinceMove <= 30 && (
+        <section className="home-section">
+          <LandingKit first48={state.first48} onAsk={onAsk} onOpen={onModule} />
+        </section>
       )}
 
-      {/* Daily Journal */}
-      <DailyJournal state={state} setState={setState} />
+      <section className={`home-section home-support-grid${hasPrivateNote ? '' : ' is-single'}`}>
+        <DailyRhythm habits={habits} today={todayKey} setState={setState} onOpen={onModule} />
+        {hasPrivateNote && (
+          <LoveNoteCard
+            whyNote={whyNote}
+            whyNote2={whyNote2}
+            onWhyChange={updateWhy}
+            onWhy2Change={updateWhy2}
+          />
+        )}
+      </section>
 
-      {/* First 48 Hours guide */}
-      {state.first48 && (
-        <details style={{ marginTop: 14, background: 'var(--white)', borderRadius: 16, boxShadow: 'var(--shadow)', overflow: 'hidden' }}>
-          <summary style={{
-            padding: '14px 16px', fontSize: 14, fontWeight: 700, fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif',
-            cursor: 'pointer', color: 'var(--dark)',
-            listStyle: 'none', display: 'flex', alignItems: 'center', gap: 10,
-          }}>
-            <span>🛬</span> First 48 hours in Abu Dhabi
-            <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--muted)' }}>▼</span>
-          </summary>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '12px 0 4px' }}>
-            {[
-              { icon: '📶', label: 'SIM card', value: state.first48.simCard?.provider, detail: state.first48.simCard?.where },
-              { icon: '🛒', label: 'Groceries', value: state.first48.groceries?.store, detail: state.first48.groceries?.tip },
-              { icon: '🕌', label: 'Mosque', value: state.first48.mosque?.name, detail: state.first48.mosque?.location },
-              { icon: '🍽️', label: 'First meal', value: state.first48.firstMeal?.place, detail: state.first48.firstMeal?.dish },
-              { icon: '🚕', label: 'Getting around', value: state.first48.transport?.app, detail: state.first48.transport?.note },
-            ].map(item => (
-              <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0' }}>
-                <span style={{ fontSize: 20, width: 28, textAlign: 'center' }}>{item.icon}</span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600 }}>{item.label}</div>
-                  <div style={{ fontSize: 12, color: 'var(--muted)' }}>{item.value}{item.detail ? ` · ${item.detail}` : ''}</div>
-                </div>
-              </div>
+      <section className="home-section">
+        <Card padding="20px" style={{ background: 'var(--sand)', border: 'none' }}>
+          <div className="home-huve-row">
+            <img src="/huve-avatar.jpg" width="48" height="48" alt="Huve" />
+            <div>
+              <div className="home-section-eyebrow">YOUR UAE COMPANION</div>
+              <h2>Need a local answer?</h2>
+              <p>Bring the question. Huve will help turn it into a practical next step.</p>
+            </div>
+            <button className="home-huve-button" onClick={() => onAsk()}>Ask Huve <span aria-hidden="true">→</span></button>
+          </div>
+          <div className="home-suggestion-row">
+            {aiSuggestions.map(suggestion => (
+              <button key={suggestion} onClick={() => onAsk(suggestion)}>{suggestion}</button>
             ))}
           </div>
-        </details>
-      )}
+        </Card>
+      </section>
 
-      {/* Quick AI prompt strip */}
-      <Card padding="16px 18px 14px" style={{ marginTop: 14, background: 'var(--sand)', border: 'none' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{
-            width: 36, height: 36, borderRadius: '50%',
-            background: 'linear-gradient(135deg, var(--teal) 0%, #1e524f 100%)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 18, flexShrink: 0,
-          }}>🌵</div>
-          <Button size="sm" variant="teal" onClick={() => onAsk()}>Ask Huve</Button>
-        </div>
-        <div style={{ display: 'flex', gap: 8, marginTop: 12, overflowX: 'auto', paddingBottom: 2 }}>
-          {aiSuggestions.map(q => (
-            <button
-              key={q}
-              onClick={() => onAsk(q)}
-              style={{
-                padding: '8px 14px', borderRadius: 999,
-                background: 'var(--white)', border: '1px solid var(--line)',
-                fontSize: 12, color: 'var(--dark)', fontWeight: 500, fontFamily: 'inherit',
-                whiteSpace: 'nowrap', flexShrink: 0, cursor: 'pointer',
-              }}
-            >{q}</button>
+      <section className="home-section">
+        <HomeSectionHeader eyebrow="Everything in one place" title="Your UAE life hub" />
+        <div className="home-tools-grid">
+          {tools.map(tool => (
+            <button key={tool.id} className="home-tool-card" onClick={() => onModule(tool.id)}>
+              <span className="home-tool-icon">{tool.emoji}</span>
+              <span><strong>{tool.label}</strong><small>{tool.detail}</small></span>
+              <span className="home-tool-arrow" aria-hidden="true">›</span>
+            </button>
           ))}
         </div>
-      </Card>
+      </section>
 
-      {/* Modules */}
-      <div style={{ marginTop: 22 }}>
-        <SectionHeader title={isAfterMove ? "Your hub" : "Your move, in 9 lists"} />
-        {layout === 'cards' ? (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            {MODULES.map(m => (
-              <ModuleCard key={m.id} module={m} progress={progress[m.id]} onClick={() => onModule(m.id)} progressStyle={progressStyle} layout="cards" />
-            ))}
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {MODULES.map(m => (
-              <ModuleCard key={m.id} module={m} progress={progress[m.id]} onClick={() => onModule(m.id)} progressStyle={progressStyle} layout={layout} />
-            ))}
-          </div>
-        )}
-      </div>
+      <footer className="home-footer">
+        <img src="/logo-mark.svg" width="22" height="22" alt="" />
+        <span>A little more like home, every day.</span>
+      </footer>
 
-      {/* Footer cheer */}
-      <div style={{ textAlign: 'center', marginTop: 24, fontSize: 12, color: 'var(--muted)' }}>
-        {isAfterMove ? `You've been here ${Math.abs(days)} days. Home at last. 🌴` : `${days} days until wheels up. You've got this. 🌴`}
-      </div>
-
-      {/* Export modal */}
       <Modal open={showExport} onClose={() => setShowExport(false)} title="Export your data">
         <div style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.6, marginBottom: 16 }}>
-          Download all your data as a JSON file. Contains all your lists, progress, habits, journal entries, and settings.
+          Download your lists, progress, habits, journal entries, and settings as a JSON file.
         </div>
-        <Button full onClick={exportData}>📥 Download JSON</Button>
+        <Button full onClick={exportData}>Download JSON</Button>
       </Modal>
-    </div>
+    </main>
   );
 }
 
@@ -913,8 +1447,9 @@ function AskHuveSheet({ open, onClose, initialPrompt, context = '' }) {
     const newFiles = [];
     for (const file of files) {
       try {
-        const url = await window.__suvedaPhotos?.upload(file);
-        if (url) newFiles.push({ id: uid(), url, name: file.name, type: file.type });
+        const path = await window.__suvedaPhotos?.upload(file);
+        const url = path ? await window.__suvedaPhotos?.signedUrl(path, 600) : null;
+        if (path && url) newFiles.push({ id: uid(), path, url, name: file.name, type: file.type });
       } catch {}
     }
     if (newFiles.length > 0) {
@@ -971,7 +1506,7 @@ function AskHuveSheet({ open, onClose, initialPrompt, context = '' }) {
           />
           <div style={{ flex: 1 }}>
             <h2 style={{ fontSize: 20 }}>Huve</h2>
-            <div style={{ fontSize: 12, color: 'var(--muted)' }}>Ask me anything about the move</div>
+            <div style={{ fontSize: 12, color: 'var(--muted)' }}>Ask me anything about life in the UAE</div>
           </div>
           <div style={{ display: 'flex', gap: 6 }}>
             {messages.length > 0 && (
@@ -1017,8 +1552,8 @@ function AskHuveSheet({ open, onClose, initialPrompt, context = '' }) {
             <div key={i} style={{
               alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start',
               maxWidth: '85%',
-              background: m.role === 'user' ? 'var(--terracotta)' : 'var(--white)',
-              color: m.role === 'user' ? '#fff' : 'var(--dark)',
+              background: m.role === 'user' ? 'var(--honey)' : 'var(--white)',
+              color: m.role === 'user' ? '#17272D' : 'var(--dark)',
               padding: '10px 14px', borderRadius: 16,
               borderBottomRightRadius: m.role === 'user' ? 4 : 16,
               borderBottomLeftRadius: m.role === 'user' ? 16 : 4,
@@ -1088,8 +1623,8 @@ function AskHuveSheet({ open, onClose, initialPrompt, context = '' }) {
                   onClick={() => removeUploadedFile(f.id)}
                   style={{
                     position: 'absolute', top: -2, right: -2, width: 18, height: 18,
-                    borderRadius: '50%', border: 'none', background: 'var(--terracotta)',
-                    color: '#fff', fontSize: 10, cursor: 'pointer', fontFamily: 'inherit',
+                    borderRadius: '50%', border: 'none', background: 'var(--honey)',
+                    color: '#17272D', fontSize: 10, cursor: 'pointer', fontFamily: 'inherit',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                   }}
                 >✕</button>
@@ -1140,6 +1675,6 @@ function AskHuveSheet({ open, onClose, initialPrompt, context = '' }) {
 }
 
 Object.assign(window, {
-  Onboarding, Dashboard, AskHuveSheet, CountdownHero, ModuleCard, DailyJournal,
+  Onboarding, Dashboard, AskHuveSheet, CountdownHero, ModuleCard, NotesJournalScreen,
   MODULES, daysUntil, formatDate, moduleProgress, overallProgress,
 });

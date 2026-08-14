@@ -1,75 +1,70 @@
-# Live video call
+# Live group video and audio calls
 
 Built on [LiveKit](https://livekit.io) rather than raw `RTCPeerConnection`.
 
-## The constraint this is built around
+## Network design
 
-The UAE blocks WhatsApp and FaceTime calling at the network layer, with deep
-packet inspection on Etisalat and du. A call that negotiates its way to a
-direct peer to peer UDP connection will be blocked, and the only symptom is a
-call that never connects.
+The client follows [LiveKit Cloud's documented connectivity model](https://docs.livekit.io/deploy/admin/firewall/):
 
-So the media has to relay over TURN on TCP 443, wrapped in TLS, and look like
-ordinary HTTPS. Signalling has to be WSS on 443 for the same reason.
+- secure WebSocket signalling uses TCP 443;
+- WebRTC tries encrypted UDP first because it has the best latency and
+  congestion behaviour;
+- when UDP is not viable, LiveKit Cloud can fall back to TURN/TLS on TCP 443;
+- the default Cloud hostname routes each participant to the closest available
+  edge, including Middle East infrastructure.
 
-Two things enforce that here rather than leaving it to chance:
+The app does not set `iceTransportPolicy: 'relay'`. Forcing TURN on every call
+adds latency and mobile-data overhead even when a better route is available,
+and makes Wi-Fi-to-cellular transitions less flexible. LiveKit's normal ICE
+selection and reconnect policy are left enabled instead, with a larger initial
+retry/time-out budget for congested mobile networks.
 
-1. **Relay only, always.** The room connects with
-   `rtcConfig: { iceTransportPolicy: 'relay' }`, so the browser never gathers a
-   host or server-reflexive candidate. There is no path where it works over
-   UDP in testing and fails on her network. This costs some latency on a good
-   connection, which is the right trade for two people, one of whom is behind
-   the DPI.
-
-   Note that `rtcConfig` belongs on `Room.connect()` options in livekit-client
-   v2, not on the `Room` constructor. Setting it on the constructor typechecks
-   in some versions and silently does nothing.
-
-2. **The signalling URL is validated, not trusted.** `validateServerUrl` in
+The signalling URL is still validated, not trusted. `validateServerUrl` in
    `src/lifeos/call.ts` refuses anything that is not `wss:` on port 443, so a
-   misconfigured URL fails loudly at the call screen instead of producing a
-   call that works for you in Johannesburg and never connects for her.
+misconfigured URL fails loudly at the call screen.
+
+This is a standards-based resilient configuration, not a promise that calls
+will be permitted by every carrier, managed Wi-Fi network, or local policy.
+Availability must be tested on the actual UAE Wi-Fi and mobile networks where
+the app will be used.
 
 ## Verifying it actually happened
 
-Configuring relay is not the same as getting it, so the call screen reads back
-what the connection negotiated and says so plainly. `src/lifeos/ice.ts` polls
+The call screen reads back what the connection negotiated and says so plainly.
+`src/lifeos/ice.ts` polls
 `getStats()` every five seconds, finds the nominated candidate pair, and
 classifies it:
 
-| Classification | Meaning | Survives the DPI |
-|---|---|---|
-| `relay-tls-443` | TURN over TLS on 443 | Yes |
-| `relay-tls` | TURN over TLS, other port | Unlikely |
-| `relay-tcp` | TURN over plain TCP | No |
-| `relay-udp` | TURN over UDP | No |
-| `direct` | Peer to peer | No |
+| Classification | Meaning |
+|---|---|
+| `relay-tls-443` | Restricted-network TURN/TLS fallback on TCP 443 |
+| `relay-tls` | TURN/TLS relay on another port |
+| `relay-tcp` | TURN relay over TCP |
+| `relay-udp` | TURN relay over UDP |
+| `direct` | Direct encrypted WebRTC route to a LiveKit media edge |
 
-Only `relay-tls-443` is treated as compliant. Anything else shows a warning
-strip on the call screen naming what it actually got.
+Despite the label used by browser ICE statistics, `direct` is not a
+participant-to-participant route: LiveKit is an SFU and media still terminates
+at a LiveKit server. The strip remains diagnostic rather than deciding which
+transport the browser is allowed to use.
 
 The peer connections belong to livekit-client, and reaching into its internals
 would break on any upgrade, so the `RTCPeerConnection` constructor is wrapped
 for the duration of a call and the instances it creates are tracked. That is
 purely diagnostic and changes nothing about how the connection behaves.
 
-**What I could not verify from here.** Whether this defeats Etisalat and du DPI
-in practice can only be established from a connection in the UAE. The code
-forces the right transport and reports honestly on what it got; the last step
-is her opening the call screen on her own network and reading the strip. If it
-says "Relayed over TLS on port 443" and the video works, the constraint is met.
-
-To sanity check the relay path from anywhere before that, block UDP outbound on
-a test machine and confirm the call still connects. Under relay-only it should
-be unaffected, because it was never using UDP.
+To sanity-check the restricted-network path, test once with outbound UDP
+blocked and confirm the call reconnects using "Secure TURN/TLS fallback on port
+443". Separately test Wi-Fi-to-cellular and cellular-to-Wi-Fi transitions on an
+actual phone.
 
 ## Setup
 
 ### 1. LiveKit Cloud project
 
 Create a project at [cloud.livekit.io](https://cloud.livekit.io). LiveKit Cloud
-terminates signalling on WSS 443 and publishes `turns:` on TCP 443 by default,
-which is what makes this work without running your own TURN server.
+terminates signalling on WSS 443 and provides TURN/TLS on TCP 443 when UDP is
+not viable, which avoids running a separate TURN server.
 
 Self-hosting is possible but you would have to front both signalling and TURN
 on 443 yourself, which is most of the work.
@@ -95,26 +90,78 @@ SUPABASE_ANON_KEY=...
 
 The API secret is what mints a seat in the room, so it stays server side.
 `api/livekit-token.js` is the only thing that can issue one, and it verifies
-the caller's Supabase session and checks the `lifeos_members` allowlist before
-signing. Without that check anyone who found the URL could join the call.
+the caller's Supabase session before resolving a room from database membership.
+Before migration `0009` it supports the original `lifeos_members` allowlist;
+after `0009` it derives an isolated room from `lifeos_space_members`, so people
+in unrelated spaces can never meet in the same global room.
 
-Tokens last 15 minutes, long enough to join and not to hoard.
+Mirror `LIVEKIT_URL`, `LIVEKIT_API_KEY`, and `LIVEKIT_API_SECRET` into Supabase
+Edge Function secrets if a Supabase-hosted call function needs them. The current
+token endpoint runs on Vercel and uses the Vercel variables above.
 
-### 3. iOS
+Signed-in member tokens last 15 minutes. Browser-guest tokens last 10 minutes,
+long enough to connect without becoming reusable long-term credentials.
+
+### 3. Browser invitations and LifeOS IDs
+
+Run `0012_lifeos_call_invites.sql` before enabling the invitation controls.
+It adds three deliberately small pieces of call identity:
+
+- Every account receives a stable, human-readable LifeOS ID on registration.
+  The ID includes part of the account UUID so common names do not collide.
+- A signed-in person can save another registered person by entering that exact
+  ID. There is no public directory or partial-name search to enumerate users.
+- Audio or video invitations create a 256-bit random browser link that expires
+  after 24 hours and can be disabled from the call screen.
+
+The raw invitation token is returned once and placed in `/join/<token>`; only
+its SHA-256 digest is stored in Supabase. The join route is resolved before app
+authentication, so a recipient can type their display name and call from a
+normal browser without installing LifeOS or creating an account. Redeeming the
+link produces a random guest identity and a short-lived LiveKit grant scoped to
+the invitation's one room. It does not grant room listing, creation, admin, or
+data-publishing permissions.
+
+The anonymous `lifeos_redeem_call_invite` RPC is intentionally the only public
+`security definer` exception. Its 256-bit bearer token is the authorization;
+the function returns only call-safe metadata, locks the row while incrementing
+usage, and refuses expired, revoked, exhausted, or malformed links. The invite
+tables themselves remain inaccessible to anonymous clients.
+
+### 4. iOS
 
 `UIBackgroundModes` already includes `audio`, so call audio keeps running when
-the phone locks mid-call. Camera and microphone permissions come from the same
-Info.plist entries the video journal uses.
+the phone locks mid-call. Camera and microphone permissions explicitly mention
+calls in `Info.plist`. Capacitor enables inline playback and element fullscreen
+for the WKWebView; the call screen still has a viewport-filling focus fallback
+for iPhone browser versions that refuse element fullscreen.
 
 ## What is in the call
 
-Two people, one fixed room (`lifeos-two`). Mute, camera toggle, hang up, and a
-connection quality indicator driven by LiveKit's own `ConnectionQualityChanged`
-events.
+Each space gets an isolated server-derived room. Before the spaces migration is
+applied, allowlisted members temporarily share the legacy `lifeos-two` room.
+Every participant gets independent camera and microphone attachments, so a
+third or fourth person is subscribed, heard, and rendered in the responsive
+grid instead of being discarded after the first remote participant. The grid
+highlights the active speaker, shows camera/microphone state, and can expand to
+fullscreen while keeping mute, camera, hang-up, and fullscreen controls in a
+single floating dock. Drag its grip with a mouse or finger, use arrow keys when
+the grip has keyboard focus, or double-click/press Home to reset it. Four
+participants render as four equal quadrants; larger rooms add rows and columns
+without dropping anyone.
+
+The call lobby offers both video and audio-only calling. Audio-only publishes
+the microphone without starting the camera, which reduces data use and gives
+the room a better fallback on weak mobile connections. Remote audio elements
+stay mounted (not `display:none`), and the client listens for LiveKit's
+`AudioPlaybackStatusChanged` event. If Safari blocks autoplay, a visible
+"Tap to hear everyone" button calls `Room.startAudio()` directly from the
+required user gesture.
 
 Video is deliberately modest: 540p capture with simulcast layers at 180p and
-360p. Both ends are on phone networks and every byte goes through a relay, so
-chasing resolution buys stalls rather than quality.
+360p. Adaptive stream asks for the appropriate incoming layer for each tile,
+dynacast avoids publishing unused layers, RED protects voice from short packet
+loss bursts, and DTX avoids continuously sending silence.
 
 ## Falling back to a video note
 
@@ -131,15 +178,32 @@ afresh. That logic is pure and tested in `src/lifeos/call.test.ts`.
 **"Calling is not set up".** `VITE_LIVEKIT_URL` is missing or is not `wss:` on
 443. The message names which.
 
-**Token request returns 403.** The signed-in account is not in
-`lifeos_members`. Run `0001_lifeos_members.sql`.
+**Token request returns 403.** The signed-in account has no legacy membership
+or, after `0009`, no current space membership. Complete the relevant migration
+and membership/pairing setup.
 
-**Token request returns 503.** `LIVEKIT_API_KEY` or `LIVEKIT_API_SECRET` is
-missing from the Vercel environment.
+**A browser link says it is invalid or expired.** The invitation is malformed,
+older than 24 hours, disabled by its creator, or has exhausted its reconnect
+allowance. Create and send a fresh link from the Call screen.
 
-**Connects, but the strip says "Direct peer to peer".** Relay-only was not
-applied. Check `rtcConfig` is on the `connect()` call and not the constructor.
+**Token request returns 503.** Either a required server environment variable is
+missing or the membership lookup failed. Check the Vercel function log; the
+server records the database error code without returning sensitive details to
+the browser.
 
-**Video but no sound.** Their microphone is a separate publication from their
-camera. `onRemoteAudio` attaches it; if that element is not in the document it
-will not play.
+**Only works on one network.** Confirm `<project>.livekit.cloud` and
+`<project>.turn.livekit.cloud` are reachable on TCP 443. A "Direct encrypted
+route" is the normal low-latency path; "Secure TURN/TLS fallback on port 443"
+means the restricted-network path is active. Carrier or managed-network policy
+can still prevent realtime calling, so test on the actual Wi-Fi and data plans.
+
+**Video but no sound.** Tap "Tap to hear everyone" if it appears. Safari on
+iPhone can require this explicit gesture even after camera and microphone
+permission was granted. If it persists, confirm the browser/site microphone
+permission and that the other participant is not muted. Each remote microphone
+is attached to its own mounted audio element.
+
+**Only one remote person appears.** The client must iterate
+`room.remoteParticipants` and react to participant, track, mute, and active
+speaker events. Do not select only the first map value. Invitations allow up to
+32 redemptions so the same link can be used by a small group and for reconnects.

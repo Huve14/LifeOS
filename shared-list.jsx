@@ -2,7 +2,7 @@
 
 const { useState, useEffect, useCallback, Fragment } = React;
 
-const SHOPPER_NAME_KEY = 'suveda:shopper-name';
+const SHOPPER_NAME_KEY = 'lifeos:shopper-name';
 
 function loadSavedName() {
   try { return localStorage.getItem(SHOPPER_NAME_KEY) || ''; } catch { return ''; }
@@ -29,7 +29,7 @@ function SharedList({ token }) {
       if (cancelled) return;
       setValid(ok);
       if (ok) {
-        const data = await load();
+        const data = await load(token);
         if (!cancelled) setItems(data);
       }
       if (!cancelled) setLoading(false);
@@ -41,7 +41,7 @@ function SharedList({ token }) {
   // Subscribe to real-time changes
   useEffect(() => {
     if (valid !== true) return;
-    const unsub = subscribe((updated) => setItems(updated));
+    const unsub = subscribe((updated) => setItems(updated), token);
     return unsub;
   }, [valid, subscribe]);
 
@@ -51,11 +51,11 @@ function SharedList({ token }) {
       return;
     }
     if (currentSupplier === shopperName.trim()) {
-      await unclaim(itemId);
+      await unclaim(itemId, token);
     } else {
-      await claim(itemId, shopperName.trim());
+      await claim(itemId, shopperName.trim(), token);
     }
-  }, [shopperName, claim, unclaim]);
+  }, [shopperName, claim, unclaim, token]);
 
   const handleSetName = useCallback((e) => {
     e.preventDefault();
@@ -99,7 +99,7 @@ function SharedList({ token }) {
       }}>
         <span style={{ fontSize: 48 }}>🔒</span>
         <h2 style={{ fontSize: 18, color: 'var(--dark)', margin: 0 }}>Invalid or expired link</h2>
-        <p style={{ fontSize: 13, margin: 0 }}>Ask Suveda for a fresh share link.</p>
+        <p style={{ fontSize: 13, margin: 0 }}>Ask the list owner for a fresh share link.</p>
       </div>
     );
   }
@@ -109,16 +109,16 @@ function SharedList({ token }) {
       minHeight: '100%', width: '100%',
       background: 'var(--cream)',
       backgroundImage:
-        'radial-gradient(at 20% 0%, rgba(212, 168, 83, 0.08) 0%, transparent 40%),' +
-        'radial-gradient(at 100% 100%, rgba(196, 113, 74, 0.06) 0%, transparent 50%)',
+        'radial-gradient(at 20% 0%, rgba(246, 209, 16, 0.16) 0%, transparent 40%),' +
+        'radial-gradient(at 100% 100%, rgba(129, 206, 235, 0.20) 0%, transparent 50%)',
       color: 'var(--dark)',
       paddingBottom: 40,
     }}>
       {/* Header */}
       <div style={{
         padding: '24px 18px 20px',
-        background: 'linear-gradient(135deg, var(--terracotta) 0%, #b85a32 100%)',
-        color: '#fff',
+        background: 'linear-gradient(135deg, var(--honey) 0%, var(--butter) 100%)',
+        color: '#17272D',
         borderBottomLeftRadius: 24,
         borderBottomRightRadius: 24,
       }}>
@@ -137,9 +137,9 @@ function SharedList({ token }) {
             <button
               onClick={() => { setShowNameInput(true); }}
               style={{
-                background: 'rgba(255,255,255,0.2)', border: 'none',
+                background: 'rgba(23,39,45,0.10)', border: 'none',
                 borderRadius: 999, padding: '6px 14px',
-                color: '#fff', fontSize: 13, fontWeight: 600,
+                color: '#17272D', fontSize: 13, fontWeight: 600,
                 fontFamily: 'inherit', cursor: 'pointer',
               }}
             >{shopperName} ✏️</button>
@@ -147,9 +147,9 @@ function SharedList({ token }) {
             <button
               onClick={() => setShowNameInput(true)}
               style={{
-                background: 'rgba(255,255,255,0.2)', border: '1px dashed rgba(255,255,255,0.4)',
+                background: 'rgba(23,39,45,0.08)', border: '1px dashed rgba(23,39,45,0.3)',
                 borderRadius: 999, padding: '6px 14px',
-                color: '#fff', fontSize: 13, fontWeight: 500,
+                color: '#17272D', fontSize: 13, fontWeight: 500,
                 fontFamily: 'inherit', cursor: 'pointer',
               }}
             >Set your name</button>
@@ -224,7 +224,7 @@ function SharedList({ token }) {
 
       {/* Footer */}
       <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--muted)', padding: '0 18px' }}>
-        Suveda · Moving to Abu Dhabi 🌴
+        Life OS · Shared shopping list
       </div>
     </div>
   );

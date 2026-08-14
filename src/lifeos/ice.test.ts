@@ -19,11 +19,11 @@ function pair(overrides: Partial<CandidatePair> = {}): CandidatePair {
 }
 
 describe('classifyTransport', () => {
-  it('recognises the one configuration that survives the DPI', () => {
+  it('recognises the TCP 443 fallback', () => {
     expect(classifyTransport(pair())).toBe('relay-tls-443');
   });
 
-  it('does not round a TLS relay on another port up to compliant', () => {
+  it('keeps a TLS relay on another port distinct', () => {
     expect(classifyTransport(pair({ port: 5349 }))).toBe('relay-tls');
   });
 
@@ -31,11 +31,11 @@ describe('classifyTransport', () => {
     expect(classifyTransport(pair({ relayProtocol: 'tcp', port: 3478 }))).toBe('relay-tcp');
   });
 
-  it('flags a UDP relay, which is what gets blocked', () => {
+  it('recognises a UDP relay', () => {
     expect(classifyTransport(pair({ relayProtocol: 'udp', protocol: 'udp' }))).toBe('relay-udp');
   });
 
-  it('flags a direct connection, which should never happen under relay policy', () => {
+  it('recognises a direct route to the LiveKit media edge', () => {
     expect(classifyTransport(pair({ localType: 'host', relayProtocol: undefined }))).toBe('direct');
     expect(classifyTransport(pair({ localType: 'srflx', relayProtocol: undefined }))).toBe('direct');
   });
@@ -56,22 +56,22 @@ describe('classifyTransport', () => {
 });
 
 describe('meetsPolicy', () => {
-  it('accepts only TLS relay on 443', () => {
-    expect(meetsPolicy('relay-tls-443')).toBe(true);
+  it('accepts every established LiveKit route', () => {
+    for (const transport of ['relay-tls-443', 'relay-tls', 'relay-tcp', 'relay-udp', 'direct'] as const) {
+      expect(meetsPolicy(transport)).toBe(true);
+    }
   });
 
-  it('rejects everything else, including other relays', () => {
-    for (const transport of ['relay-tls', 'relay-tcp', 'relay-udp', 'direct', 'unknown'] as const) {
-      expect(meetsPolicy(transport)).toBe(false);
-    }
+  it('rejects an unknown route while ICE is still connecting', () => {
+    expect(meetsPolicy('unknown')).toBe(false);
   });
 });
 
 describe('describeTransport', () => {
   it('names each case in plain words', () => {
-    expect(describeTransport('relay-tls-443')).toBe('Relayed over TLS on port 443');
-    expect(describeTransport('direct')).toBe('Direct peer to peer');
-    expect(describeTransport('unknown')).toBe('Not established yet');
+    expect(describeTransport('relay-tls-443')).toBe('Secure TURN/TLS fallback on port 443');
+    expect(describeTransport('direct')).toBe('Direct encrypted route to LiveKit');
+    expect(describeTransport('unknown')).toBe('Finding the best media route…');
   });
 });
 

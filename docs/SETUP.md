@@ -51,7 +51,9 @@ from auth.users
 order by created_at;
 ```
 
-Expect two rows, with emails `huve14@gmail.com` and `suvedap@gmail.com`.
+The current pair use the name-based accounts `simphiwe@suveda.app` and
+`suveda@suveda.app`. Test accounts may also be present; they must not be added
+to the private membership allowlist.
 
 **If the emails do not match**, it is because the app's onboarding has a
 name-only mode that invents an address like `huve@suveda.app`. In that case,

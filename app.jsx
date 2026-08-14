@@ -1,4 +1,4 @@
-// app.jsx — Main Suveda shell
+// app.jsx — Main Life OS shell
 
 const { useState, useEffect, useMemo, useRef, useCallback } = React;
 
@@ -39,6 +39,30 @@ function pickStoredState(candidate) {
     saved.whyNote = SEED.whyNote || '';
   }
   if (!saved.first48) saved.first48 = SEED.first48 || null;
+  saved.budget = window.__lifeos?.budget?.upgradeBudget?.(saved.budget) || saved.budget;
+
+  // Retire the original departure checklist without touching anything the
+  // user added herself. Known starter records keep their completion state and
+  // attachments while receiving current UAE-life copy.
+  const currentDocuments = new Map((SEED.documents || []).map(document => [document.id, document]));
+  saved.documents = (saved.documents || []).map(document => {
+    const current = currentDocuments.get(document.id);
+    return current ? { ...document, name: current.name, note: current.note, emoji: current.emoji } : document;
+  });
+
+  const retiredTaskIds = new Set(Array.from({ length: 14 }, (_, index) => `t${index + 1}`));
+  const currentTasks = new Map((SEED.tasks || []).map(task => [task.id, task]));
+  const keptTasks = (saved.tasks || [])
+    .filter(task => !retiredTaskIds.has(task.id))
+    .map(task => {
+      const current = currentTasks.get(task.id);
+      return current ? { ...task, text: current.text, when: current.when } : task;
+    });
+  const keptTaskIds = new Set(keptTasks.map(task => task.id));
+  saved.tasks = [
+    ...keptTasks,
+    ...(SEED.tasks || []).filter(task => !keptTaskIds.has(task.id)).map(task => ({ ...task })),
+  ];
   if (Array.isArray(saved.housing)) {
     saved.housing = { rooms: [
       { id: 'living', label: 'Living Room', emoji: '🛋️', photos: [], tips: '' },
@@ -59,7 +83,7 @@ const DEFAULT_TWEAKS = window.__suvedaDefaults || {
   moveDate: window.DEFAULT_MOVE_DATE,
   progressLevel: 'empty',     // empty | half | almost
   initialTab: 'home',
-  accent: 'terracotta',       // terracotta | teal | gold
+  accent: 'terracotta',       // legacy keys retained for persisted tweak values
   density: 'cozy',            // cozy | compact
   layout: 'classic',          // classic | cards | timeline
   progressStyle: 'bar',       // bar | circle | segmented
@@ -73,7 +97,7 @@ function useAppLock() {
   const [state, setState] = useState('checking'); // checking | open | locked
 
   const attempt = useCallback(async () => {
-    const result = await api?.lock.unlock('Unlock LifeOS');
+    const result = await api?.lock.unlock('Unlock Life OS');
     if (result === 'unlocked' || result === 'unavailable') {
       api?.lock.markUnlocked();
       setState('open');
@@ -121,11 +145,11 @@ function LockScreen({ onUnlock }) {
     }}>
       <div style={{
         width: 72, height: 72, borderRadius: 24,
-        background: 'linear-gradient(135deg, var(--terracotta) 0%, var(--gold) 100%)',
+        background: 'linear-gradient(135deg, var(--honey) 0%, var(--blue) 100%)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         fontSize: 32,
       }}>🔒</div>
-      <h1 style={{ fontSize: 20 }}>LifeOS is locked</h1>
+      <h1 style={{ fontSize: 20 }}>Life OS is locked</h1>
       <p style={{ fontSize: 14, color: 'var(--muted)', textAlign: 'center', maxWidth: 280, lineHeight: 1.5 }}>
         Unlock to see your notes and answers.
       </p>
@@ -135,6 +159,19 @@ function LockScreen({ onUnlock }) {
 }
 
 function App() {
+  // Browser call invitations are guest-first: resolve them before auth and
+  // onboarding so a recipient never needs a Life OS account or app install.
+  const callInviteMatch = window.location.pathname.match(/^\/join\/([^/]+)/);
+  if (callInviteMatch) {
+    const requestedMode = new URLSearchParams(window.location.search).get('mode');
+    return (
+      <GuestCallScreen
+        inviteToken={decodeURIComponent(callInviteMatch[1])}
+        initialMode={requestedMode === 'video' ? 'video' : 'audio'}
+      />
+    );
+  }
+
   // Shared shopping list route — handle both hash (#shared/TOKEN) and path (/s/TOKEN) formats.
   // Path format catches cases where the old SW intercepts /s/ and serves index.html.
   const pathMatch = window.location.pathname.match(/^\/s\/(.+)/);
@@ -146,37 +183,87 @@ function App() {
     return <SharedList token={hash.replace('#shared/', '')} />;
   }
 
-  const [tweaks, setTweak] = useTweaks(DEFAULT_TWEAKS);
+  // A local-only visual fixture for responsive browser QA. Vite removes this
+  // branch from production builds because import.meta.env.DEV is false there.
+  const previewParams = new URLSearchParams(window.location.search);
+  const previewHome = import.meta.env.DEV && previewParams.has('preview-home');
+  const previewCall = import.meta.env.DEV && previewParams.has('preview-call');
+  const previewGames = import.meta.env.DEV && previewParams.has('preview-games');
+  const previewSession = previewHome || previewCall || previewGames;
+  const requestedGameCode = (previewParams.get('game') || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+  const previewDark = import.meta.env.DEV && previewParams.has('preview-dark');
+  const previewEmail = previewParams.get('preview-email') || 'demo@lifeos.app';
+  const previewUser = previewSession ? { id: 'visual-preview', email: previewEmail, user_metadata: { name: 'Demo User' } } : null;
+
+  const [tweaks, setTweak] = useTweaks(previewDark ? { ...DEFAULT_TWEAKS, dark: true } : DEFAULT_TWEAKS);
   const store = window.__suvedaStore;
   const [storageReady, setStorageReady] = useState(false);
 
   // Auth state
-  const [user, setUser] = useState(window.__suvedaUser ?? null);
-  const [authReady, setAuthReady] = useState(!!window.__suvedaUser);
+  const [user, setUser] = useState(previewUser || window.__suvedaUser || null);
+  const [authReady, setAuthReady] = useState(previewSession || !!window.__suvedaUser);
+  const [profile, setProfile] = useState(previewSession ? {
+    user_id: 'visual-preview', display_name: 'Demo User', handle: 'demo_user', time_zone: 'Asia/Dubai',
+  } : null);
 
   useEffect(() => {
+    if (previewSession) return undefined;
     const unsub = window.__suvedaAuth?.onAuthChange((u) => {
       setUser(u);
       setAuthReady(true);
     });
     return unsub;
-  }, []);
+  }, [previewSession]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (previewSession || !user?.id) {
+      if (!previewSession) setProfile(null);
+      return undefined;
+    }
+    void window.__suvedaAuth?.profile?.().then(nextProfile => {
+      if (!cancelled) setProfile(nextProfile);
+    });
+    return () => { cancelled = true; };
+  }, [previewSession, user?.id]);
 
   const lock = useAppLock();
 
   // App state
   const [view, setView] = useState(null); // null=loading | onboarding | home | packing | docs | tasks | budget | shopping | housing
+  const [callLaunch, setCallLaunch] = useState({ id: 0, mode: 'video' });
   const [state, setState] = useState(() => createSeedState(tweaks));
   const [aiOpen, setAiOpen] = useState(false);
   const [aiPrompt, setAiPrompt] = useState('');
   const [aiContext, setAiContext] = useState('');
   const [celebrate, setCelebrate] = useState(false);
+  const [syncFeedback, setSyncFeedback] = useState({ status: 'idle', message: 'Sync now', detail: '' });
   const lastPctRef = useRef(0);
+  const syncResetRef = useRef(null);
+
+  useEffect(() => () => clearTimeout(syncResetRef.current), []);
 
   useEffect(() => {
     let cancelled = false;
 
     async function hydrate() {
+      if (previewSession) {
+        setState({
+          ...createSeedState({ ...tweaks, progressLevel: 'empty' }),
+          moveDate: '2026-08-10',
+          onboardingDone: true,
+        });
+        setView(previewCall ? 'call' : previewGames ? 'games' : 'home');
+        setStorageReady(true);
+        return;
+      }
+      if (!user?.id) {
+        setState(createSeedState(tweaks));
+        setView('onboarding');
+        setStorageReady(true);
+        return;
+      }
+      setStorageReady(false);
       try {
         const saved = await store?.loadAppState?.();
         if (cancelled) return;
@@ -196,15 +283,28 @@ function App() {
     return () => {
       cancelled = true;
     };
-  }, [store]);
+  }, [previewCall, previewGames, previewSession, store, user?.id]);
+
+  const gameInviteHandledRef = useRef(false);
+  useEffect(() => {
+    if (!user?.id || !storageReady || requestedGameCode.length !== 6 || gameInviteHandledRef.current) return;
+    gameInviteHandledRef.current = true;
+    setView('games');
+  }, [requestedGameCode, storageReady, user?.id]);
 
   useEffect(() => {
-    if (!storageReady || !store?.saveAppState) return;
+    if (previewSession || !user?.id || !storageReady || !store?.saveAppState) return;
     const timer = setTimeout(() => {
-      store.saveAppState(state);
+      void store.saveAppState(state).catch(error => {
+        setSyncFeedback(current => current.status === 'syncing' ? current : {
+          status: 'error',
+          message: 'Sync failed',
+          detail: error instanceof Error ? error.message : 'Supabase did not save the latest changes.',
+        });
+      });
     }, 500);
     return () => clearTimeout(timer);
-  }, [state, storageReady, store]);
+  }, [previewSession, state, storageReady, store, user?.id]);
 
   // When tweak progressLevel changes, regenerate seed
   useEffect(() => {
@@ -263,6 +363,45 @@ function App() {
     setAiOpen(true);
   }
 
+  function openModule(id, options = {}) {
+    if (id === 'call' && options.autoStart) {
+      setCallLaunch(current => ({
+        id: current.id + 1,
+        mode: options.mode === 'audio' ? 'audio' : 'video',
+      }));
+    }
+    setView(id);
+  }
+
+  async function syncNow() {
+    if (syncFeedback.status === 'syncing') return;
+    clearTimeout(syncResetRef.current);
+    setSyncFeedback({ status: 'syncing', message: 'Syncing', detail: 'Saving your latest changes to Supabase.' });
+
+    try {
+      const result = previewSession
+        ? await new Promise(resolve => setTimeout(() => resolve({ sent: 0, pending: 0 }), 650))
+        : await window.__lifeos.sync.syncNow(() => store.saveAppState(state));
+      const message = result.sent > 0
+        ? `${result.sent} ${result.sent === 1 ? 'item' : 'items'} synced`
+        : 'Synced now';
+      setSyncFeedback({ status: 'success', message, detail: 'Supabase has the latest version of your Life OS.' });
+      void window.__lifeos?.native.notifyHaptic('success');
+      syncResetRef.current = setTimeout(() => {
+        setSyncFeedback({ status: 'idle', message: 'Sync now', detail: '' });
+      }, 2200);
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : 'Supabase could not be reached.';
+      const offline = /offline|network|failed to fetch/i.test(detail);
+      setSyncFeedback({
+        status: offline ? 'offline' : 'error',
+        message: offline ? 'You’re offline' : 'Sync failed',
+        detail,
+      });
+      void window.__lifeos?.native.notifyHaptic('error');
+    }
+  }
+
   function renderContent() {
     if (view === 'onboarding') {
       return <Onboarding user={user} initialDate={tweaks.moveDate} onDone={({ moveDate }) => {
@@ -274,10 +413,26 @@ function App() {
 
     const screens = {
       home:    <Dashboard state={state} setState={setState} onAsk={openAi}
-                onModule={id => setView(id)}
+                onModule={openModule}
                 layout={tweaks.layout} progressStyle={tweaks.progressStyle}
-                syncStatus={storageReady ? (store?.hasConfig ? 'Synced to Supabase' : 'Local draft') : 'Connecting…'}
-                userName={displayName} />,
+                syncStatus={syncFeedback.status === 'syncing'
+                  ? 'Syncing to Supabase…'
+                  : syncFeedback.status === 'success'
+                    ? syncFeedback.message
+                    : syncFeedback.status === 'error' || syncFeedback.status === 'offline'
+                      ? 'Sync needs attention'
+                      : storageReady ? (store?.hasConfig ? 'Supabase ready' : 'Local draft') : 'Connecting…'}
+                syncFeedback={syncFeedback}
+                onSync={syncNow}
+                syncDisabled={!previewSession && (!storageReady || !store?.hasConfig || !user?.id)}
+                userName={displayName}
+                userEmail={user?.email || ''} />,
+      settings:<SettingsScreen
+                profile={profile}
+                email={user?.email || ''}
+                onProfileChange={setProfile}
+                onBack={() => setView('home')}
+                onLoggedOut={() => setView('onboarding')} />,
       packing: <PackingScreen state={state} setState={setState} onBack={() => setView('home')} onAsk={openAi} />,
       docs:    <DocumentsScreen state={state} setState={setState} onBack={() => setView('home')} onAsk={openAi} />,
       tasks:   <TasksScreen state={state} setState={setState} onBack={() => setView('home')} />,
@@ -288,11 +443,14 @@ function App() {
       habits:  <HabitsScreen state={state} setState={setState} onBack={() => setView('home')} />,
       people:  <ContactsScreen state={state} setState={setState} onBack={() => setView('home')} />,
       map:     <MapScreen state={state} setState={setState} onBack={() => setView('home')} />,
+      notes:   <NotesJournalScreen state={state} setState={setState} onBack={() => setView('home')} />,
       journal: <VideoJournalScreen onBack={() => setView('home')} />,
       prompt:  <DailyPromptScreen onBack={() => setView('home')} />,
       trip:    <TripBoardScreen onBack={() => setView('home')} />,
       space:   <SpaceScreen onBack={() => setView('home')} />,
       call:    <CallScreen
+                launch={callLaunch}
+                onLaunchHandled={() => setCallLaunch(current => ({ ...current, id: 0 }))}
                 onBack={() => setView('home')}
                 onRecordInstead={() => {
                   // Phase 4 falling back into Phase 1: land on the journal
@@ -300,12 +458,17 @@ function App() {
                   window.dispatchEvent(new CustomEvent('lifeos:record-video-note'));
                   setView('journal');
                 }} />,
+      games:   <GamesScreen
+                profile={profile}
+                initialCode={requestedGameCode}
+                demo={previewGames}
+                onBack={() => setView('home')} />,
     };
     return screens[view] || screens.home;
   }
 
   // Derive user info for display
-  const displayName = user?.user_metadata?.name || user?.email?.split('@')[0] || 'User';
+  const displayName = profile?.display_name || user?.user_metadata?.display_name || user?.user_metadata?.name || user?.email?.split('@')[0] || 'User';
 
   if (lock.state === 'locked') {
     return <LockScreen onUnlock={lock.attempt} />;
@@ -340,35 +503,27 @@ function App() {
       data-density={tweaks.density}
       style={{
         ...appStyle,
-        height: '100%', width: '100%',
         background: 'var(--cream)',
         backgroundImage:
-          'radial-gradient(at 20% 0%, rgba(212, 168, 83, 0.10) 0%, transparent 40%),' +
-          'radial-gradient(at 100% 100%, rgba(196, 113, 74, 0.08) 0%, transparent 50%)',
+          'radial-gradient(at 20% 0%, rgba(246, 209, 16, 0.16) 0%, transparent 40%),' +
+          'radial-gradient(at 100% 100%, rgba(129, 206, 235, 0.20) 0%, transparent 50%)',
         color: 'var(--dark)',
         position: 'relative',
-        paddingTop: 24,
-        paddingBottom: 'calc(66px + env(safe-area-inset-bottom, 0px) + 16px)',
       }}
     >
       {renderContent()}
 
       {/* Floating Ask Huve button (hidden during onboarding) */}
-      {view !== 'onboarding' && (
+      {view !== 'onboarding' && view !== 'settings' && view !== 'games' && (
         <button
           onClick={() => openAi()}
-          className="ai-pulse"
+          className="ai-launcher ai-pulse"
+          aria-label="Ask Huve"
           style={{
-            position: 'fixed',
-            right: 18, bottom: 'calc(env(safe-area-inset-bottom, 0px) + 78px)',
-            width: 56, height: 56, borderRadius: '50%',
-            background: 'linear-gradient(135deg, var(--terracotta) 0%, var(--gold) 100%)',
-            color: '#fff', fontSize: 26,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 8px 24px -6px rgba(196, 113, 74, 0.55), 0 4px 10px rgba(0,0,0,0.1)',
-            zIndex: 50, border: 'none', cursor: 'pointer',
+            background: 'linear-gradient(135deg, var(--honey) 0%, var(--butter) 100%)',
+            boxShadow: '0 8px 24px -6px rgba(45, 114, 139, 0.5), 0 4px 10px rgba(0,0,0,0.1)',
           }}
-        ><img src="/huve-avatar.jpg" width="42" height="42" alt="Huve" style={{ borderRadius: '50%' }} /></button>
+          ><img src="/huve-avatar.jpg" width="42" height="42" alt="Huve" style={{ borderRadius: '50%', objectFit: 'cover' }} /></button>
       )}
 
       {/* Bottom navigation (hidden during onboarding) */}
@@ -403,20 +558,20 @@ function App() {
       )}
 
       {/* Tweaks panel */}
-      <SuvedaTweaks tweaks={tweaks} setTweak={setTweak} setView={setView} />
+      <LifeOSTweaks tweaks={tweaks} setTweak={setTweak} setView={setView} />
     </div>
   );
 }
 
-function SuvedaTweaks({ tweaks, setTweak, setView }) {
-  // Color → semantic name mapping for accent
-  const accentMap = { '#C4714A': 'terracotta', '#2A6E6B': 'teal', '#D4A853': 'gold' };
-  const accentColors = ['#C4714A', '#2A6E6B', '#D4A853'];
-  const accentValueAsColor = { terracotta: '#C4714A', teal: '#2A6E6B', gold: '#D4A853' }[tweaks.accent];
+function LifeOSTweaks({ tweaks, setTweak, setView }) {
+  // The stored keys are kept for backwards compatibility; the swatches use the new palette.
+  const accentMap = { '#F6D110': 'terracotta', '#81CEEB': 'teal', '#FFF9C7': 'gold' };
+  const accentColors = ['#F6D110', '#81CEEB', '#FFF9C7'];
+  const accentValueAsColor = { terracotta: '#F6D110', teal: '#81CEEB', gold: '#FFF9C7' }[tweaks.accent];
 
   return (
-    <TweaksPanel title="Suveda Tweaks">
-      <TweakSection label="Move day">
+    <TweaksPanel title="Life OS Tweaks">
+      <TweakSection label="UAE start date">
         <input
           type="date"
           value={tweaks.moveDate}
@@ -504,10 +659,12 @@ function SuvedaTweaks({ tweaks, setTweak, setView }) {
             { id: 'budget',     label: '💰 Budget' },
             { id: 'shopping',   label: '🛍️ Shopping' },
             { id: 'housing',    label: '🏠 Housing' },
+            { id: 'notes',      label: '📓 Journal' },
             { id: 'journal',    label: '🎥 Video' },
             { id: 'prompt',     label: '💬 Prompt' },
             { id: 'trip',       label: '🧳 Trip' },
             { id: 'call',       label: '📞 Call' },
+            { id: 'games',      label: '🎲 Games' },
             { id: 'space',      label: '💞 Pairing' },
             { id: 'memory',     label: '💭 Memory' },
             { id: 'habits',     label: '🎯 Habits' },
@@ -531,20 +688,135 @@ function SuvedaTweaks({ tweaks, setTweak, setView }) {
   );
 }
 
+function SettingsScreen({ profile, email, onProfileChange, onBack, onLoggedOut }) {
+  const [name, setName] = useState(profile?.display_name || '');
+  const [saving, setSaving] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const [message, setMessage] = useState('');
+
+  useEffect(() => {
+    setName(profile?.display_name || '');
+  }, [profile?.display_name]);
+
+  async function saveProfile(event) {
+    event.preventDefault();
+    setMessage('');
+    setSaving(true);
+    try {
+      const updated = await window.__suvedaAuth?.updateProfile?.({ display_name: name });
+      if (updated) onProfileChange(updated);
+      setMessage('Your name has been updated.');
+    } catch (error) {
+      setMessage(error?.message || 'Your profile could not be updated.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function logout() {
+    setMessage('');
+    setLoggingOut(true);
+    try {
+      await window.__suvedaAuth?.signOut?.();
+      onLoggedOut();
+    } catch (error) {
+      setMessage(error?.message || 'Could not log out. Please try again.');
+      setLoggingOut(false);
+    }
+  }
+
+  return (
+    <ModulePage title="Settings" subtitle="Your Life OS account" icon="Settings" onBack={onBack}>
+      <Card padding="20px" style={{ marginBottom: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 18 }}>
+          <div style={{
+            width: 52, height: 52, borderRadius: 18,
+            background: 'linear-gradient(135deg, var(--honey), var(--blue))',
+            display: 'grid', placeItems: 'center', fontSize: 22, fontWeight: 800,
+            color: '#17272D', flexShrink: 0,
+          }}>
+            {(profile?.display_name || email || 'L').trim().charAt(0).toUpperCase()}
+          </div>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 17, fontWeight: 750 }}>{profile?.display_name || 'Your account'}</div>
+            <div style={{ fontSize: 13, color: 'var(--muted)', overflowWrap: 'anywhere', marginTop: 2 }}>{email}</div>
+            {profile?.handle && <div style={{ fontSize: 12, color: 'var(--teal)', marginTop: 4 }}>@{profile.handle}</div>}
+          </div>
+        </div>
+
+        <form onSubmit={saveProfile}>
+          <label htmlFor="settings-display-name" style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--muted)', marginBottom: 6 }}>
+            Display name
+          </label>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <input
+              id="settings-display-name"
+              value={name}
+              onChange={event => setName(event.target.value)}
+              maxLength={80}
+              required
+              style={{
+                flex: 1, minWidth: 0, padding: '12px 14px', borderRadius: 12,
+                border: '1px solid var(--line)', background: 'var(--cream)',
+                color: 'var(--dark)', font: 'inherit', fontSize: 14,
+              }}
+            />
+            <Button type="submit" size="sm" disabled={saving || !name.trim()}>
+              {saving ? 'Saving…' : 'Save'}
+            </Button>
+          </div>
+        </form>
+      </Card>
+
+      <Card padding="20px" style={{ marginBottom: 14 }}>
+        <div style={{ fontSize: 12, fontWeight: 750, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--teal)', marginBottom: 8 }}>
+          Privacy
+        </div>
+        <h3 style={{ fontSize: 16, marginBottom: 6 }}>Your data stays with your account</h3>
+        <p style={{ fontSize: 13, lineHeight: 1.55, color: 'var(--muted)', margin: 0 }}>
+          Your profile, dashboard, chat and personal lists are isolated from every other Life OS account by database access rules.
+        </p>
+        <FaceIdRow />
+      </Card>
+
+      {message && (
+        <div role="status" style={{ fontSize: 13, color: 'var(--muted)', padding: '4px 2px 12px' }}>{message}</div>
+      )}
+
+      <button
+        type="button"
+        onClick={logout}
+        disabled={loggingOut}
+        style={{
+          width: '100%', padding: '14px 18px', borderRadius: 14,
+          border: '1px solid rgba(168,66,66,0.28)', background: 'var(--white)',
+          color: '#A84242', font: 'inherit', fontSize: 14, fontWeight: 750,
+          cursor: loggingOut ? 'wait' : 'pointer', opacity: loggingOut ? 0.65 : 1,
+        }}
+      >
+        {loggingOut ? 'Logging out…' : 'Log out'}
+      </button>
+    </ModulePage>
+  );
+}
+
 // ---------- Bottom navigation ----------
 const PRIMARY_NAV = [
-  { id: 'map',     label: 'Map',       icon: 'Map' },
   { id: 'home',    label: 'Home',      icon: 'House' },
-  { id: 'docs',    label: 'Documents', icon: 'FileText' },
+  { id: 'map',     label: 'Map',       icon: 'Map' },
+  { id: 'docs',    label: 'Docs',      icon: 'FileText' },
   { id: 'budget',  label: 'Budget',    icon: 'Wallet' },
 ];
 
 const MORE_NAV = [
+  { id: 'settings', label: 'Settings', icon: 'Settings' },
+  { id: 'notes',    label: 'Journal',  icon: 'NotebookPen' },
   { id: 'journal',  label: 'Video',    icon: 'Video' },
   { id: 'packing',  label: 'Packing',  icon: 'Package' },
   { id: 'prompt',   label: 'Prompt',   icon: 'MessageCircle' },
   { id: 'trip',     label: 'Trip',     icon: 'Luggage' },
   { id: 'call',     label: 'Call',     icon: 'Phone' },
+  { id: 'games',    label: 'Games',    icon: 'Gamepad2' },
   { id: 'tasks',    label: 'Timeline', icon: 'CalendarDays' },
   { id: 'shopping', label: 'Shopping', icon: 'ShoppingCart' },
   { id: 'housing',  label: 'Housing',  icon: 'Building2' },
@@ -553,8 +825,6 @@ const MORE_NAV = [
   { id: 'people',   label: 'People',   icon: 'Users' },
   { id: 'space',    label: 'Pairing',  icon: 'Heart' },
 ];
-
-const NAV_ITEMS = [...PRIMARY_NAV, ...MORE_NAV];
 
 // Which nav entries currently have something waiting.
 function navNeedsAttention(id, unwatched, promptWaiting) {
@@ -576,7 +846,7 @@ function NavDot({ show, offset = 4 }) {
     <span style={{
       position: 'absolute', top: offset, right: offset,
       width: 9, height: 9, borderRadius: '50%',
-      background: 'var(--terracotta)',
+      background: 'var(--honey)',
       border: '2px solid var(--white)',
     }} />
   );
@@ -629,7 +899,7 @@ function FaceIdRow() {
       </span>
       <span style={{
         width: 44, height: 26, borderRadius: 999, flexShrink: 0,
-        background: enabled ? 'var(--teal)' : 'var(--line)',
+        background: enabled ? 'var(--blue)' : 'var(--line)',
         display: 'flex', alignItems: 'center',
         padding: 3, transition: 'background 0.18s',
       }}>
@@ -644,181 +914,84 @@ function FaceIdRow() {
 }
 
 function BottomNav({ current, onNavigate }) {
-  const [isDesktop, setDesktop] = useState(window.innerWidth >= 640);
   const [playTriggers, setPlayTriggers] = useState({});
   const [moreOpen, setMoreOpen] = useState(false);
   const unwatched = useUnwatchedCount();
   const promptWaiting = useUnansweredToday();
 
-  useEffect(() => {
-    const mq = window.matchMedia('(min-width: 640px)');
-    const onChange = e => setDesktop(e.matches);
-    mq.addEventListener('change', onChange);
-    return () => mq.removeEventListener('change', onChange);
-  }, []);
-
   const activeMoreItem = MORE_NAV.find(item => item.id === current);
-  const displayItems = isDesktop ? NAV_ITEMS : PRIMARY_NAV;
 
   return (
     <>
-      <div
-        style={{
-          position: 'fixed',
-          bottom: 0,
-          left: isDesktop ? 0 : 12,
-          right: isDesktop ? 0 : 12,
-          height: isDesktop ? 68 : 'calc(66px + env(safe-area-inset-bottom, 0px))',
-          boxSizing: 'border-box',
-          paddingLeft: isDesktop ? 16 : 8,
-          paddingRight: isDesktop ? 16 : 8,
-          paddingBottom: isDesktop ? 'env(safe-area-inset-bottom, 0)' : 'env(safe-area-inset-bottom, 0px)',
-          zIndex: 100,
-          background: 'rgba(255,255,255,0.94)',
-          backdropFilter: 'blur(20px)',
-          WebkitBackdropFilter: 'blur(20px)',
-          borderTop: isDesktop ? '1px solid var(--line)' : 'none',
-          border: isDesktop ? undefined : '1px solid rgba(0,0,0,0.07)',
-          borderRadius: isDesktop ? 0 : '26px 26px 16px 16px',
-          boxShadow: isDesktop ? 'none' : '0 8px 32px rgba(0,0,0,0.10), 0 2px 8px rgba(0,0,0,0.05)',
-          display: 'flex', alignItems: 'center',
-          justifyContent: isDesktop ? 'center' : undefined,
-          overflowX: 'hidden',
-          overflowY: 'hidden',
-        }}
-      >
-        <div style={{
-          display: 'flex', alignItems: 'center',
-          justifyContent: 'space-evenly',
-          maxWidth: isDesktop ? 600 : 'none',
-          width: '100%',
-          gap: 0,
-        }}>
-          {displayItems.map(item => {
+      <nav className="bottom-nav" aria-label="Main navigation">
+        <div className="bottom-nav-inner">
+          {PRIMARY_NAV.map(item => {
             const active = current === item.id;
             return (
               <button
                 key={item.id}
+                type="button"
+                className={`bottom-nav-item${active ? ' is-active' : ''}`}
+                aria-current={active ? 'page' : undefined}
+                aria-label={item.label}
                 onClick={() => {
                   setPlayTriggers(t => ({ ...t, [item.id]: (t[item.id] || 0) + 1 }));
                   onNavigate(item.id);
                 }}
                 onMouseEnter={() => setPlayTriggers(t => ({ ...t, [item.id]: (t[item.id] || 0) + 1 }))}
-                style={{
-                  position: 'relative',
-                  display: 'flex', flexDirection: 'column', alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: isDesktop ? 2 : 4,
-                  padding: isDesktop ? '6px 10px' : '7px 10px',
-                  flex: '1 1 0',
-                  border: 'none', cursor: 'pointer',
-                  fontFamily: 'inherit',
-                  background: !isDesktop && active ? 'rgba(196, 113, 74, 0.13)' : 'transparent',
-                  borderRadius: isDesktop ? 0 : 18,
-                  opacity: active ? 1 : (isDesktop ? 0.5 : 0.42),
-                  transition: 'background 0.18s, opacity 0.18s',
-                  WebkitTapHighlightColor: 'transparent',
-                }}
               >
-                <span style={{
-                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                  color: active ? 'var(--terracotta)' : 'var(--dark)',
-                }}>
-                  <AnimatedIcon name={item.icon} size={isDesktop ? 22 : 26} play={playTriggers[item.id] || 0} />
+                <span className="bottom-nav-icon">
+                  <AnimatedIcon name={item.icon} size={26} play={playTriggers[item.id] || 0} />
                 </span>
-                <span style={{
-                  fontSize: isDesktop ? 10 : 11,
-                  fontWeight: active ? 700 : 500,
-                  color: active ? 'var(--terracotta)' : 'var(--muted)',
-                  letterSpacing: '0.01em', whiteSpace: 'nowrap',
-                  lineHeight: 1,
-                }}>{item.label}</span>
+                <span className="bottom-nav-label">{item.label}</span>
                 <NavDot show={navNeedsAttention(item.id, unwatched, promptWaiting)} />
               </button>
             );
           })}
 
-          {!isDesktop && (
-            <button
-              onClick={() => setMoreOpen(o => !o)}
-              style={{
-                position: 'relative',
-                display: 'flex', flexDirection: 'column', alignItems: 'center',
-                justifyContent: 'center',
-                gap: 4,
-                padding: '7px 10px',
-                flex: '1 1 0',
-                border: 'none', cursor: 'pointer',
-                fontFamily: 'inherit',
-                background: activeMoreItem ? 'rgba(196, 113, 74, 0.13)' : 'transparent',
-                borderRadius: 18,
-                opacity: activeMoreItem || moreOpen ? 1 : 0.42,
-                transition: 'background 0.18s, opacity 0.18s',
-                WebkitTapHighlightColor: 'transparent',
-              }}
-            >
-              <span style={{
-                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                color: activeMoreItem ? 'var(--terracotta)' : 'var(--dark)',
-              }}>
-                <AnimatedIcon
-                  name={activeMoreItem ? activeMoreItem.icon : 'LayoutGrid'}
-                  size={26}
-                  play={0}
-                />
-              </span>
-              <span style={{
-                fontSize: 11, fontWeight: activeMoreItem ? 700 : 500,
-                color: activeMoreItem ? 'var(--terracotta)' : 'var(--muted)',
-                letterSpacing: '0.01em', whiteSpace: 'nowrap',
-                lineHeight: 1,
-              }}>{activeMoreItem ? activeMoreItem.label : 'More'}</span>
-              <NavDot show={moreNeedsAttention(current, unwatched, promptWaiting)} />
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => setMoreOpen(o => !o)}
+            className={`bottom-nav-item${activeMoreItem || moreOpen ? ' is-active' : ''}`}
+            aria-expanded={moreOpen}
+            aria-label={activeMoreItem ? `${activeMoreItem.label}, more destinations` : 'More destinations'}
+          >
+            <span className="bottom-nav-icon">
+              <AnimatedIcon
+                name={activeMoreItem ? activeMoreItem.icon : 'LayoutGrid'}
+                size={26}
+                play={0}
+              />
+            </span>
+            <span className="bottom-nav-label">{activeMoreItem ? activeMoreItem.label : 'More'}</span>
+            <NavDot show={moreNeedsAttention(current, unwatched, promptWaiting)} />
+          </button>
         </div>
-      </div>
+      </nav>
 
-      {!isDesktop && (
-        <Sheet open={moreOpen} onClose={() => setMoreOpen(false)} title="More" height="auto">
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(3, 1fr)',
-            gap: 12,
-            padding: '4px 0 8px',
-          }}>
+      <Sheet open={moreOpen} onClose={() => setMoreOpen(false)} title="More" height="auto">
+          <div className="bottom-nav-more-grid">
             {MORE_NAV.map(item => {
               const active = current === item.id;
               return (
                 <button
                   key={item.id}
+                  type="button"
+                  className={`bottom-nav-more-item${active ? ' is-active' : ''}`}
+                  aria-current={active ? 'page' : undefined}
                   onClick={() => { onNavigate(item.id); setMoreOpen(false); }}
-                  style={{
-                    position: 'relative',
-                    display: 'flex', flexDirection: 'column', alignItems: 'center',
-                    gap: 8, padding: '16px 8px', borderRadius: 16,
-                    background: active ? 'rgba(196, 113, 74, 0.10)' : 'rgba(0,0,0,0.04)',
-                    border: `1.5px solid ${active ? 'rgba(196, 113, 74, 0.3)' : 'transparent'}`,
-                    cursor: 'pointer', fontFamily: 'inherit',
-                    WebkitTapHighlightColor: 'transparent',
-                  }}
                 >
-                  <span style={{ color: active ? 'var(--terracotta)' : 'var(--dark)' }}>
+                  <span className="bottom-nav-more-icon">
                     <AnimatedIcon name={item.icon} size={28} play={0} />
                   </span>
-                  <span style={{
-                    fontSize: 12, fontWeight: active ? 700 : 500,
-                    color: active ? 'var(--terracotta)' : 'var(--dark)',
-                    lineHeight: 1,
-                  }}>{item.label}</span>
+                  <span className="bottom-nav-more-label">{item.label}</span>
                   <NavDot show={navNeedsAttention(item.id, unwatched, promptWaiting)} offset={8} />
                 </button>
               );
             })}
           </div>
           <FaceIdRow />
-        </Sheet>
-      )}
+      </Sheet>
     </>
   );
 }
@@ -867,7 +1040,7 @@ class ErrorBoundary extends React.Component {
 // ---------- Mount ----------
 function Root() {
   return (
-    <div data-screen-label="Suveda Move App" style={{ width: '100%', height: '100%' }}>
+    <div data-screen-label="Life OS App" style={{ width: '100%', height: '100%' }}>
       <ErrorBoundary>
         <App />
       </ErrorBoundary>

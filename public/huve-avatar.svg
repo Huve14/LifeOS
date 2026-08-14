@@ -1,8 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="0.5" y2="1">
-      <stop offset="0%" stop-color="#E6E2DA"/>
-      <stop offset="100%" stop-color="#C8C4BC"/>
+      <stop offset="0%" stop-color="#E6F2F4"/>
+      <stop offset="100%" stop-color="#81CEEB"/>
     </linearGradient>
     <clipPath id="c"><circle cx="50" cy="50" r="50"/></clipPath>
   </defs>
@@ -14,9 +14,9 @@
   <path d="M-5,100 L-5,74 Q14,63 32,61 L40,66 L50,72 L60,66 L68,61 Q86,63 105,74 L105,100 Z" fill="#0D0D0D" clip-path="url(#c)"/>
 
   <!-- Hood — teal band -->
-  <path d="M14,68 Q50,76 86,68 L86,73 Q50,81 14,73 Z" fill="#2A8B80" clip-path="url(#c)"/>
+  <path d="M14,68 Q50,76 86,68 L86,73 Q50,81 14,73 Z" fill="#81CEEB" clip-path="url(#c)"/>
   <!-- Hood — maroon inner edge -->
-  <path d="M14,73 Q50,81 86,73 L86,76 Q50,84 14,76 Z" fill="#7A2040" clip-path="url(#c)"/>
+  <path d="M14,73 Q50,81 86,73 L86,76 Q50,84 14,76 Z" fill="#F6D110" clip-path="url(#c)"/>
 
   <!-- Shirt collar (white) -->
   <path d="M44,63 L50,70 L56,63 L54,59 L50,61 L46,59 Z" fill="#DEDAD3" clip-path="url(#c)"/>

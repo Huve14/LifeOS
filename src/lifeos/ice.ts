@@ -1,11 +1,9 @@
 // ICE transport inspection.
 //
-// The UAE blocks WhatsApp and FaceTime calling with DPI on Etisalat and du, so
-// this call has to relay over TURN on TCP 443 and present as ordinary HTTPS.
-// It is not enough to configure that and hope: this module reads back what the
-// connection actually negotiated, so the call screen can say plainly whether
-// the media is going over a TLS relay or has quietly fallen through to
-// something that will be blocked.
+// LiveKit Cloud can use direct UDP to its media edge, TURN/UDP, WebRTC/TCP, or
+// TURN/TLS on 443. This module reports the route the browser negotiated so the
+// call screen can distinguish the normal low-latency path from a restricted-
+// network fallback without forcing every connection through TURN.
 //
 // The peer connections belong to livekit-client, and reaching into its
 // internals would break on any upgrade. Instead the constructor is wrapped for
@@ -30,10 +28,7 @@ export type Transport =
   | 'direct'
   | 'unknown';
 
-/**
- * relay-tls-443 is the only classification that satisfies the constraint.
- * Everything below it is reported honestly rather than rounded up.
- */
+/** Classify the selected ICE candidate without treating any route as P2P. */
 export function classifyTransport(pair: CandidatePair | null): Transport {
   if (!pair) return 'unknown';
 
@@ -53,25 +48,25 @@ export function classifyTransport(pair: CandidatePair | null): Transport {
   return 'unknown';
 }
 
-/** Would this transport survive DPI that blocks calling protocols? */
+/** Has an actual LiveKit media route been established? */
 export function meetsPolicy(transport: Transport): boolean {
-  return transport === 'relay-tls-443';
+  return transport !== 'unknown';
 }
 
 export function describeTransport(transport: Transport): string {
   switch (transport) {
     case 'relay-tls-443':
-      return 'Relayed over TLS on port 443';
+      return 'Secure TURN/TLS fallback on port 443';
     case 'relay-tls':
-      return 'Relayed over TLS, but not on port 443';
+      return 'Secure TURN/TLS relay';
     case 'relay-tcp':
-      return 'Relayed over plain TCP';
+      return 'TURN relay over TCP';
     case 'relay-udp':
-      return 'Relayed over UDP';
+      return 'TURN relay over UDP';
     case 'direct':
-      return 'Direct peer to peer';
+      return 'Direct encrypted route to LiveKit';
     default:
-      return 'Not established yet';
+      return 'Finding the best media route…';
   }
 }
 
@@ -138,17 +133,17 @@ export function pairFromStats(report: Map<string, Record<string, unknown>>): Can
 export type TransportReport = {
   pairs: CandidatePair[];
   transports: Transport[];
-  /** The weakest link, since one unprotected path is enough to be blocked. */
+  /** The most constrained selected route when LiveKit uses multiple PCs. */
   worst: Transport;
   compliant: boolean;
 };
 
 const RANK: Record<Transport, number> = {
-  'relay-tls-443': 0,
-  'relay-tls': 1,
+  direct: 0,
+  'relay-udp': 1,
   'relay-tcp': 2,
-  'relay-udp': 3,
-  direct: 4,
+  'relay-tls': 3,
+  'relay-tls-443': 4,
   unknown: 5,
 };
 

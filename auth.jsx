@@ -19,8 +19,8 @@ function AuthScreen() {
 
     try {
       if (mode === 'name') {
-        const n = name.trim() || 'Suveda';
-        const autoEmail = `${n.toLowerCase().replace(/\s+/g, '.')}@suveda.app`;
+        const n = name.trim() || 'Member';
+        const autoEmail = `${n.toLowerCase().replace(/\s+/g, '.')}@lifeos.local`;
         // Try sign in first
         const { error: signInError } = await signIn(autoEmail, password);
         if (signInError) {
@@ -47,31 +47,31 @@ function AuthScreen() {
 
   return (
     <div
+      className="auth-screen"
       style={{
         minHeight: '100%', width: '100%',
         display: 'flex', flexDirection: 'column',
         justifyContent: 'center',
         background: 'var(--cream)',
         backgroundImage:
-          'radial-gradient(at 20% 0%, rgba(212, 168, 83, 0.12) 0%, transparent 40%),' +
-          'radial-gradient(at 100% 100%, rgba(196, 113, 74, 0.10) 0%, transparent 50%)',
+          'radial-gradient(at 20% 0%, rgba(246, 209, 16, 0.18) 0%, transparent 40%),' +
+          'radial-gradient(at 100% 100%, rgba(129, 206, 235, 0.22) 0%, transparent 50%)',
         color: 'var(--dark)',
-        padding: '40px 24px 60px',
       }}
     >
       {/* Brand */}
-      <div style={{ textAlign: 'center', marginBottom: 32 }}>
+      <div className="auth-brand" style={{ textAlign: 'center' }}>
         <div style={{
           width: 72, height: 72, borderRadius: 24,
-          background: 'linear-gradient(135deg, var(--terracotta) 0%, var(--gold) 100%)',
+          background: 'linear-gradient(135deg, var(--honey) 0%, var(--blue) 100%)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           margin: '0 auto 16px', fontSize: 34,
-          boxShadow: '0 8px 28px -8px rgba(196, 113, 74, 0.4)',
+          boxShadow: '0 8px 28px -8px rgba(45, 114, 139, 0.4)',
         }}>🌴</div>
         <h1 style={{
           fontSize: 30, fontWeight: 700, fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif',
           letterSpacing: '-0.5px', margin: 0,
-        }}>Suveda</h1>
+        }}>Life OS</h1>
         <p style={{
           fontSize: 14, color: 'var(--muted)', marginTop: 6, fontWeight: 500,
         }}>
@@ -80,7 +80,7 @@ function AuthScreen() {
       </div>
 
       {/* Card */}
-      <div style={{
+      <div className="auth-card" style={{
         background: 'var(--white)',
         borderRadius: 24, padding: '28px 24px',
         boxShadow: 'var(--shadow-lg)',
@@ -98,7 +98,7 @@ function AuthScreen() {
                 type="text"
                 value={name}
                 onChange={e => setName(e.target.value)}
-                placeholder="Suveda"
+                placeholder="Your name"
                 required
                 autoFocus
                 style={{
@@ -184,12 +184,12 @@ function AuthScreen() {
               borderRadius: 14, border: 'none',
               background: loading
                 ? '#aaa'
-                : 'linear-gradient(135deg, var(--terracotta) 0%, var(--gold) 100%)',
-              color: '#fff', fontSize: 16, fontWeight: 700,
+                : 'linear-gradient(135deg, var(--honey) 0%, var(--butter) 100%)',
+              color: '#17272D', fontSize: 16, fontWeight: 700,
               fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif',
               cursor: loading ? 'not-allowed' : 'pointer',
               opacity: loading ? 0.7 : 1,
-              boxShadow: '0 4px 14px -4px rgba(196, 113, 74, 0.4)',
+              boxShadow: '0 4px 14px -4px rgba(45, 114, 139, 0.4)',
             }}
           >
             {loading ? 'Processing…' : 'Start'}
@@ -216,8 +216,8 @@ function AuthScreen() {
       </div>
 
       {/* Footer */}
-      <div style={{ textAlign: 'center', marginTop: 40, fontSize: 12, color: 'var(--muted)' }}>
-        Plan your move to Abu Dhabi 🌵
+      <div className="auth-footer" style={{ textAlign: 'center', fontSize: 12, color: 'var(--muted)' }}>
+        Your everyday life in Abu Dhabi
       </div>
     </div>
   );

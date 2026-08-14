@@ -2,7 +2,7 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import '../styles.css';
 import {
-  createSuvedaStore,
+  createLifeOSStore,
   initAuth,
   signUp,
   signIn,
@@ -17,7 +17,27 @@ import {
   uploadPhoto,
   listPhotos,
   deletePhoto,
-  type SuvedaStore,
+  createPhotoUrl,
+  uploadDocument,
+  createDocumentUrl,
+  deleteDocument,
+  loadMyCallProfile,
+  loadCallContacts,
+  addCallContact,
+  createCallInvite,
+  revokeCallInvite,
+  loadMyProfile,
+  updateMyProfile,
+  createGameRoom,
+  joinGameRoom,
+  loadGameRoom,
+  applyGameMove,
+  startGameRoom,
+  applyCardGameAction,
+  restartGameRoom,
+  leaveGameRoom,
+  subscribeGameRoom,
+  type LifeOSStore,
 } from './supabase';
 import { installLifeOS } from './lifeos';
 import { initSync, flushOutbox } from './lifeos/sync';
@@ -42,7 +62,7 @@ declare global {
       progressStyle: 'bar' | 'circle' | 'segmented';
       dark: boolean;
     };
-    __suvedaStore?: SuvedaStore;
+    __suvedaStore?: LifeOSStore;
     __suvedaApiUrl?: string;
     __suvedaUser?: User | null;
     __suvedaAuth: {
@@ -50,6 +70,8 @@ declare global {
       signIn: typeof signIn;
       signOut: typeof signOut;
       onAuthChange: typeof onAuthChange;
+      profile: typeof loadMyProfile;
+      updateProfile: typeof updateMyProfile;
     };
     __suvedaShopping: {
       load: typeof loadShoppingItems;
@@ -59,15 +81,51 @@ declare global {
       generateShareToken: typeof generateShareToken;
       validateShareToken: typeof validateShareToken;
     };
+    __suvedaDocuments?: {
+      upload: typeof uploadDocument;
+      signedUrl: typeof createDocumentUrl;
+      del: typeof deleteDocument;
+    };
+    __suvedaPhotos?: {
+      upload: typeof uploadPhoto;
+      list: typeof listPhotos;
+      signedUrl: typeof createPhotoUrl;
+      del: typeof deletePhoto;
+    };
+    __suvedaCalls?: {
+      profile: typeof loadMyCallProfile;
+      contacts: typeof loadCallContacts;
+      addContact: typeof addCallContact;
+      createInvite: typeof createCallInvite;
+      revokeInvite: typeof revokeCallInvite;
+    };
+    __suvedaGames?: {
+      create: typeof createGameRoom;
+      join: typeof joinGameRoom;
+      load: typeof loadGameRoom;
+      move: typeof applyGameMove;
+      start: typeof startGameRoom;
+      cardAction: typeof applyCardGameAction;
+      restart: typeof restartGameRoom;
+      leave: typeof leaveGameRoom;
+      subscribe: typeof subscribeGameRoom;
+    };
   }
 }
 
 window.React = React;
 window.ReactDOM = { createRoot };
 window.__SUVEDA_MOUNTED = false;
-window.__suvedaStore = createSuvedaStore();
+window.__suvedaStore = createLifeOSStore();
 window.__suvedaApiUrl = (import.meta.env.VITE_API_URL || '/api/huve').trim();
-window.__suvedaAuth = { signUp, signIn, signOut, onAuthChange };
+window.__suvedaAuth = {
+  signUp,
+  signIn,
+  signOut,
+  onAuthChange,
+  profile: loadMyProfile,
+  updateProfile: updateMyProfile,
+};
 window.__suvedaShopping = {
   load: loadShoppingItems,
   claim: claimShoppingItem,
@@ -76,7 +134,26 @@ window.__suvedaShopping = {
   generateShareToken,
   validateShareToken,
 };
-window.__suvedaPhotos = { upload: uploadPhoto, list: listPhotos, del: deletePhoto };
+window.__suvedaPhotos = { upload: uploadPhoto, list: listPhotos, signedUrl: createPhotoUrl, del: deletePhoto };
+window.__suvedaDocuments = { upload: uploadDocument, signedUrl: createDocumentUrl, del: deleteDocument };
+window.__suvedaCalls = {
+  profile: loadMyCallProfile,
+  contacts: loadCallContacts,
+  addContact: addCallContact,
+  createInvite: createCallInvite,
+  revokeInvite: revokeCallInvite,
+};
+window.__suvedaGames = {
+  create: createGameRoom,
+  join: joinGameRoom,
+  load: loadGameRoom,
+  move: applyGameMove,
+  start: startGameRoom,
+  cardAction: applyCardGameAction,
+  restart: restartGameRoom,
+  leave: leaveGameRoom,
+  subscribe: subscribeGameRoom,
+};
 installLifeOS();
 
 if (!window.__suvedaDefaults) {
@@ -156,6 +233,8 @@ async function bootstrap() {
   await import('../trip-board.jsx');
   // @ts-expect-error legacy global JSX modules are injected for compatibility.
   await import('../call.jsx');
+  // @ts-expect-error legacy global JSX modules are injected for compatibility.
+  await import('../games.jsx');
   // @ts-expect-error legacy global JSX modules are injected for compatibility.
   await import('../space.jsx');
   // @ts-expect-error legacy global JSX modules are injected for compatibility.

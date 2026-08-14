@@ -1,6 +1,6 @@
-Moving Abroad
+# Life OS
 
-A warm, opinionated companion for moving abroad — built for Users move from South Africa to Al Khalifa City, Abu Dhabi.
+A warm, private everyday companion for life in Abu Dhabi.
 
 ## Features
 
@@ -32,7 +32,7 @@ A warm, opinionated companion for moving abroad — built for Users move from So
 ```
 index.html → src/main.tsx → src/legacy-entry.ts
   ├── initAuth() — restores Supabase session
-  ├── createSuvedaStore() — Supabase or localStorage
+  ├── createLifeOSStore() — Supabase or localStorage
   └── renders <Root> → <App>
        ├── Loading (auth + storage ready)
        ├── Onboarding (with auth if no user)
@@ -72,4 +72,4 @@ The shared page is a separate build entry (`shared.html`) and is accessible at `
 
 ## License
 
-Private — for Suveda's move to Abu Dhabi 🌴
+Private Life OS application.

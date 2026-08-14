@@ -19,11 +19,19 @@ declare global {
     DailyPromptScreen?: any;
     TripBoardScreen?: any;
     CallScreen?: any;
+    GuestCallScreen?: any;
+    GamesScreen?: any;
     SpaceScreen?: any;
     __suvedaPhotos?: {
       upload: (file: File, onProgress?: (pct: number) => void) => Promise<string | null>;
       list: () => Promise<string[]>;
-      del: (url: string) => Promise<boolean>;
+      signedUrl: (path: string, expiresIn?: number) => Promise<string | null>;
+      del: (path: string) => Promise<boolean>;
+    };
+    __suvedaDocuments?: {
+      upload: (file: File) => Promise<string | null>;
+      signedUrl: (path: string) => Promise<string | null>;
+      del: (path: string) => Promise<boolean>;
     };
     MapScreen?: any;
     MemoryPhotoGrid?: any;

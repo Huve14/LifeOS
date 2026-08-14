@@ -4,20 +4,17 @@
 // real content: a new account has to be able to sign up without inheriting
 // somebody else's notes, contacts or neighbourhood.
 
-// Default move date is ~90 days out. Each account sets its own.
+// The original build used this date for a moving countdown. It is retained for
+// backwards-compatible state only; the live product starts with UAE life now.
 const DEFAULT_MOVE_DATE = (() => {
   const d = new Date();
   d.setDate(d.getDate() + 92);
   return d.toISOString().slice(0, 10);
 })();
 
-// Demo content tuned to the move (UAE-specific docs, kitchen for studio, etc.)
-const MONTHLY_BUDGET = [
-  { id: 'utilities', label: 'Utilities + Internet', emoji: '⚡', planned: 500, spent: 0, fixed: true },
-  { id: 'groceries', label: 'Food & Groceries',    emoji: '🍽️', planned: 1200, spent: 0, fixed: false },
-  { id: 'fun',       label: 'Life & Fun',  emoji: '🎮', planned: 700, spent: 0, fixed: false },
-  { id: 'savings',   label: 'Savings',     emoji: '💰', planned: 1500, spent: 0, fixed: false },
-];
+// Current Abu Dhabi starter plan. The typed helper also migrates existing
+// accounts into this structure without discarding their tracked spending.
+const MONTHLY_BUDGET = window.__lifeos?.budget?.createAbuDhabiBudget?.() || [];
 
 const SEED = {
   packing: {
@@ -65,46 +62,37 @@ const SEED = {
     ],
   },
   documents: [
-    { id: 'passport', name: 'Passport (6+ months valid)', status: 'pending', emoji: '📕', note: 'Check expiry — must be valid through Aug 2027' },
-    { id: 'eid',      name: 'Emirates ID prep docs', status: 'pending', emoji: '🪪', note: 'Photo + biometrics on arrival' },
-    { id: 'medical',  name: 'Medical fitness test', status: 'pending', emoji: '🩺', note: 'Within 30 days of arrival' },
-    { id: 'attest',   name: 'Degree attestation', status: 'pending', emoji: '🎓', note: 'MEA → UAE Embassy' },
-    { id: 'license',  name: 'Driver\'s license docs', status: 'pending', emoji: '🚗', note: 'For UAE conversion' },
+    { id: 'passport', name: 'Passport & residence visa', status: 'pending', emoji: '📕', note: 'Keep a secure copy available when you need it' },
+    { id: 'eid',      name: 'Emirates ID', status: 'pending', emoji: '🪪', note: 'Upload the front and back once received' },
+    { id: 'medical',  name: 'Health insurance card', status: 'pending', emoji: '🩺', note: 'Keep the policy number and provider details close' },
+    { id: 'attest',   name: 'Employment & qualification records', status: 'pending', emoji: '🎓', note: 'Contracts, certificates, and official letters' },
+    { id: 'license',  name: 'UAE driving licence', status: 'pending', emoji: '🚗', note: 'Save a copy when issued or converted' },
   ],
   tasks: [
-    { id: 't1', when: '90+ days', text: 'Sign offer letter & accept', status: 'pending' },
-    { id: 't2', when: '90+ days', text: 'Apply for entry permit', status: 'pending' },
-    { id: 't3', when: '60 days',  text: 'Notify landlord (2-mo notice)', status: 'pending' },
-    { id: 't4', when: '60 days',  text: 'Get degree attested', status: 'pending' },
-    { id: 't5', when: '60 days',  text: 'Open international bank account', status: 'pending' },
-    { id: 't6', when: '30 days',  text: 'Book one-way flight ✈️', status: 'pending' },
-    { id: 't7', when: '30 days',  text: 'Arrange shipping for boxes', status: 'pending' },
-    { id: 't8', when: '30 days',  text: 'Cancel utilities + subscriptions', status: 'pending' },
-    { id: 't9', when: '14 days',  text: 'Goodbye dinner with family', status: 'pending' },
-    { id: 't10', when: '14 days', text: 'Forward mail / update address', status: 'pending' },
-    { id: 't11', when: '7 days',  text: 'Pack carry-on essentials', status: 'pending' },
-    { id: 't12', when: '7 days',  text: 'Confirm temporary housing', status: 'pending' },
-    { id: 't13', when: 'Move day', text: 'Final apartment walkthrough', status: 'pending' },
-    { id: 't14', when: 'Move day', text: 'Catch flight to AUH 🛬', status: 'pending' },
-    { id: 't15', when: 'After',   text: 'Apply for Emirates ID', status: 'pending' },
-    { id: 't16', when: 'After',   text: 'Open ADCB / Emirates NBD account', status: 'pending' },
-    { id: 't17', when: 'After',   text: 'Get Etisalat / du SIM', status: 'pending' },
+    { id: 't15', when: 'This week', text: 'Check Emirates ID progress', status: 'pending' },
+    { id: 't16', when: 'This week', text: 'Review UAE bank account setup', status: 'pending' },
+    { id: 't17', when: 'This month', text: 'Review mobile plan and data usage', status: 'pending' },
+    { id: 't18', when: 'This week', text: 'Save a nearby clinic and pharmacy', status: 'pending' },
+    { id: 't19', when: 'Ongoing', text: 'Add one useful place to the UAE map', status: 'pending' },
   ],
   budget: {
+    version: 4,
+    period: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`,
     currency: 'AED',
     fxToUSD: 0.272,
     monthlyIncome: 8800,
     monthly: [...MONTHLY_BUDGET.map(c => ({...c}))],
+    transactions: [],
     total: 2500,
     categories: [
-      { id: 'buffer',   label: 'First-month buffer', emoji: '🌙', planned: 2500, spent: 0 },
+      { id: 'buffer',   label: 'Everyday buffer', emoji: '🌙', planned: 2500, spent: 0 },
     ],
   },
   shopping: [
     { id: 's1', name: 'UAE plug adapters (Type G)', cat: 'Tech', status: 'toBuy', price: 60 },
     { id: 's2', name: 'Light linen abayas', cat: 'Clothing', status: 'toBuy', price: 480 },
     { id: 's3', name: 'Sunscreen SPF 50 (large)', cat: 'Apartment', status: 'toBuy', price: 90 },
-    { id: 's4', name: 'eSIM for first week', cat: 'Tech', status: 'toBuy', price: 110 },
+    { id: 's4', name: 'Monthly mobile data top-up', cat: 'Tech', status: 'toBuy', price: 110 },
     { id: 's5', name: 'Bedding set (queen)', cat: 'Apartment', status: 'missing' },
     { id: 's6', name: 'Steam iron + board', cat: 'Apartment', status: 'missing' },
     { id: 's7', name: 'Reusable water bottle', cat: 'Apartment', status: 'toBuy', price: 75 },
@@ -127,6 +115,8 @@ const SEED = {
     { id: 'h5', name: 'Journal 5 min', emoji: '✍️', streak: 0, lastDone: '' },
   ],
   journal: [],
+  // Resets to "steady" each new day unless the owner chooses another pace.
+  dailyMode: null,
   contacts: [],
   // Left blank on purpose. These are the two notes pinned to the dashboard,
   // and they are for whoever owns the account to write.
@@ -203,8 +193,8 @@ async function askHuve(prompt, context = '') {
   const sys = [
     'You are a practical, warm assistant inside a personal planning app.',
     name ? `You are speaking to ${name}.` : '',
-    destination ? `They are planning a move to ${destination}.` : '',
-    'You know their budget, packing lists, documents, housing search and habits from the context provided.',
+    destination ? `They live in ${destination}.` : '',
+    'You help with everyday UAE life: local admin, budget, documents, places, routines, relationships and practical questions.',
     'Keep answers to 2-4 sentences. Be concrete and direct. No emojis, no fluff.',
     'For visa, legal or medical questions, point to official sources rather than giving advice yourself.',
     'If a file or photo is provided in context, use it to inform your answer.',

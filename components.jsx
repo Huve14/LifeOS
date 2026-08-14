@@ -1,12 +1,12 @@
-// components.jsx — Shared UI primitives for Suveda
+// components.jsx — Shared UI primitives for Life OS
 
 const STATUS = {
-  packed:   { bg: 'var(--teal)',       fg: '#fff', label: 'Packed'  },
-  toBuy:    { bg: 'var(--gold)',       fg: 'var(--dark)', label: 'To Buy' },
-  missing:  { bg: 'var(--terracotta)', fg: '#fff', label: 'Missing' },
-  done:     { bg: 'var(--teal)',       fg: '#fff', label: 'Done'    },
-  pending:  { bg: 'var(--gold)',       fg: 'var(--dark)', label: 'Pending' },
-  inProgress: { bg: 'var(--terracotta)', fg: '#fff', label: 'In progress' },
+  packed:   { bg: 'var(--blue)',       fg: '#17272D', label: 'Packed'  },
+  toBuy:    { bg: 'var(--honey)',      fg: '#17272D', label: 'To Buy' },
+  missing:  { bg: '#A84242',           fg: '#fff', label: 'Missing' },
+  done:     { bg: 'var(--blue)',       fg: '#17272D', label: 'Done'    },
+  pending:  { bg: 'var(--butter)',     fg: '#17272D', label: 'Pending' },
+  inProgress: { bg: 'var(--honey)',    fg: '#17272D', label: 'In progress' },
 };
 
 function Badge({ status, children, size = 'md' }) {
@@ -26,11 +26,11 @@ function Badge({ status, children, size = 'md' }) {
   );
 }
 
-function Button({ variant = 'primary', children, onClick, full, icon, size = 'md', disabled }) {
+function Button({ variant = 'primary', children, onClick, full, icon, size = 'md', disabled, type = 'button' }) {
   const variants = {
-    primary: { bg: 'var(--terracotta)', fg: '#fff', border: 'transparent' },
-    teal:    { bg: 'var(--teal)',       fg: '#fff', border: 'transparent' },
-    gold:    { bg: 'var(--gold)',       fg: 'var(--dark)', border: 'transparent' },
+    primary: { bg: 'var(--honey)',      fg: '#17272D', border: 'transparent' },
+    teal:    { bg: 'var(--blue)',       fg: '#17272D', border: 'transparent' },
+    gold:    { bg: 'var(--butter)',     fg: '#17272D', border: 'transparent' },
     ghost:   { bg: 'transparent',       fg: 'var(--dark)', border: 'var(--line)' },
     soft:    { bg: 'var(--sand)',       fg: 'var(--dark)', border: 'transparent' },
     glass:   { bg: 'rgba(255,255,255,0.15)', fg: '#fff', border: 'rgba(255,255,255,0.3)' },
@@ -45,6 +45,9 @@ function Button({ variant = 'primary', children, onClick, full, icon, size = 'md
   const isGlass = variant === 'glass';
   return (
     <button
+      type={type}
+      disabled={disabled}
+      className="ui-button"
       onClick={disabled ? undefined : onClick}
       style={{
         background: v.bg, color: v.fg,
@@ -55,7 +58,7 @@ function Button({ variant = 'primary', children, onClick, full, icon, size = 'md
         width: full ? '100%' : 'auto',
         opacity: disabled ? 0.5 : 1,
         cursor: disabled ? 'not-allowed' : 'pointer',
-        boxShadow: isGlass ? '0 8px 32px rgba(0,0,0,0.12)' : (variant === 'primary' || variant === 'teal' ? '0 4px 12px -4px rgba(143,102,64,0.4)' : 'none'),
+        boxShadow: isGlass ? '0 8px 32px rgba(0,0,0,0.12)' : (variant === 'primary' || variant === 'teal' ? '0 4px 12px -4px rgba(45,114,139,0.35)' : 'none'),
         backdropFilter: isGlass ? 'blur(12px)' : 'none',
         WebkitBackdropFilter: isGlass ? 'blur(12px)' : 'none',
       }}
@@ -70,6 +73,7 @@ function Card({ children, padding, style = {}, onClick, accent }) {
   const p = padding ?? 'var(--pad)';
   return (
     <div
+      className="ui-card"
       onClick={onClick}
       style={{
         background: 'var(--white)',
@@ -185,7 +189,7 @@ function Checkbox({ checked, onChange, color }) {
 
 function SectionHeader({ title, action, icon }) {
   return (
-    <div style={{
+    <div className="ui-section-header" style={{
       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       marginBottom: 10, marginTop: 6,
     }}>
@@ -200,7 +204,7 @@ function SectionHeader({ title, action, icon }) {
 
 function EmptyState({ emoji, title, body, action }) {
   return (
-    <div style={{
+    <div className="ui-empty-state" style={{
       textAlign: 'center', padding: '36px 20px',
       display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
     }}>
@@ -213,14 +217,15 @@ function EmptyState({ emoji, title, body, action }) {
 }
 
 function Pill({ children, active, onClick, color }) {
+  const activeColor = color || 'var(--honey)';
   return (
     <button
       onClick={onClick}
       style={{
         padding: '7px 14px',
         borderRadius: 999,
-        background: active ? (color || 'var(--terracotta)') : 'transparent',
-        color: active ? '#fff' : 'var(--muted)',
+        background: active ? activeColor : 'transparent',
+        color: active ? (color ? '#fff' : '#17272D') : 'var(--muted)',
         border: `1px solid ${active ? 'transparent' : 'var(--line)'}`,
         fontSize: 13, fontWeight: 600,
         whiteSpace: 'nowrap',
@@ -231,18 +236,20 @@ function Pill({ children, active, onClick, color }) {
   );
 }
 
-// Tab bar with terracotta active text + gold underline
+// Tab bar with blue-ink active text + honey underline
 function TabBar({ tabs, active, onChange, scrollable = false }) {
   return (
-    <div style={{
+    <div className={`ui-tab-bar${scrollable ? ' is-scrollable' : ''}`} style={{
       display: 'flex', gap: 4,
-      overflowX: scrollable ? 'auto' : 'visible',
+      overflowX: 'auto',
       borderBottom: '1px solid var(--line)',
       padding: '0 4px',
     }}>
       {tabs.map(t => (
         <button
           key={t.id}
+          type="button"
+          className="ui-tab"
           onClick={() => onChange(t.id)}
           style={{
             position: 'relative',
@@ -273,6 +280,7 @@ function Sheet({ open, onClose, title, children, height }) {
   if (!open) return null;
   return (
     <div
+      className="ui-sheet-backdrop"
       onClick={onClose}
       style={{
         position: 'fixed', inset: 0, zIndex: 200,
@@ -284,7 +292,7 @@ function Sheet({ open, onClose, title, children, height }) {
     >
       <div
         onClick={e => e.stopPropagation()}
-        className="slide-up"
+        className="ui-sheet-panel slide-up"
         style={{
           width: '100%',
           background: 'var(--cream)',
@@ -302,7 +310,7 @@ function Sheet({ open, onClose, title, children, height }) {
           borderRadius: 2, margin: '0 auto 14px',
         }} />
         {title && <h2 style={{ fontSize: 22, marginBottom: 14 }}>{title}</h2>}
-        <div style={{ flex: height === 'auto' ? undefined : 1, minHeight: 0 }}>{children}</div>
+        <div className="ui-sheet-content" style={{ flex: height === 'auto' ? undefined : 1, minHeight: 0 }}>{children}</div>
       </div>
     </div>
   );
@@ -312,6 +320,7 @@ function Modal({ open, onClose, title, children }) {
   if (!open) return null;
   return (
     <div
+      className="ui-modal-backdrop"
       onClick={onClose}
       style={{
         position: 'fixed', inset: 0, zIndex: 200,
@@ -322,6 +331,7 @@ function Modal({ open, onClose, title, children }) {
       }}
     >
       <div
+        className="ui-modal-panel"
         onClick={e => e.stopPropagation()}
         style={{
           background: 'var(--white)',
@@ -348,10 +358,53 @@ function Modal({ open, onClose, title, children }) {
   );
 }
 
+function PrivatePhoto({ value, alt = '', ...props }) {
+  const [src, setSrc] = React.useState(() => (
+    /^https?:\/\//i.test(value || '') && !(value || '').includes('/memory-photos/') ? value : ''
+  ));
+
+  React.useEffect(() => {
+    let cancelled = false;
+    if (!value) {
+      setSrc('');
+      return undefined;
+    }
+    if (/^https?:\/\//i.test(value) && !value.includes('/memory-photos/')) {
+      setSrc(value);
+      return undefined;
+    }
+    void window.__suvedaPhotos?.signedUrl(value).then(url => {
+      if (!cancelled) setSrc(url || '');
+    });
+    return () => { cancelled = true; };
+  }, [value]);
+
+  return <img {...props} src={src} alt={alt} />;
+}
+
+function PrivateMemoryPhotoGrid({ values = [], ...props }) {
+  const [images, setImages] = React.useState([]);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    void Promise.all(values.map(async value => {
+      if (/^https?:\/\//i.test(value || '') && !(value || '').includes('/memory-photos/')) {
+        return value;
+      }
+      return window.__suvedaPhotos?.signedUrl(value) ?? null;
+    })).then(resolved => {
+      if (!cancelled) setImages(resolved.filter(Boolean));
+    });
+    return () => { cancelled = true; };
+  }, [values]);
+
+  return <MemoryPhotoGrid {...props} images={images} />;
+}
+
 // Confetti for celebrations
 function Confetti({ active }) {
   if (!active) return null;
-  const colors = ['#C4714A', '#2A6E6B', '#D4A853', '#F5EFE0'];
+  const colors = ['#F6D110', '#FFF9C7', '#81CEEB', '#E6F2F4'];
   return (
     <div style={{
       position: 'absolute', inset: 0, pointerEvents: 'none',
@@ -380,5 +433,5 @@ function Confetti({ active }) {
 
 Object.assign(window, {
   Badge, Button, Card, ProgressBar, Checkbox, SectionHeader,
-  EmptyState, Pill, TabBar, Sheet, Modal, Confetti, STATUS,
+  EmptyState, Pill, TabBar, Sheet, Modal, PrivatePhoto, PrivateMemoryPhotoGrid, Confetti, STATUS,
 });

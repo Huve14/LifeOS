@@ -203,7 +203,7 @@ function InviteCard({ onPaired }) {
       <Card padding="16px" style={{ marginBottom: 16 }}>
         <SectionHeader title="Enter their code" />
         <div style={{
-          background: 'rgba(212, 168, 83, 0.16)',
+          background: 'rgba(246, 209, 16, 0.18)',
           padding: '12px 14px', borderRadius: 12,
           fontSize: 13, lineHeight: 1.5, marginBottom: 14,
         }}>
@@ -268,9 +268,9 @@ function PairedCard({ partner, onLeft }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
         <div style={{
           width: 44, height: 44, borderRadius: '50%',
-          background: 'linear-gradient(135deg, var(--terracotta) 0%, var(--gold) 100%)',
+          background: 'linear-gradient(135deg, var(--honey) 0%, var(--blue) 100%)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          color: '#fff', fontSize: 18, fontWeight: 700,
+          color: '#17272D', fontSize: 18, fontWeight: 700,
         }}>{(partner?.display_name || '?').slice(0, 1).toUpperCase()}</div>
         <div>
           <div style={{ fontSize: 15, fontWeight: 700 }}>{partner?.display_name || 'Them'}</div>

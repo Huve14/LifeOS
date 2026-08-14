@@ -10,7 +10,7 @@ import {
   validateShareToken,
 } from './supabase';
 
-const SHOPPER_NAME_KEY = 'suveda:shopper-name';
+const SHOPPER_NAME_KEY = 'lifeos:shopper-name';
 
 function loadSavedName() {
   try { return localStorage.getItem(SHOPPER_NAME_KEY) || ''; } catch { return ''; }
@@ -24,11 +24,11 @@ type View = 'list' | 'dashboard';
 function Logo() {
   return (
     <svg viewBox="0 0 200 170" width={32} height={32} style={{ flexShrink: 0 }}>
-      <circle cx={150} cy={46} r={19} fill="#FAF7F2" opacity={0.9} />
-      <g><rect x={67} y={110} width={66} height={9} fill="#B9851F" /><ellipse cx={100} cy={119} rx={33} ry={10.5} fill="#B9851F" /><ellipse cx={100} cy={110} rx={33} ry={10.5} fill="#FAF7F2" opacity={0.9} /></g>
-      <g><rect x={67} y={96} width={66} height={9} fill="#B9851F" /><ellipse cx={100} cy={105} rx={33} ry={10.5} fill="#B9851F" /><ellipse cx={100} cy={96} rx={33} ry={10.5} fill="#FAF7F2" opacity={0.9} /></g>
-      <g><rect x={67} y={82} width={66} height={9} fill="#B9851F" /><ellipse cx={100} cy={91} rx={33} ry={10.5} fill="#B9851F" /><ellipse cx={100} cy={82} rx={33} ry={10.5} fill="#FAF7F2" opacity={0.9} /></g>
-      <path d="M0 150 C 30 132 60 134 80 142 C 96 148 112 150 128 144 C 150 136 168 138 200 132 L 200 170 L 0 170 Z" fill="#1E524F" opacity={0.4} />
+      <circle cx={150} cy={46} r={19} fill="#FFF9C7" opacity={0.95} />
+      <g><rect x={67} y={110} width={66} height={9} fill="#F6D110" /><ellipse cx={100} cy={119} rx={33} ry={10.5} fill="#F6D110" /><ellipse cx={100} cy={110} rx={33} ry={10.5} fill="#FFF9C7" opacity={0.95} /></g>
+      <g><rect x={67} y={96} width={66} height={9} fill="#F6D110" /><ellipse cx={100} cy={105} rx={33} ry={10.5} fill="#F6D110" /><ellipse cx={100} cy={96} rx={33} ry={10.5} fill="#FFF9C7" opacity={0.95} /></g>
+      <g><rect x={67} y={82} width={66} height={9} fill="#F6D110" /><ellipse cx={100} cy={91} rx={33} ry={10.5} fill="#F6D110" /><ellipse cx={100} cy={82} rx={33} ry={10.5} fill="#FFF9C7" opacity={0.95} /></g>
+      <path d="M0 150 C 30 132 60 134 80 142 C 96 148 112 150 128 144 C 150 136 168 138 200 132 L 200 170 L 0 170 Z" fill="#81CEEB" opacity={0.72} />
     </svg>
   );
 }
@@ -228,7 +228,7 @@ function SharedList({ token }: { token: string }) {
       if (cancelled) return;
       setValid(ok);
       if (ok) {
-        const data = await loadShoppingItems();
+        const data = await loadShoppingItems(token);
         if (!cancelled) setItems(data);
       }
       if (!cancelled) setLoading(false);
@@ -239,7 +239,7 @@ function SharedList({ token }: { token: string }) {
 
   useEffect(() => {
     if (valid !== true) return;
-    const unsub = subscribeShoppingItems((updated) => setItems(updated));
+    const unsub = subscribeShoppingItems((updated) => setItems(updated), token);
     return unsub;
   }, [valid]);
 
@@ -249,11 +249,11 @@ function SharedList({ token }: { token: string }) {
       return;
     }
     if (currentSupplier === shopperName.trim()) {
-      await unclaimShoppingItem(itemId);
+      await unclaimShoppingItem(itemId, token);
     } else {
-      await claimShoppingItem(itemId, shopperName.trim());
+      await claimShoppingItem(itemId, shopperName.trim(), token);
     }
-  }, [shopperName]);
+  }, [shopperName, token]);
 
   const handleSetName = useCallback((e: React.FormEvent) => {
     e.preventDefault();
@@ -301,10 +301,10 @@ function SharedList({ token }: { token: string }) {
   return (
     <div style={{
       minHeight: '100%', width: '100%', background: 'var(--cream)',
-      backgroundImage: 'radial-gradient(at 20% 0%, rgba(212, 168, 83, 0.08) 0%, transparent 40%),radial-gradient(at 100% 100%, rgba(196, 113, 74, 0.06) 0%, transparent 50%)',
+      backgroundImage: 'radial-gradient(at 20% 0%, rgba(246, 209, 16, 0.16) 0%, transparent 40%),radial-gradient(at 100% 100%, rgba(129, 206, 235, 0.20) 0%, transparent 50%)',
       color: 'var(--dark)', paddingBottom: 40,
     }}>
-      <div style={{ padding: '24px 18px 20px', background: 'linear-gradient(135deg, var(--terracotta) 0%, #b85a32 100%)', color: '#fff', borderBottomLeftRadius: 24, borderBottomRightRadius: 24 }}>
+      <div style={{ padding: '24px 18px 20px', background: 'linear-gradient(135deg, var(--honey) 0%, var(--butter) 100%)', color: '#17272D', borderBottomLeftRadius: 24, borderBottomRightRadius: 24 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
           <Logo />
           <h1 style={{ fontSize: 24, margin: 0, fontWeight: 700 }}>Shopping List</h1>
@@ -315,11 +315,11 @@ function SharedList({ token }: { token: string }) {
         <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ fontSize: 13, opacity: 0.85 }}>You are:</span>
           {shopperName ? (
-            <button onClick={() => setShowNameInput(true)} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: 999, padding: '6px 14px', color: '#fff', fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' }}>
+            <button onClick={() => setShowNameInput(true)} style={{ background: 'rgba(23,39,45,0.10)', border: 'none', borderRadius: 999, padding: '6px 14px', color: '#17272D', fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' }}>
               {shopperName} ✏️
             </button>
           ) : (
-            <button onClick={() => setShowNameInput(true)} style={{ background: 'rgba(255,255,255,0.2)', border: '1px dashed rgba(255,255,255,0.4)', borderRadius: 999, padding: '6px 14px', color: '#fff', fontSize: 13, fontWeight: 500, fontFamily: 'inherit', cursor: 'pointer' }}>
+            <button onClick={() => setShowNameInput(true)} style={{ background: 'rgba(23,39,45,0.08)', border: '1px dashed rgba(23,39,45,0.3)', borderRadius: 999, padding: '6px 14px', color: '#17272D', fontSize: 13, fontWeight: 500, fontFamily: 'inherit', cursor: 'pointer' }}>
               Set your name
             </button>
           )}
@@ -336,14 +336,14 @@ function SharedList({ token }: { token: string }) {
           <button onClick={() => setView('dashboard')} style={{
             flex: 1, padding: '8px 0', borderRadius: 10, border: 'none',
             fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer',
-            background: view === 'dashboard' ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.08)',
-            color: '#fff', transition: 'all 0.15s',
+            background: view === 'dashboard' ? 'rgba(23,39,45,0.15)' : 'rgba(23,39,45,0.06)',
+            color: '#17272D', transition: 'all 0.15s',
           }}>📊 Progress</button>
           <button onClick={() => setView('list')} style={{
             flex: 1, padding: '8px 0', borderRadius: 10, border: 'none',
             fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer',
-            background: view === 'list' ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.08)',
-            color: '#fff', transition: 'all 0.15s',
+            background: view === 'list' ? 'rgba(23,39,45,0.15)' : 'rgba(23,39,45,0.06)',
+            color: '#17272D', transition: 'all 0.15s',
           }}>📋 Full List</button>
         </div>
       </div>

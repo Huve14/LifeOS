@@ -4,7 +4,11 @@
 // modules load.
 
 import * as call from './call';
+import * as budget from './budget';
 import * as ice from './ice';
+import * as journal from './journal';
+import * as home from './home';
+import * as games from './games';
 import * as lock from './lock';
 import * as native from './native';
 import * as net from './net';
@@ -19,8 +23,12 @@ import * as trips from './trips';
 import * as videoNotes from './videoNotes';
 
 export const lifeos = {
+  budget,
   call,
+  games,
+  home,
   ice,
+  journal,
   lock,
   native,
   net,

@@ -5,7 +5,7 @@ function SpinningGlobe() {
   return (
     <div style={{
       width: 200, height: 200,
-      background: '#FAF7F2',
+      background: '#E6F2F4',
       borderRadius: '50%',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       position: 'relative',
@@ -62,7 +62,7 @@ function SpinningGlobe() {
         position: 'relative',
         overflow: 'hidden',
         border: '2px solid #1E1E1E',
-        background: '#FAF7F2',
+        background: '#E6F2F4',
       }}>
         {/* Latitude/longitude grid (static) */}
         <svg width="150" height="150" viewBox="0 0 150 150" style={{ position: 'absolute', inset: 0 }}>
