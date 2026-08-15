@@ -1,8 +1,23 @@
 import { getAuthClient, getCurrentUser, hasConfig } from '../supabase';
 import { convertAmountAtRate } from '../budget/currency';
 
-export const PRICE_SOURCES = ['amazon', 'openprices', 'community', 'estimate'] as const;
-export type PriceSource = (typeof PRICE_SOURCES)[number];
+// Sources live in lifeos_price_sources now, so a retailer can be added without
+// a client release. These four keep their own wording because they are not
+// retailer names.
+export const BUILT_IN_PRICE_SOURCES = ['amazon', 'openprices', 'community', 'estimate'] as const;
+export type PriceSource = string;
+
+export type PriceSourceHealth = {
+  slug: string;
+  label: string;
+  kind: 'retailer' | 'aggregator' | 'catalog' | 'community' | 'estimate';
+  emirates: string[];
+  enabled: boolean;
+  lastRunAt: string | null;
+  lastSuccessAt: string | null;
+  lastStatus: 'pending' | 'ok' | 'empty' | 'error' | 'skipped';
+  itemsLastRun: number;
+};
 
 export type Product = {
   id: string;
@@ -127,11 +142,28 @@ export function formatZAR(value: number, rate: number): string {
   return `R ${new Intl.NumberFormat('en-ZA', { maximumFractionDigits: 2 }).format(converted)}`;
 }
 
-export function sourceLabel(source: PriceSource, submittedName = ''): string {
+/**
+ * Name a price's origin. Retailer slugs come from the registry, so a label map
+ * loaded with `loadPriceSources` takes precedence; without one the slug is
+ * prettified rather than shown raw.
+ */
+export function sourceLabel(
+  source: PriceSource,
+  submittedName = '',
+  labels: Record<string, string> = {},
+): string {
   if (source === 'amazon') return 'Amazon.ae';
   if (source === 'openprices') return 'Open Prices';
   if (source === 'estimate') return 'AI estimate';
-  return submittedName.trim() || 'Community member';
+  if (source === 'community') return submittedName.trim() || 'Community member';
+  if (labels[source]) return labels[source];
+  if (!source) return submittedName.trim() || 'Community member';
+  return source.replace(/[-_]+/g, ' ').replace(/\b\w/g, letter => letter.toUpperCase());
+}
+
+/** True when the number came from a retailer feed rather than a person or a guess. */
+export function isFeedSource(source: PriceSource): boolean {
+  return source !== 'community' && source !== 'estimate';
 }
 
 export function ageLabel(value: string | Date, now = new Date()): string {
@@ -259,7 +291,14 @@ export async function loadSaBasket(): Promise<ProductPrices[]> {
   return loadPointsForProducts((data ?? []).map(row => mapProduct(row as ProductRow)));
 }
 
-export async function loadDeals(): Promise<Deal[]> {
+/**
+ * Live specials, newest expiry first.
+ *
+ * `emirate` filters to a single emirate; stores whose branch is genuinely
+ * unknown are recorded as 'UAE' by the ingest and are always included, because
+ * an online-only retailer serves both.
+ */
+export async function loadDeals(emirate?: string): Promise<Deal[]> {
   if (!hasConfig || !getCurrentUser()) return [];
   const now = new Date().toISOString();
   const { data, error } = await getAuthClient()
@@ -269,7 +308,51 @@ export async function loadDeals(): Promise<Deal[]> {
     .or(`expires_at.is.null,expires_at.gte.${now}`)
     .order('expires_at', { ascending: true, nullsFirst: false });
   if (error) throw error;
-  return (data ?? []).flatMap(row => {
+  if (emirate) {
+    const wanted = emirate.trim().toLowerCase();
+    return mapDealRows(data ?? []).filter(deal => {
+      const found = deal.store.emirate.trim().toLowerCase();
+      return found === wanted || found === 'uae' || found === '';
+    });
+  }
+  return mapDealRows(data ?? []);
+}
+
+/** Feed health, so the app can say which sources are actually delivering. */
+export async function loadPriceSources(): Promise<PriceSourceHealth[]> {
+  if (!hasConfig || !getCurrentUser()) return [];
+  const { data, error } = await getAuthClient()
+    .from('lifeos_price_sources')
+    .select('slug, label, kind, emirates, enabled, last_run_at, last_success_at, last_status, items_last_run')
+    .order('label');
+  if (error) throw error;
+  return (data ?? []).map(row => {
+    const record = row as unknown as {
+      slug: string; label: string; kind: PriceSourceHealth['kind']; emirates: string[] | null;
+      enabled: boolean; last_run_at: string | null; last_success_at: string | null;
+      last_status: PriceSourceHealth['lastStatus']; items_last_run: number | string | null;
+    };
+    return {
+      slug: record.slug,
+      label: record.label,
+      kind: record.kind,
+      emirates: record.emirates ?? [],
+      enabled: record.enabled,
+      lastRunAt: record.last_run_at,
+      lastSuccessAt: record.last_success_at,
+      lastStatus: record.last_status,
+      itemsLastRun: Number(record.items_last_run ?? 0),
+    };
+  });
+}
+
+/** Slug to display-name map for `sourceLabel`. */
+export function sourceLabelMap(sources: PriceSourceHealth[]): Record<string, string> {
+  return Object.fromEntries(sources.map(source => [source.slug, source.label]));
+}
+
+function mapDealRows(rows: unknown[]): Deal[] {
+  return rows.flatMap(row => {
     const record = row as unknown as {
       id: string; title: string; current_price: number | string; original_price: number | string | null;
       currency: string; source: PriceSource; starts_at: string; expires_at: string | null;
@@ -365,20 +448,33 @@ async function findOrCreateProduct(name: string, category: string, barcode = '')
   return created.data as ProductRow;
 }
 
-async function findOrCreateStore(name: string, area: string): Promise<StoreRow> {
+const DUBAI_AREAS = /\b(dubai|deira|bur\s*dubai|jumeirah|marina|jlt|jbr|business\s*bay|silicon\s*oasis|mirdif|karama|barsha|tecom|downtown|discovery\s*gardens|international\s*city|motor\s*city|arabian\s*ranches|sports\s*city|festival\s*city|academic\s*city|al\s*quoz|satwa|jebel\s*ali|mall\s*of\s*the\s*emirates|ibn\s*battuta|palm\s*jumeirah|city\s*walk|al\s*furjan|town\s*square|mudon|remraam|arjan)\b/i;
+
+/**
+ * Work out which emirate a member's store belongs to.
+ *
+ * Defaults to Abu Dhabi because that is where the app is based, but a Dubai
+ * area no longer gets silently filed under Abu Dhabi.
+ */
+export function emirateForArea(area: string, storeName = ''): string {
+  return DUBAI_AREAS.test(`${area} ${storeName}`) ? 'Dubai' : 'Abu Dhabi';
+}
+
+async function findOrCreateStore(name: string, area: string, emirate?: string): Promise<StoreRow> {
   const userId = getCurrentUser()?.id;
   if (!userId) throw new Error('Sign in to log a price.');
   const cleanName = name.trim();
   if (!cleanName) throw new Error('Enter the store name.');
   const cleanArea = area.trim();
-  const query = getAuthClient().from('lifeos_stores').select(STORE_SELECT).ilike('name', cleanName).ilike('area', cleanArea).limit(1);
+  const cleanEmirate = emirate?.trim() || emirateForArea(cleanArea, cleanName);
+  const query = getAuthClient().from('lifeos_stores').select(STORE_SELECT).ilike('name', cleanName).ilike('area', cleanArea).ilike('emirate', cleanEmirate).limit(1);
   const existing = await query.maybeSingle();
   if (existing.error) throw existing.error;
   if (existing.data) return existing.data as StoreRow;
   const created = await getAuthClient().from('lifeos_stores').insert({
     name: cleanName,
     area: cleanArea,
-    emirate: 'Abu Dhabi',
+    emirate: cleanEmirate,
     submitted_by: userId,
   }).select(STORE_SELECT).single();
   if (created.error || !created.data) throw created.error ?? new Error('Could not create the store.');
@@ -391,6 +487,7 @@ export type CommunityPriceInput = {
   barcode?: string;
   storeName: string;
   area?: string;
+  emirate?: string;
   price: string | number;
   seenAt?: string;
   photoPath?: string | null;
@@ -406,7 +503,7 @@ export async function logCommunityPrice(input: CommunityPriceInput): Promise<Pri
   if (price == null) throw new Error('Enter a valid AED price.');
   const [product, store] = await Promise.all([
     findOrCreateProduct(input.productName, input.category ?? 'Groceries', input.barcode),
-    findOrCreateStore(input.storeName, input.area ?? ''),
+    findOrCreateStore(input.storeName, input.area ?? '', input.emirate),
   ]);
   const inserted = await getAuthClient().from('lifeos_price_points').insert({
     product_id: product.id,
@@ -451,6 +548,31 @@ export async function refreshExternalPrices(query: string, barcode = ''): Promis
   return {
     imported: Number(data?.imported ?? 0),
     warnings: Array.isArray(data?.warnings) ? data.warnings.map(String) : [],
+  };
+}
+
+/**
+ * Ask the server to re-read the retailer and aggregator sources now.
+ *
+ * The scheduled job normally does this; this is the manual pull-to-refresh so a
+ * member is never stuck looking at yesterday's specials.
+ */
+export async function refreshDeals(slugs: string[] = []): Promise<{
+  deals: number;
+  prices: number;
+  live: string[];
+  failing: string[];
+}> {
+  if (!hasConfig || !getCurrentUser()) throw new Error('Sign in to refresh specials.');
+  const { data, error } = await getAuthClient().functions.invoke('prices', {
+    body: { action: 'refresh-deals', ...(slugs.length > 0 ? { slugs } : {}) },
+  });
+  if (error) throw error;
+  return {
+    deals: Number(data?.deals ?? 0),
+    prices: Number(data?.prices ?? 0),
+    live: Array.isArray(data?.live) ? data.live.map(String) : [],
+    failing: Array.isArray(data?.failing) ? data.failing.map(String) : [],
   };
 }
 

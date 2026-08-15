@@ -33,7 +33,7 @@ export type RawOffer = {
 
 const AREA_TO_EMIRATE: ReadonlyArray<readonly [RegExp, Emirate]> = [
   [/\b(abu\s*dhabi|abudhabi|khalifa\s*city|al\s*reem|yas\s*island|saadiyat|mussafah|al\s*ain|shakhbout|khalidiya|corniche|reem\s*island|mbz|mohammed\s*bin\s*zayed)\b/i, 'Abu Dhabi'],
-  [/\b(dubai|deira|bur\s*dubai|jumeirah|marina|jlt|jbr|business\s*bay|silicon\s*oasis|mirdif|karama|barsha|tecom|downtown|discovery\s*gardens|international\s*city|motor\s*city|damac|arabian\s*ranches|sports\s*city|festival\s*city|academic\s*city|nad\s*al\s*sheba|al\s*quoz|satwa|jebel\s*ali)\b/i, 'Dubai'],
+  [/\b(dubai|deira|bur\s*dubai|jumeirah|marina|jlt|jbr|business\s*bay|silicon\s*oasis|mirdif|karama|barsha|tecom|downtown|discovery\s*gardens|international\s*city|motor\s*city|damac|arabian\s*ranches|sports\s*city|festival\s*city|academic\s*city|nad\s*al\s*sheba|al\s*quoz|satwa|jebel\s*ali|mall\s*of\s*the\s*emirates|ibn\s*battuta|palm\s*jumeirah|city\s*walk|al\s*furjan|town\s*square|mudon|remraam|arjan)\b/i, 'Dubai'],
   [/\b(sharjah|al\s*nahda|muweilah|al\s*majaz|al\s*qasimia)\b/i, 'Sharjah'],
   [/\bajman\b/i, 'Ajman'],
   [/\b(ras\s*al\s*khaimah|rak)\b/i, 'Ras Al Khaimah'],

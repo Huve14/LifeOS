@@ -57,9 +57,10 @@ describe('detectEmirate', () => {
   it('recognises Abu Dhabi and Dubai areas', () => {
     expect(detectEmirate('Khalifa City')).toBe('Abu Dhabi');
     expect(detectEmirate('Yas Island')).toBe('Abu Dhabi');
-    expect(detectEmirate('Mall of the Emirates', 'Dubai')).toBe('Dubai');
+    expect(detectEmirate('Mall of the Emirates')).toBe('Dubai');
     expect(detectEmirate('Deira')).toBe('Dubai');
     expect(detectEmirate('JLT')).toBe('Dubai');
+    expect(detectEmirate('Ibn Battuta')).toBe('Dubai');
   });
 
   it('returns null rather than guessing, which is what mislabelled Dubai stores', () => {

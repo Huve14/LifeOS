@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { ageLabel, formatAED, parseMoneyInput, savingsAgainstHighest, sourceLabel } from './prices';
+import {
+  ageLabel,
+  emirateForArea,
+  formatAED,
+  isFeedSource,
+  parseMoneyInput,
+  savingsAgainstHighest,
+  sourceLabel,
+  sourceLabelMap,
+} from './prices';
 
 describe('Shop & Save price helpers', () => {
   it('keeps decimal AED prices instead of truncating them', () => {
@@ -28,5 +37,32 @@ describe('Shop & Save price helpers', () => {
   it('calculates the saving against the priciest observation', () => {
     expect(savingsAgainstHighest([{ price: 34 }, { price: 28.5 }, { price: 31 }])).toBe(5.5);
     expect(savingsAgainstHighest([{ price: 34 }])).toBe(0);
+  });
+
+  it('names retailer sources from the registry, never a raw slug', () => {
+    const registry = [
+      { slug: 'carrefour', label: 'Carrefour UAE' },
+      { slug: 'clicflyer', label: 'ClicFlyer' },
+    ] as Parameters<typeof sourceLabelMap>[0];
+    const labels = sourceLabelMap(registry);
+
+    expect(sourceLabel('carrefour', '', labels)).toBe('Carrefour UAE');
+    // A source added to the registry after this release still reads sensibly.
+    expect(sourceLabel('union-coop', '', labels)).toBe('Union Coop');
+    expect(sourceLabel('community', 'Thabo', labels)).toBe('Thabo');
+  });
+
+  it('separates retailer feeds from people and guesses', () => {
+    expect(isFeedSource('carrefour')).toBe(true);
+    expect(isFeedSource('openprices')).toBe(true);
+    expect(isFeedSource('community')).toBe(false);
+    expect(isFeedSource('estimate')).toBe(false);
+  });
+
+  it('files a Dubai store under Dubai instead of defaulting to Abu Dhabi', () => {
+    expect(emirateForArea('Mirdif')).toBe('Dubai');
+    expect(emirateForArea('', 'Carrefour Mall of the Emirates')).toBe('Dubai');
+    expect(emirateForArea('Khalifa City')).toBe('Abu Dhabi');
+    expect(emirateForArea('')).toBe('Abu Dhabi');
   });
 });
