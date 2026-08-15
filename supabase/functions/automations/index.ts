@@ -93,6 +93,34 @@ function serviceClient(): SupabaseClient {
   );
 }
 
+async function sha256(value: string): Promise<string> {
+  const bytes = new TextEncoder().encode(value);
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
+}
+
+function constantTimeEqual(left: string, right: string): boolean {
+  if (left.length !== right.length) return false;
+  let difference = 0;
+  for (let index = 0; index < left.length; index += 1) {
+    difference |= left.charCodeAt(index) ^ right.charCodeAt(index);
+  }
+  return difference === 0;
+}
+
+async function authorizedCron(request: Request, client: SupabaseClient): Promise<boolean> {
+  const supplied = request.headers.get('x-cron-secret')?.trim() ?? '';
+  if (!supplied) return false;
+
+  const configured = Deno.env.get('AUTOMATIONS_CRON_SECRET')?.trim() ?? '';
+  if (configured && constantTimeEqual(supplied, configured)) return true;
+
+  const stored = await client.from('lifeos_automation_cron_tokens')
+    .select('secret_digest').eq('id', true).maybeSingle();
+  if (stored.error || !stored.data?.secret_digest) return false;
+  return constantTimeEqual(await sha256(supplied), stored.data.secret_digest);
+}
+
 async function authenticatedUser(request: Request): Promise<string | null> {
   const token = request.headers.get('Authorization')?.replace(/^Bearer\s+/i, '').trim();
   if (!token) return null;
@@ -287,8 +315,7 @@ Deno.serve(async (request) => {
     }
 
     if (action !== 'run') return json({ error: 'Unknown action' }, 400);
-    const cronSecret = Deno.env.get('AUTOMATIONS_CRON_SECRET');
-    if (!cronSecret || request.headers.get('x-cron-secret') !== cronSecret) {
+    if (!(await authorizedCron(request, client))) {
       return json({ error: 'Unauthorized' }, 401);
     }
     const external = await externalSnapshot();
