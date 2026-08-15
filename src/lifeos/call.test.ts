@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   POOR_THRESHOLD_MS,
   callGridColumns,
+  callLayoutMode,
   clampFloatingBarPosition,
   friendlyCallError,
   isCallInviteToken,
@@ -10,6 +11,15 @@ import {
   trackDegradation,
   validateServerUrl,
 } from './call';
+
+describe('callLayoutMode', () => {
+  it('reserves split and grid layouts for calls with more than two people', () => {
+    expect(callLayoutMode(1)).toBe('solo');
+    expect(callLayoutMode(2)).toBe('duo');
+    expect(callLayoutMode(3)).toBe('group');
+    expect(callLayoutMode(8)).toBe('group');
+  });
+});
 
 describe('callGridColumns', () => {
   it('keeps one caller full-size and arranges up to four people in a 2-column grid', () => {

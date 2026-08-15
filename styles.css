@@ -7888,6 +7888,128 @@ img, video, canvas {
   background: #071216;
 }
 
+/* A two-person call is intentionally not a split screen. The other caller is
+   the conversation; the local camera becomes a movable self-preview. */
+.call-duo-layout {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 52% 18%, rgba(129, 206, 235, .24), transparent 48%),
+    #071216;
+}
+
+.call-duo-primary {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  border-radius: 0;
+  background: #0c242e;
+}
+
+.call-duo-primary.is-speaking {
+  border: 0;
+  box-shadow: inset 0 0 0 2px rgba(246, 209, 16, .72);
+}
+
+.call-duo-primary .call-participant-name {
+  bottom: calc(98px + env(safe-area-inset-bottom, 0px));
+}
+
+.call-duo-self {
+  position: absolute;
+  top: calc(92px + env(safe-area-inset-top, 0px));
+  right: calc(16px + env(safe-area-inset-right, 0px));
+  z-index: 6;
+  width: clamp(118px, 18vw, 184px);
+  aspect-ratio: 3 / 4;
+  overflow: visible;
+  border: 1px solid rgba(255, 255, 255, .76);
+  border-radius: clamp(20px, 3vw, 29px);
+  background: rgba(7, 24, 31, .78);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .46),
+    0 22px 54px rgba(0, 0, 0, .42),
+    0 3px 16px rgba(129, 206, 235, .24);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: box-shadow 160ms ease, transform 160ms ease;
+}
+
+.call-duo-self:active {
+  cursor: grabbing;
+  transform: scale(.985);
+}
+
+.call-duo-self:focus-visible {
+  outline: 3px solid var(--honey);
+  outline-offset: 3px;
+}
+
+.call-duo-self > .call-participant-tile {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  border-radius: inherit;
+  box-shadow: none;
+}
+
+.call-duo-self > .call-participant-tile.is-speaking {
+  box-shadow: inset 0 0 0 2px var(--honey);
+}
+
+.call-duo-self .call-participant-avatar {
+  width: clamp(48px, 8vw, 70px);
+  height: clamp(48px, 8vw, 70px);
+  font-size: clamp(18px, 3vw, 26px);
+}
+
+.call-duo-self .call-participant-placeholder {
+  gap: 7px;
+  padding: 12px 8px;
+}
+
+.call-duo-self .call-participant-placeholder > span {
+  font-size: 9px;
+}
+
+.call-duo-self .call-participant-name {
+  left: 7px;
+  bottom: 7px;
+  max-width: calc(100% - 14px);
+  padding: 5px 7px;
+  font-size: 9px;
+}
+
+.call-duo-self-grip {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  display: flex;
+  gap: 3px;
+  padding: 5px 7px;
+  border: 1px solid rgba(255, 255, 255, .18);
+  border-radius: 999px;
+  background: rgba(4, 18, 24, .42);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.call-duo-self-grip i {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .82);
+}
+
+.call-participant-grid[data-count="3"] > .call-participant-tile:last-child {
+  grid-column: 1 / -1;
+}
+
 .call-participant-tile {
   position: relative;
   min-width: 0;
@@ -8238,12 +8360,12 @@ body.call-live-open .ai-launcher {
   top: calc(12px + env(safe-area-inset-top, 0px));
   left: calc(12px + env(safe-area-inset-left, 0px));
   z-index: 9;
-  width: min(calc(100% - 24px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)), 440px);
-  min-height: 58px;
+  width: min(calc(100% - 24px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)), 370px);
+  min-height: 54px;
   margin: 0;
   padding: 8px 12px 8px 8px;
   border: 1px solid rgba(255, 255, 255, 0.34);
-  border-radius: 22px;
+  border-radius: 999px;
   background:
     linear-gradient(145deg, rgba(255, 255, 255, 0.25), rgba(129, 206, 235, 0.08)),
     rgba(7, 25, 32, 0.50);
@@ -8266,6 +8388,11 @@ body.call-live-open .ai-launcher {
 .call-screen.is-active .module-page-title-row > span,
 .call-screen.is-active .module-page-subtitle {
   color: #fff !important;
+}
+
+.call-screen.is-active .module-page-title-row h1 {
+  font-size: clamp(17px, 4.5vw, 21px);
+  line-height: 1.05;
 }
 
 .call-screen.is-active .module-page-subtitle {
@@ -8292,6 +8419,10 @@ body.call-live-open .ai-launcher {
 
 .call-screen.is-active .call-participant-name {
   bottom: 10px;
+}
+
+.call-screen.is-active .call-duo-primary .call-participant-name {
+  bottom: calc(98px + env(safe-area-inset-bottom, 0px));
 }
 
 .call-screen.is-active .call-participant-tile.is-last-row .call-participant-name {
@@ -8451,6 +8582,21 @@ body.call-fullscreen-open {
     border-radius: 8px;
   }
 
+  .call-duo-primary {
+    border-radius: 0;
+  }
+
+  .call-duo-self {
+    top: calc(94px + env(safe-area-inset-top, 0px));
+    right: calc(12px + env(safe-area-inset-right, 0px));
+    width: clamp(108px, 31vw, 138px);
+    border-radius: 22px;
+  }
+
+  .call-duo-primary .call-participant-name {
+    bottom: calc(86px + env(safe-area-inset-bottom, 0px));
+  }
+
   .call-participant-name {
     left: 7px;
     bottom: 7px;
@@ -8483,7 +8629,13 @@ body.call-fullscreen-open {
   }
 
   .call-screen.is-active .module-page-header {
-    width: calc(100% - 24px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px));
+    width: min(calc(100% - 24px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)), 340px);
+    min-height: 50px;
+    padding-block: 6px;
+  }
+
+  .call-screen.is-active .module-page-subtitle {
+    font-size: 9px !important;
   }
 
   .call-screen.is-active .call-stage {
@@ -8494,6 +8646,10 @@ body.call-fullscreen-open {
 
   .call-screen.is-active .call-participant-tile.is-last-row .call-participant-name {
     bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .call-screen.is-active .call-duo-primary .call-participant-name {
+    bottom: calc(86px + env(safe-area-inset-bottom, 0px));
   }
 }
 

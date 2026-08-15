@@ -263,8 +263,19 @@ function reattach(
   };
 }
 
-/** The grid stays legible for the four-person calls this app is designed for,
- * while still degrading sensibly if a link is shared more widely. */
+export type CallLayoutMode = 'solo' | 'duo' | 'group';
+
+/** Two-person calls use a FaceTime-style stage: the other person fills the
+ * screen while the local camera floats above it. Grids begin at three people. */
+export function callLayoutMode(participantCount: number): CallLayoutMode {
+  const count = Math.max(1, Math.floor(participantCount));
+  if (count === 1) return 'solo';
+  if (count === 2) return 'duo';
+  return 'group';
+}
+
+/** The group grid stays legible for small calls while still degrading
+ * sensibly if a link is shared more widely. */
 export function callGridColumns(participantCount: number): number {
   const count = Math.max(1, Math.floor(participantCount));
   if (count === 1) return 1;

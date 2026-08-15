@@ -56,6 +56,9 @@ function VideoSurface({ element, muted, mirrored, style }) {
     element.autoplay = true;
     element.playsInline = true;
     element.muted = Boolean(muted);
+    element.disablePictureInPicture = false;
+    element.setAttribute('playsinline', 'true');
+    element.setAttribute('webkit-playsinline', 'true');
     element.style.width = '100%';
     element.style.height = '100%';
     element.style.objectFit = 'cover';
@@ -99,12 +102,12 @@ function participantInitials(name) {
   return parts.slice(0, 2).map(part => part[0]?.toUpperCase()).join('') || '?';
 }
 
-function ParticipantTile({ participant, lastRow = false, localCameraFacing = 'user' }) {
+function ParticipantTile({ participant, lastRow = false, localCameraFacing = 'user', compact = false, className = '' }) {
   const showVideo = participant.cameraOn && participant.videoElement;
   const label = participant.isLocal ? `${participant.name} (You)` : participant.name;
 
   return (
-    <div className={`call-participant-tile${participant.speaking ? ' is-speaking' : ''}${lastRow ? ' is-last-row' : ''}`}>
+    <div className={`call-participant-tile${participant.speaking ? ' is-speaking' : ''}${lastRow ? ' is-last-row' : ''}${compact ? ' is-compact' : ''}${className ? ` ${className}` : ''}`}>
       {showVideo ? (
         <VideoSurface
           element={participant.videoElement}
@@ -162,6 +165,21 @@ async function closePictureInPicture(video) {
   if (video?.webkitPresentationMode === 'picture-in-picture') {
     video.webkitSetPresentationMode('inline');
   }
+}
+
+async function openPictureInPicture(video) {
+  if (!video) throw new Error('Turn on a camera, then try Picture in Picture again.');
+  // iPhone/iPad Safari exposes Apple’s presentation-mode API. Desktop Chrome
+  // and compatible Android browsers use the standard API below.
+  if (supportsWebKitPictureInPicture(video)) {
+    video.webkitSetPresentationMode('picture-in-picture');
+    return;
+  }
+  if (document.pictureInPictureEnabled && typeof video.requestPictureInPicture === 'function') {
+    await video.requestPictureInPicture();
+    return;
+  }
+  throw new Error('Picture in Picture is not available in this browser.');
 }
 
 function currentFullscreenElement() {
@@ -242,12 +260,16 @@ function CallScreen({
   standalone = false,
 }) {
   const api = callApi();
-  const previewGroupCall = import.meta.env.DEV
-    && new URLSearchParams(window.location.search).has('preview-call');
+  const previewCallMode = import.meta.env.DEV
+    ? new URLSearchParams(window.location.search).get('preview-call')
+    : '';
+  const previewGroupCall = Boolean(previewCallMode);
   const callRef = useRef(null);
   const callStageRef = useRef(null);
   const callDockRef = useRef(null);
+  const selfViewRef = useRef(null);
   const dockDragRef = useRef(null);
+  const selfViewDragRef = useRef(null);
   const pipVideoRef = useRef(null);
   const launchHandledRef = useRef(0);
   const degradationRef = useRef(api?.call.newDegradationState());
@@ -260,8 +282,10 @@ function CallScreen({
   const [participants, setParticipants] = useState(() => previewGroupCall ? [
     { identity: 'preview-local', name: 'You', isLocal: true, videoElement: null, audioElement: null, cameraOn: false, microphoneOn: true, speaking: false },
     { identity: 'preview-alex', name: 'Alex', isLocal: false, videoElement: null, audioElement: null, cameraOn: false, microphoneOn: true, speaking: true },
-    { identity: 'preview-family', name: 'Mum', isLocal: false, videoElement: null, audioElement: null, cameraOn: false, microphoneOn: true, speaking: false },
-    { identity: 'preview-friend', name: 'Aisha', isLocal: false, videoElement: null, audioElement: null, cameraOn: false, microphoneOn: false, speaking: false },
+    ...(previewCallMode === 'duo' ? [] : [
+      { identity: 'preview-family', name: 'Mum', isLocal: false, videoElement: null, audioElement: null, cameraOn: false, microphoneOn: true, speaking: false },
+      { identity: 'preview-friend', name: 'Aisha', isLocal: false, videoElement: null, audioElement: null, cameraOn: false, microphoneOn: false, speaking: false },
+    ]),
   ] : []);
   const [micOn, setMicOn] = useState(true);
   const [cameraOn, setCameraOn] = useState(launch.mode !== 'audio');
@@ -274,6 +298,7 @@ function CallScreen({
   const [nativeFullscreen, setNativeFullscreen] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
   const [dockPosition, setDockPosition] = useState(null);
+  const [selfViewPosition, setSelfViewPosition] = useState(null);
   const [suggestNote, setSuggestNote] = useState(false);
   const [profile, setProfile] = useState(null);
   const [contacts, setContacts] = useState([]);
@@ -289,22 +314,28 @@ function CallScreen({
   const busy = state === 'requesting' || state === 'connecting';
   const pipVideo = pickPictureInPictureVideo(participants);
 
-  const clampDock = useCallback((x, y) => {
+  const clampFloatingElement = useCallback((element, x, y, inset = 12) => {
     const stage = callStageRef.current;
-    const dock = callDockRef.current;
-    if (!stage || !dock) return null;
-
+    if (!stage || !element) return null;
     const bounds = { width: stage.clientWidth, height: stage.clientHeight };
-    const bar = { width: dock.offsetWidth, height: dock.offsetHeight };
+    const size = { width: element.offsetWidth, height: element.offsetHeight };
     if (api?.call.clampFloatingBarPosition) {
-      return api.call.clampFloatingBarPosition({ x, y }, bounds, bar, 12);
+      return api.call.clampFloatingBarPosition({ x, y }, bounds, size, inset);
     }
-
     return {
-      x: Math.max(12, Math.min(x, Math.max(12, bounds.width - bar.width - 12))),
-      y: Math.max(12, Math.min(y, Math.max(12, bounds.height - bar.height - 12))),
+      x: Math.max(inset, Math.min(x, Math.max(inset, bounds.width - size.width - inset))),
+      y: Math.max(inset, Math.min(y, Math.max(inset, bounds.height - size.height - inset))),
     };
   }, [api]);
+
+  const clampDock = useCallback((x, y) => {
+    const dock = callDockRef.current;
+    return clampFloatingElement(dock, x, y, 12);
+  }, [clampFloatingElement]);
+
+  const clampSelfView = useCallback((x, y) => {
+    return clampFloatingElement(selfViewRef.current, x, y, 14);
+  }, [clampFloatingElement]);
 
   function beginDockDrag(event) {
     const stage = callStageRef.current;
@@ -374,6 +405,73 @@ function CallScreen({
     ));
   }
 
+  function beginSelfViewDrag(event) {
+    const stage = callStageRef.current;
+    const selfView = selfViewRef.current;
+    if (!stage || !selfView) return;
+
+    event.preventDefault();
+    const stageRect = stage.getBoundingClientRect();
+    const viewRect = selfView.getBoundingClientRect();
+    selfViewDragRef.current = {
+      pointerId: event.pointerId,
+      offsetX: event.clientX - viewRect.left,
+      offsetY: event.clientY - viewRect.top,
+    };
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    setSelfViewPosition(clampSelfView(viewRect.left - stageRect.left, viewRect.top - stageRect.top));
+  }
+
+  function moveSelfView(event) {
+    const drag = selfViewDragRef.current;
+    const stage = callStageRef.current;
+    if (!drag || drag.pointerId !== event.pointerId || !stage) return;
+
+    event.preventDefault();
+    const stageRect = stage.getBoundingClientRect();
+    setSelfViewPosition(clampSelfView(
+      event.clientX - stageRect.left - drag.offsetX,
+      event.clientY - stageRect.top - drag.offsetY,
+    ));
+  }
+
+  function endSelfViewDrag(event) {
+    if (selfViewDragRef.current?.pointerId !== event.pointerId) return;
+    selfViewDragRef.current = null;
+    event.currentTarget.releasePointerCapture?.(event.pointerId);
+  }
+
+  function moveSelfViewWithKeyboard(event) {
+    if (event.key === 'Home') {
+      event.preventDefault();
+      setSelfViewPosition(null);
+      return;
+    }
+    const direction = {
+      ArrowLeft: [-1, 0],
+      ArrowRight: [1, 0],
+      ArrowUp: [0, -1],
+      ArrowDown: [0, 1],
+    }[event.key];
+    if (!direction) return;
+
+    const stage = callStageRef.current;
+    const selfView = selfViewRef.current;
+    if (!stage || !selfView) return;
+    event.preventDefault();
+    const stageRect = stage.getBoundingClientRect();
+    const viewRect = selfView.getBoundingClientRect();
+    const current = selfViewPosition || {
+      x: viewRect.left - stageRect.left,
+      y: viewRect.top - stageRect.top,
+    };
+    const step = event.shiftKey ? 42 : 16;
+    setSelfViewPosition(clampSelfView(
+      current.x + (direction[0] * step),
+      current.y + (direction[1] * step),
+    ));
+  }
+
   const leaveFullscreen = useCallback(async () => {
     setFocusMode(false);
     if (currentFullscreenElement()) {
@@ -403,6 +501,7 @@ function CallScreen({
     setTransport(null);
     setQuality('unknown');
     setDockPosition(null);
+    setSelfViewPosition(null);
     setPipActive(false);
     setPipStatus('');
     setState('ended');
@@ -455,6 +554,45 @@ function CallScreen({
       video.removeEventListener('webkitpresentationmodechanged', webkitChanged);
     });
   }, [participants]);
+
+  useEffect(() => {
+    const mediaSession = navigator.mediaSession;
+    if (!live || !pipVideo || typeof mediaSession?.setActionHandler !== 'function') return undefined;
+
+    const enterAutomatically = () => {
+      pipVideoRef.current = pipVideo;
+      void openPictureInPicture(pipVideo)
+        .then(() => {
+          setPipActive(true);
+          setPipStatus('Floating video is on. You can move it while using another app.');
+        })
+        .catch(() => {
+          pipVideoRef.current = null;
+        });
+    };
+
+    try {
+      // Chromium can invoke this conferencing action when the tab is hidden.
+      // Safari uses the explicit PiP control because WebKit requires a tap.
+      mediaSession.setActionHandler('enterpictureinpicture', enterAutomatically);
+      if (typeof window.MediaMetadata === 'function') {
+        mediaSession.metadata = new window.MediaMetadata({
+          title: 'Life OS video call',
+          artist: participants.filter(participant => !participant.isLocal).map(participant => participant.name).join(', '),
+        });
+      }
+    } catch {
+      return undefined;
+    }
+
+    return () => {
+      try {
+        mediaSession.setActionHandler('enterpictureinpicture', null);
+      } catch {
+        // The action may be unavailable in this browser build.
+      }
+    };
+  }, [live, participants, pipVideo]);
 
   useEffect(() => {
     if (!pipStatus || pipActive) return undefined;
@@ -517,6 +655,7 @@ function CallScreen({
     setQuality('unknown');
     setDetail('');
     setDockPosition(null);
+    setSelfViewPosition(null);
     setSuggestNote(false);
     degradationRef.current = api.call.newDegradationState();
     // Keeps a service worker update from reloading the page mid-call.
@@ -609,26 +748,22 @@ function CallScreen({
 
     try {
       pipVideoRef.current = video;
-      // iPhone/iPad Safari exposes Apple’s presentation-mode API. Desktop
-      // Chrome and compatible Android browsers use the standard API below.
-      // Both calls stay directly inside the user’s tap, as browsers require.
-      if (supportsWebKitPictureInPicture(video)) {
-        video.webkitSetPresentationMode('picture-in-picture');
-      } else if (document.pictureInPictureEnabled && typeof video.requestPictureInPicture === 'function') {
-        await video.requestPictureInPicture();
-      } else {
-        throw new Error('Picture in Picture is not available in this browser.');
-      }
+      // This stays directly inside the user's tap because Safari requires it.
+      await openPictureInPicture(video);
       setPipActive(true);
-      setPipStatus('Picture in Picture is on. You can open another app while the call continues.');
+      setPipStatus('Floating video is on. You can move it while using another app.');
       void api.native.tap('medium');
     } catch (error) {
       pipVideoRef.current = null;
       setPipActive(false);
       const message = error instanceof Error ? error.message : '';
-      setPipStatus(message.includes('not available')
-        ? message
-        : 'Picture in Picture was blocked. Tap the control again and allow it when your device asks.');
+      const installedIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent)
+        && (window.matchMedia?.('(display-mode: standalone)').matches || navigator.standalone === true);
+      setPipStatus(installedIOS
+        ? 'iPhone Home Screen apps can block floating video. Open this call in Safari, then tap Picture in Picture.'
+        : (message.includes('not available')
+          ? message
+          : 'Picture in Picture was blocked. Tap the control again and allow it when your device asks.'));
     }
   }
 
@@ -730,6 +865,11 @@ function CallScreen({
   }
 
   const remoteCount = participants.filter(participant => !participant.isLocal).length;
+  const localParticipant = participants.find(participant => participant.isLocal) || null;
+  const remoteParticipants = participants.filter(participant => !participant.isLocal);
+  const layoutMode = api?.call.callLayoutMode?.(participants.length || 1)
+    || (participants.length === 2 ? 'duo' : (participants.length > 2 ? 'group' : 'solo'));
+  const duoReady = layoutMode === 'duo' && localParticipant && remoteParticipants[0];
   const gridColumns = api?.call.callGridColumns(participants.length || 1) || 1;
   const gridRows = Math.ceil(Math.max(1, participants.length) / gridColumns);
   const lastRowStart = Math.max(
@@ -740,24 +880,29 @@ function CallScreen({
   useEffect(() => {
     if (!live) return undefined;
 
-    const keepDockInsideStage = () => {
+    const keepFloatingElementsInsideStage = () => {
       setDockPosition(current => {
         if (!current) return current;
         return clampDock(current.x, current.y) || current;
       });
+      setSelfViewPosition(current => {
+        if (!current) return current;
+        return clampSelfView(current.x, current.y) || current;
+      });
     };
     const observer = typeof ResizeObserver === 'function'
-      ? new ResizeObserver(keepDockInsideStage)
+      ? new ResizeObserver(keepFloatingElementsInsideStage)
       : null;
     if (callStageRef.current) observer?.observe(callStageRef.current);
     if (callDockRef.current) observer?.observe(callDockRef.current);
-    window.addEventListener('resize', keepDockInsideStage);
+    if (selfViewRef.current) observer?.observe(selfViewRef.current);
+    window.addEventListener('resize', keepFloatingElementsInsideStage);
 
     return () => {
       observer?.disconnect();
-      window.removeEventListener('resize', keepDockInsideStage);
+      window.removeEventListener('resize', keepFloatingElementsInsideStage);
     };
-  }, [live, clampDock]);
+  }, [live, clampDock, clampSelfView, layoutMode]);
 
   return (
     <div className={`call-screen${busy || live ? ' is-active' : ''}`}>
@@ -957,10 +1102,45 @@ function CallScreen({
           ref={callStageRef}
           className={`call-stage${focusMode ? ' call-stage--focus' : ''}`}
           data-count={participants.length || 1}
+          data-layout={duoReady ? 'duo' : layoutMode}
         >
-          {participants.length > 0 ? (
+          {duoReady ? (
+            <div className="call-duo-layout">
+              <ParticipantTile
+                participant={remoteParticipants[0]}
+                className="call-duo-primary"
+              />
+              <div
+                ref={selfViewRef}
+                className={`call-duo-self${selfViewPosition ? ' is-positioned' : ''}`}
+                style={selfViewPosition ? {
+                  left: selfViewPosition.x,
+                  top: selfViewPosition.y,
+                  right: 'auto',
+                } : undefined}
+                onPointerDown={beginSelfViewDrag}
+                onPointerMove={moveSelfView}
+                onPointerUp={endSelfViewDrag}
+                onPointerCancel={endSelfViewDrag}
+                onDoubleClick={() => setSelfViewPosition(null)}
+                onKeyDown={moveSelfViewWithKeyboard}
+                role="button"
+                tabIndex="0"
+                aria-label="Move your camera preview. Use arrow keys to move or Home to reset."
+                title="Drag your preview to move it · double-click to reset"
+              >
+                <ParticipantTile
+                  participant={localParticipant}
+                  localCameraFacing={cameraFacing}
+                  compact
+                />
+                <span className="call-duo-self-grip" aria-hidden="true"><i /><i /><i /></span>
+              </div>
+            </div>
+          ) : participants.length > 0 ? (
             <div
               className="call-participant-grid"
+              data-count={participants.length}
               style={{
                 gridTemplateColumns: `repeat(${gridColumns}, minmax(0, 1fr))`,
                 gridTemplateRows: `repeat(${gridRows}, minmax(0, 1fr))`,
