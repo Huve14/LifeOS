@@ -242,6 +242,86 @@ end;
 $$;
 
 reset role;
+
+-- Shop & Save ingestion contract: retailer sources are insertable, unknown
+-- sources are rejected, re-running an ingest cannot duplicate a special, and
+-- members can read feed health but never write it.
+do $$
+declare
+  product_id uuid;
+  store_id uuid;
+begin
+  if not exists (
+    select 1 from public.lifeos_price_sources
+    where slug = 'carrefour' and kind = 'retailer' and 'Dubai' = any (emirates)
+  ) then
+    raise exception 'Carrefour is not registered as a Dubai retailer source';
+  end if;
+  if not exists (select 1 from public.lifeos_price_sources where slug = 'clicflyer' and kind = 'aggregator') then
+    raise exception 'ClicFlyer aggregator source is missing';
+  end if;
+
+  select id into product_id from public.lifeos_products where name = 'Biltong' limit 1;
+  insert into public.lifeos_stores (name, area, emirate)
+  values ('Carrefour', 'Mall of the Emirates', 'Dubai')
+  returning id into store_id;
+
+  -- A retailer-sourced deal must now be accepted; before the registry the
+  -- four-value CHECK made this impossible.
+  insert into public.lifeos_deals (
+    product_id, store_id, title, current_price, original_price, currency, source, source_reference
+  ) values (product_id, store_id, 'Biltong special', 19.95, 27.50, 'AED', 'carrefour', 'carrefour:deal:1');
+
+  -- Re-running the same ingest must not duplicate it.
+  begin
+    insert into public.lifeos_deals (
+      product_id, store_id, title, current_price, original_price, currency, source, source_reference
+    ) values (product_id, store_id, 'Biltong special', 19.95, 27.50, 'AED', 'carrefour', 'carrefour:deal:1');
+    raise exception 'Duplicate source_reference was accepted; scheduled ingest would duplicate deals';
+  exception when unique_violation then
+    null;
+  end;
+
+  -- An unregistered source must be refused.
+  begin
+    insert into public.lifeos_deals (
+      product_id, store_id, title, current_price, currency, source
+    ) values (product_id, store_id, 'Bogus', 1.00, 'AED', 'not-a-real-source');
+    raise exception 'Unregistered price source was accepted';
+  exception when foreign_key_violation then
+    null;
+  end;
+
+  if not exists (
+    select 1 from public.lifeos_stores where name = 'Carrefour' and emirate = 'Dubai'
+  ) then
+    raise exception 'Dubai store was not stored against the Dubai emirate';
+  end if;
+end;
+$$;
+
+set role authenticated;
+select set_config('request.jwt.claim.sub', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', false);
+do $$
+begin
+  if not exists (select 1 from public.lifeos_price_sources where slug = 'lulu') then
+    raise exception 'Member cannot read price source health';
+  end if;
+  if not exists (
+    select 1 from public.lifeos_deals where source = 'carrefour' and current_price = 19.95
+  ) then
+    raise exception 'Member cannot read an ingested retailer special';
+  end if;
+  begin
+    update public.lifeos_price_sources set enabled = false where slug = 'lulu';
+    raise exception 'Member was able to write price source health';
+  exception when insufficient_privilege then
+    null;
+  end;
+end;
+$$;
+
+reset role;
 SQL
 
 printf 'Migration chain verified successfully.\n'
