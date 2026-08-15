@@ -369,24 +369,47 @@ function serviceClient(): SupabaseClient {
  * its markup or goes down shows up as one 'error' row in lifeos_price_sources
  * while the rest of the run still delivers specials.
  */
-async function handleRefreshDeals(client: SupabaseClient, body: LookupBody): Promise<Response> {
+// A member tapping refresh must not be able to hammer retailer sites. The
+// scheduled run is exempt: it owns the cadence.
+const MANUAL_REFRESH_COOLDOWN_MS = 15 * 60 * 1000;
+
+async function handleRefreshDeals(
+  client: SupabaseClient,
+  body: LookupBody,
+  viaCron: boolean,
+): Promise<Response> {
   const requested = Array.isArray(body.slugs)
     ? body.slugs.map(slug => findSource(String(slug))).filter(source => source !== null)
     : null;
   const wanted = requested && requested.length > 0 ? requested : SOURCE_CATALOGUE;
 
-  // A source disabled in the registry stays untouched until it is re-enabled.
   const { data: registry } = await client
     .from('lifeos_price_sources')
-    .select('slug, enabled')
+    .select('slug, enabled, last_run_at')
     .in('slug', wanted.map(source => source.slug));
-  const disabled = new Set(
-    (registry ?? [])
-      .filter(row => (row as { enabled: boolean }).enabled === false)
-      .map(row => (row as { slug: string }).slug),
-  );
-  const definitions = wanted.filter(source => !disabled.has(source.slug));
+  const rows = (registry ?? []) as Array<{ slug: string; enabled: boolean; last_run_at: string | null }>;
 
+  // A source disabled in the registry stays untouched until it is re-enabled.
+  const disabled = new Set(rows.filter(row => row.enabled === false).map(row => row.slug));
+
+  const cooling = new Set(
+    viaCron
+      ? []
+      : rows
+        .filter(row => {
+          if (!row.last_run_at) return false;
+          const age = Date.now() - Date.parse(row.last_run_at);
+          return Number.isFinite(age) && age < MANUAL_REFRESH_COOLDOWN_MS;
+        })
+        .map(row => row.slug),
+  );
+
+  const definitions = wanted.filter(
+    source => !disabled.has(source.slug) && !cooling.has(source.slug),
+  );
+
+  // Only disabled sources get their health rewritten; a source skipped purely
+  // for cooldown keeps the status from its last real run.
   for (const source of wanted.filter(candidate => disabled.has(candidate.slug))) {
     await recordHealth(client, { slug: source.slug, status: 'skipped', prices: 0, deals: 0, error: null });
   }
@@ -399,9 +422,9 @@ async function handleRefreshDeals(client: SupabaseClient, body: LookupBody): Pro
         redirect: 'follow',
         headers: { 'User-Agent': USER_AGENT, Accept: 'text/html,application/xhtml+xml', 'Accept-Language': 'en-AE,en' },
       });
-      // Only read the body when it is worth parsing.
-      const body = apiResponse.ok ? await apiResponse.text() : '';
-      return { ok: apiResponse.ok, status: apiResponse.status, body };
+      // Only read the payload when it is worth parsing.
+      const payload = apiResponse.ok ? await apiResponse.text() : '';
+      return { ok: apiResponse.ok, status: apiResponse.status, body: payload };
     },
   });
 
@@ -438,7 +461,7 @@ Deno.serve(async (request) => {
       const viaCron = await authorizedCron(request, client);
       const viaUser = viaCron ? null : await authenticate(request);
       if (!viaCron && !viaUser) return response({ error: 'Unauthorized' }, 401);
-      return await handleRefreshDeals(client, body);
+      return await handleRefreshDeals(client, body, viaCron);
     }
 
     const auth = await authenticate(request);
