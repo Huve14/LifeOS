@@ -29,6 +29,7 @@ declare global {
     GamesScreen?: any;
     SpaceScreen?: any;
     CommunityScreen?: any;
+    ToolkitScreen?: any;
     __suvedaPhotos?: {
       upload: (file: File, onProgress?: (pct: number) => void) => Promise<string | null>;
       list: () => Promise<string[]>;

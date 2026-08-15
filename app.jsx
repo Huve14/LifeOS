@@ -173,6 +173,7 @@ const LEGACY_BUNDLE_LOADERS = {
     import('./screens-map.jsx'),
   ]),
   community: () => import('./community.jsx'),
+  toolkit: () => import('./toolkit.jsx'),
   journal: () => import('./video-journal.jsx'),
   prompt: () => import('./daily-prompt.jsx'),
   trip: () => import('./trip-board.jsx'),
@@ -187,6 +188,7 @@ const VIEW_BUNDLES = {
   shopping: 'modules', housing: 'modules', habits: 'modules', people: 'modules',
   memory: 'memory', map: 'map', journal: 'journal',
   community: 'community',
+  toolkit: 'toolkit',
   prompt: 'prompt', trip: 'trip', call: 'call', games: 'games', space: 'space',
 };
 
@@ -630,6 +632,7 @@ function App() {
       budget: ['modules', 'BudgetScreen', commonProps],
       shopping: ['modules', 'ShoppingScreen', commonProps],
       community: ['community', 'CommunityScreen', { onBack: () => setView('home') }],
+      toolkit: ['toolkit', 'ToolkitScreen', { onBack: () => setView('home') }],
       housing: ['modules', 'HousingScreen', commonProps],
       memory: ['memory', 'MemoryScreen', commonProps],
       habits: ['modules', 'HabitsScreen', commonProps],
@@ -747,6 +750,7 @@ function App() {
       <AskHuveSheet
         open={aiOpen}
         onClose={() => setAiOpen(false)}
+        onModule={setView}
         initialPrompt={aiPrompt}
         context={aiContext}
       />
@@ -956,6 +960,63 @@ function SettingsSegmented({ value, onChange, options, label }) {
         </button>
       ))}
     </div>
+  );
+}
+
+function AutomationSettings() {
+  const api = window.__lifeos.automations;
+  const [preferences, setPreferences] = useState(null);
+  const [rateTarget, setRateTarget] = useState('');
+  const [status, setStatus] = useState('Loading your alerts…');
+
+  useEffect(() => {
+    let active = true;
+    void api.loadAutomationPreferences().then(next => {
+      if (!active) return;
+      setPreferences(next);
+      setRateTarget(next.fxTarget ? String(next.fxTarget) : '');
+      setStatus('Alerts use the existing private notification queue.');
+    }).catch(() => {
+      if (active) setStatus('Alert settings will appear after the automation migration is deployed.');
+    });
+    return () => { active = false; };
+  }, [api]);
+
+  async function change(patch) {
+    if (!preferences) return;
+    const optimistic = { ...preferences, ...patch };
+    setPreferences(optimistic);
+    setStatus('Saving…');
+    try {
+      await api.saveAutomationPreferences(patch);
+      setStatus('Saved. Life OS will only notify you when there is something useful.');
+    } catch (error) {
+      setPreferences(preferences);
+      setStatus(error?.message || 'That alert could not be saved.');
+    }
+  }
+
+  return (
+    <Card padding="20px" className="settings-studio-card settings-automation-card" style={{ marginBottom: 14 }}>
+      <div className="settings-card-heading">
+        <div><span>Quiet automations</span><h3>Let Life OS watch the useful things</h3></div>
+        <small>Private, optional and easy to switch off</small>
+      </div>
+      {preferences && <div className="settings-toggle-list">
+        <SettingsToggle checked={preferences.priceWatchAlerts} onChange={value => change({ priceWatchAlerts: value })} icon="↓" label="Price-drop alerts" description="One notification when a watched price reaches your target" />
+        <SettingsToggle checked={preferences.weeklyDealsDigest} onChange={value => change({ weeklyDealsDigest: value })} icon="◷" label="Sunday deal digest" description="New deals and changes on your private watchlist" />
+        <SettingsToggle checked={preferences.eventReminders} onChange={value => change({ eventReminders: value })} icon="◎" label="Event reminders" description="A useful nudge 24 hours and 2 hours before events you joined" />
+        <SettingsToggle checked={preferences.newcomerBuddy} onChange={value => change({ newcomerBuddy: value })} icon="↔" label="Newcomer buddy matching" description="Opt in to a same-home-town match with a settled directory member" />
+      </div>}
+      {preferences && <div className="settings-fx-alert">
+        <SettingsToggle checked={preferences.fxAlerts} onChange={value => change({ fxAlerts: value })} icon="R" label="AED → ZAR target" description="Hear when the send-money rate crosses your number" />
+        <div className="settings-fx-fields">
+          <label><span>Notify when 1 AED is</span><select value={preferences.fxDirection} onChange={event => change({ fxDirection: event.target.value })}><option value="above">at or above</option><option value="below">at or below</option></select></label>
+          <label><span>Target in rand</span><input inputMode="decimal" type="number" min="0.01" step="0.01" value={rateTarget} onChange={event => setRateTarget(event.target.value)} onBlur={() => { const value = Number(rateTarget); if (Number.isFinite(value) && value > 0) void change({ fxTarget: value }); }} placeholder="e.g. 4.95" /></label>
+        </div>
+      </div>}
+      <p className="settings-automation-status" role="status">{status}</p>
+    </Card>
   );
 }
 
@@ -1407,6 +1468,8 @@ function SettingsScreen({ profile, email, preferences, onPreferencesChange, onPr
         </form>
       </Card>
 
+      <AutomationSettings />
+
       <Card padding="20px" style={{ marginBottom: 14 }}>
         <div style={{ fontSize: 12, fontWeight: 750, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--teal)', marginBottom: 8 }}>
           Privacy
@@ -1481,6 +1544,7 @@ const NAV_CATALOG = [
   { id: 'prompt',   label: 'Prompt',   icon: 'MessageCircle' },
   { id: 'housing',  label: 'Housing',  icon: 'Building2' },
   { id: 'space',    label: 'Pairing',  icon: 'Heart' },
+  { id: 'toolkit',  label: 'Toolkit',  icon: 'ShieldCheck' },
 ];
 
 const QUICK_NAV_OPTIONS = NAV_CATALOG.filter(item => (

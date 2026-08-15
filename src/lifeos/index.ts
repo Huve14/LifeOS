@@ -7,6 +7,7 @@ import * as call from './call';
 import * as community from './community';
 import * as couples from './couples';
 import * as aiProfile from './aiProfile';
+import * as automations from './automations';
 import * as budget from './budget';
 import * as daylight from './daylight';
 import * as ice from './ice';
@@ -31,6 +32,7 @@ import * as videoNotes from './videoNotes';
 
 export const lifeos = {
   aiProfile,
+  automations,
   budget,
   call,
   community,

@@ -1104,6 +1104,31 @@ function DailyModeSelector({ value, onChange, style }) {
   );
 }
 
+function DailyBriefCard({ brief, loading, onOpen }) {
+  const temperature = Number.isFinite(brief?.weather?.temperatureC) ? `${Math.round(brief.weather.temperatureC)}°` : '—';
+  const rate = Number.isFinite(brief?.fx?.rate) ? `R ${brief.fx.rate.toFixed(2)}` : '—';
+  const nextEvent = brief?.events?.[0];
+  const nextDeadline = brief?.nextDeadline;
+  const maghrib = brief?.prayer?.maghrib || '—';
+  const eventTime = nextEvent?.starts_at && Number.isFinite(Date.parse(nextEvent.starts_at))
+    ? new Intl.DateTimeFormat('en-AE', { hour: 'numeric', minute: '2-digit' }).format(new Date(nextEvent.starts_at))
+    : '';
+  return (
+    <section className="home-daily-brief" aria-label="Today in Abu Dhabi">
+      <div className="home-brief-heading">
+        <div><span className="home-section-eyebrow">TODAY IN ABU DHABI</span><h2>Your daily brief</h2></div>
+        <span className={brief?.stale ? 'is-stale' : ''}>{loading ? 'Updating…' : brief?.stale ? 'Saved offline' : 'Live now'}</span>
+      </div>
+      <div className="home-brief-grid">
+        <button type="button" onClick={() => onOpen('map')}><span>☀</span><small>Weather</small><strong>{temperature}</strong><em>{brief?.weather?.label || 'Updating'}</em></button>
+        <button type="button" onClick={() => onOpen('toolkit')}><span>☾</span><small>Maghrib</small><strong>{maghrib}</strong><em>Prayer times</em></button>
+        <button type="button" onClick={() => onOpen('shopping')}><span>↗</span><small>1 AED</small><strong>{rate}</strong><em>Send-money rate</em></button>
+        <button type="button" onClick={() => onOpen(nextEvent ? 'community' : 'toolkit')}><span>{nextEvent ? '●' : '✓'}</span><small>{nextEvent ? 'Next today' : 'Next deadline'}</small><strong>{nextEvent?.title || nextDeadline?.title || 'You’re clear'}</strong><em>{nextEvent ? eventTime : nextDeadline?.due_on ? new Intl.DateTimeFormat('en-AE', { day: 'numeric', month: 'short' }).format(new Date(`${nextDeadline.due_on}T12:00:00`)) : 'No urgent admin'}</em></button>
+      </div>
+    </section>
+  );
+}
+
 function PriorityRow({ action, onOpen, onComplete }) {
   return (
     <div className="home-priority-row">
@@ -1433,6 +1458,18 @@ function Dashboard({
   const connection = window.__lifeos.home.getConnectionSnapshot(clockNow);
   const { journey, dailyMode, phrase, priorities, glance, money, todayKey } = model;
   const [showExport, setShowExport] = React.useState(false);
+  const [dailyBrief, setDailyBrief] = React.useState(null);
+  const [briefLoading, setBriefLoading] = React.useState(true);
+  React.useEffect(() => {
+    let active = true;
+    setBriefLoading(true);
+    void window.__lifeos.automations.loadDailyBrief().then(brief => {
+      if (active) setDailyBrief(brief);
+    }).finally(() => {
+      if (active) setBriefLoading(false);
+    });
+    return () => { active = false; };
+  }, []);
   const prefs = window.__lifeos.preferences.preparePreferences(preferences);
   const liteVisuals = performanceMode === 'lite'
     || prefs.motion === 'reduced'
@@ -1531,6 +1568,8 @@ function Dashboard({
       <JourneyHero model={model} onOpen={onModule} style={{ order: -2 }} liteVisuals={liteVisuals} />
 
       <DailyModeSelector value={dailyMode} onChange={setDailyMode} style={{ order: -1 }} />
+
+      <DailyBriefCard brief={dailyBrief} loading={briefLoading} onOpen={onModule} />
 
       <section className="home-section home-glance-section" style={homeSectionStyle('overview')}>
         <HomeSectionHeader
@@ -1648,7 +1687,7 @@ function Dashboard({
 }
 
 // ---------- Ask Huve sheet ----------
-function AskHuveSheet({ open, onClose, initialPrompt, context = '' }) {
+function AskHuveSheet({ open, onClose, onModule, initialPrompt, context = '' }) {
   const [messages, setMessages] = React.useState([]);
   const [input, setInput] = React.useState('');
   const [loading, setLoading] = React.useState(false);
@@ -1656,6 +1695,8 @@ function AskHuveSheet({ open, onClose, initialPrompt, context = '' }) {
   const [hydrated, setHydrated] = React.useState(false);
   const [uploadedFiles, setUploadedFiles] = React.useState([]);
   const [uploading, setUploading] = React.useState(false);
+  const [lastQuestion, setLastQuestion] = React.useState('');
+  const [communityStatus, setCommunityStatus] = React.useState('');
   const scrollRef = React.useRef(null);
   const fileRef = React.useRef(null);
   const store = window.__suvedaStore;
@@ -1728,6 +1769,8 @@ function AskHuveSheet({ open, onClose, initialPrompt, context = '' }) {
     const text = (textArg ?? input).trim();
     if (!text || loading) return;
     const userMessage = { role: 'user', text };
+    setLastQuestion(text);
+    setCommunityStatus('');
     setMessages(m => [...m, userMessage]);
     setInput('');
     setUploadedFiles([]);
@@ -1755,6 +1798,19 @@ function AskHuveSheet({ open, onClose, initialPrompt, context = '' }) {
     setMessages([]);
     setHydrated(false);
     await store?.clearChatMessages?.('main');
+  }
+
+  async function askCommunityFallback() {
+    if (!lastQuestion || communityStatus === 'posting') return;
+    setCommunityStatus('posting');
+    try {
+      await window.__lifeos.community.askCommunity(lastQuestion, 'Asked from the Life OS assistant after checking the private answer first.');
+      setCommunityStatus('posted');
+      onClose();
+      onModule?.('community');
+    } catch (error) {
+      setCommunityStatus(error?.message || 'Could not post that question.');
+    }
   }
 
   return (
@@ -1867,6 +1923,16 @@ function AskHuveSheet({ open, onClose, initialPrompt, context = '' }) {
             </button>
           ))}
         </div>
+
+        {lastQuestion && messages.some(message => message.role === 'ai') && (
+          <div className="ai-community-fallback">
+            <span>Want lived experience too?</span>
+            <button type="button" onClick={askCommunityFallback} disabled={communityStatus === 'posting'}>
+              {communityStatus === 'posting' ? 'Posting…' : 'Ask the community →'}
+            </button>
+            {communityStatus && !['posting', 'posted'].includes(communityStatus) && <small>{communityStatus}</small>}
+          </div>
+        )}
 
         {uploadedFiles.length > 0 && (
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>

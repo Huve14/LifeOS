@@ -44,6 +44,9 @@ function CommunityScreen({ onBack }) {
   const [replyingTo, setReplyingTo] = React.useState(null);
   const [reply, setReply] = React.useState('');
   const [photo, setPhoto] = React.useState(null);
+  const [welcomeDraft, setWelcomeDraft] = React.useState(null);
+  const [automationPreferences, setAutomationPreferences] = React.useState(null);
+  const [buddyMatch, setBuddyMatch] = React.useState(null);
   const myId = api ? window.__lifeos.spaces.currentUserId() : null;
 
   const reload = React.useCallback(async (quiet = false) => {
@@ -61,6 +64,19 @@ function CommunityScreen({ onBack }) {
     void reload();
     return api.subscribeCommunity(() => { void reload(true); });
   }, [api, reload]);
+
+  React.useEffect(() => {
+    let active = true;
+    void Promise.all([
+      window.__lifeos.automations.loadWelcomeDraft(),
+      window.__lifeos.automations.loadAutomationPreferences(),
+    ]).then(([draft, preferences]) => {
+      if (!active) return;
+      setWelcomeDraft(draft);
+      setAutomationPreferences(preferences);
+    }).catch(() => {});
+    return () => { active = false; };
+  }, []);
 
   const nameFor = React.useCallback((userId) => api.displayCommunityName(snapshot.profiles, userId), [api, snapshot.profiles]);
   const nextEvent = snapshot.events.find(event => Date.parse(event.startsAt) >= Date.now()) || null;
@@ -96,6 +112,31 @@ function CommunityScreen({ onBack }) {
     setMessage('');
   }
 
+  async function toggleBuddy(enabled) {
+    try {
+      await window.__lifeos.automations.saveAutomationPreferences({ newcomerBuddy: enabled });
+      setAutomationPreferences(current => current ? { ...current, newcomerBuddy: enabled } : current);
+      setBuddyMatch(null);
+      setMessage(enabled ? 'Buddy matching is on. Only opted-in directory members can match.' : 'Buddy matching is off.');
+    } catch (error) {
+      setMessage(error?.message || 'Buddy matching could not be changed.');
+    }
+  }
+
+  async function findBuddy() {
+    setBusy(true);
+    setMessage('');
+    try {
+      const match = await window.__lifeos.automations.findBuddy();
+      setBuddyMatch(match);
+      setMessage(match ? `A same-home-town buddy is ready: ${match.displayName}.` : 'No settled, opted-in match is available yet. We will keep the preference ready.');
+    } catch (error) {
+      setMessage(error?.message || 'Buddy matching is unavailable right now.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function renderHome() {
     return (
       <div className="community-stack">
@@ -113,6 +154,21 @@ function CommunityScreen({ onBack }) {
             <span>🇿🇦</span><i>☀</i><b>🇦🇪</b>
           </div>
         </section>
+
+        {(welcomeDraft && !welcomeDraft.publishedAt) || automationPreferences ? <div className="community-welcome-grid">
+          {welcomeDraft && !welcomeDraft.publishedAt && <article className="community-welcome-draft">
+            <span>YOUR WELCOME IS PRIVATE UNTIL YOU SHARE IT</span>
+            <h3>Say hello when you’re ready.</h3>
+            <p>Life OS prepared a short introduction without your home town or private details. Review every word before it enters the feed.</p>
+            <Button size="sm" onClick={() => setComposer('welcome')}>Review welcome post</Button>
+          </article>}
+          {automationPreferences && <article className="community-buddy-card">
+            <span>NEWCOMER BUDDY</span><h3>A familiar home-town connection.</h3>
+            <p>Matching only considers people who opted into both the directory and buddy programme and have been here at least 12 months.</p>
+            <div><Button size="sm" variant={automationPreferences.newcomerBuddy ? 'primary' : 'ghost'} onClick={() => toggleBuddy(!automationPreferences.newcomerBuddy)}>{automationPreferences.newcomerBuddy ? 'Matching on ✓' : 'Opt in'}</Button>{automationPreferences.newcomerBuddy && <Button size="sm" variant="ghost" disabled={busy} onClick={findBuddy}>Find a buddy</Button>}</div>
+            {buddyMatch && <button type="button" className="community-buddy-match" onClick={() => selectTab('directory')}><CommunityAvatar name={buddyMatch.displayName} small /><span><strong>{buddyMatch.displayName}</strong><small>{buddyMatch.homeTown} · {buddyMatch.emirate}</small></span><b>Meet in directory →</b></button>}
+          </article>}
+        </div> : null}
 
         <div className="community-stat-grid">
           <button type="button" onClick={() => selectTab('directory')}>
@@ -260,6 +316,7 @@ function CommunityScreen({ onBack }) {
     if (!composer) return null;
     if (composer === 'event') return <Modal open onClose={() => setComposer(null)} title="Create an event"><form className="community-form" onSubmit={event => { event.preventDefault(); const form = new FormData(event.currentTarget); void act(() => api.createCommunityEvent({ title: form.get('title'), description: form.get('description'), startsAt: form.get('startsAt'), location: form.get('location'), area: form.get('area'), capacity: Number(form.get('capacity')) || null }), 'Event published.'); }}><label>Event name<input required name="title" placeholder="Springbok watch party" /></label><label>When<input required name="startsAt" type="datetime-local" /></label><div className="community-form-row"><label>Venue<input name="location" placeholder="Venue or meeting point" /></label><label>Area<input name="area" placeholder="Khalifa City" /></label></div><label>Details<textarea name="description" placeholder="What should people know?" /></label><label>Capacity (optional)<input name="capacity" min="1" inputMode="numeric" type="number" /></label><CommunityFormActions busy={busy} onCancel={() => setComposer(null)} label="Publish event" /></form></Modal>;
     if (composer === 'question') return <Modal open onClose={() => setComposer(null)} title="Ask the community"><form className="community-form" onSubmit={event => { event.preventDefault(); const form = new FormData(event.currentTarget); void act(() => api.askCommunity(form.get('title'), form.get('body')), 'Question posted.'); }}><label>Your question<input required name="title" placeholder="Where can I find good biltong?" /></label><label>Helpful detail<textarea name="body" placeholder="Area, timing, or what you’ve tried…" /></label><CommunityFormActions busy={busy} onCancel={() => setComposer(null)} label="Ask everyone" /></form></Modal>;
+    if (composer === 'welcome') return <Modal open onClose={() => setComposer(null)} title="Review your welcome post"><form className="community-form" onSubmit={event => { event.preventDefault(); const form = new FormData(event.currentTarget); void act(async () => { await window.__lifeos.automations.updateWelcomeDraft(form.get('title'), form.get('body')); await window.__lifeos.automations.publishWelcomeDraft(); setWelcomeDraft(current => current ? { ...current, publishedAt: new Date().toISOString() } : current); }, 'Welcome post published.'); }}><div className="community-consent-note">Nothing is public until you press “Share introduction”. Your profile stays private unless you separately opt into the directory.</div><label>Title<input required name="title" defaultValue={welcomeDraft?.title || ''} maxLength="220" /></label><label>Introduction<textarea required name="body" defaultValue={welcomeDraft?.body || ''} maxLength="4000" /></label><CommunityFormActions busy={busy} onCancel={() => setComposer(null)} label="Share introduction" /></form></Modal>;
     if (composer === 'classified') return <Modal open onClose={() => setComposer(null)} title="List an item"><form className="community-form" onSubmit={event => { event.preventDefault(); const form = new FormData(event.currentTarget); void act(async () => { const photoPath = photo ? await api.uploadCommunityPhoto(photo) : null; await api.createClassified({ title: form.get('title'), description: form.get('description'), category: form.get('category'), price: Number(form.get('price')), area: form.get('area'), photoPath }); }, 'Listing published.'); }}><label>What are you selling?<input required name="title" placeholder="Solid wood dining table" /></label><div className="community-form-row"><label>Price (AED)<input required name="price" type="number" inputMode="decimal" min="0" step="0.01" /></label><label>Category<select name="category"><option>Furniture</option><option>Home</option><option>Electronics</option><option>Kids</option><option>Other</option></select></label></div><label>Area<input name="area" placeholder="Khalifa City" /></label><label>Details<textarea name="description" placeholder="Condition, dimensions, collection…" /></label><label className="community-file-button"><span>{photo ? `✓ ${photo.name}` : 'Add a clear photo'}</span><input type="file" accept="image/*" onChange={event => setPhoto(event.target.files?.[0] || null)} /></label><CommunityFormActions busy={busy} onCancel={() => setComposer(null)} label="Publish listing" /></form></Modal>;
     if (composer === 'poll') return <Modal open onClose={() => setComposer(null)} title="Start a poll"><form className="community-form" onSubmit={event => { event.preventDefault(); const form = new FormData(event.currentTarget); void act(() => api.createPoll(form.get('question'), String(form.get('options')).split(',')), 'Poll is live.'); }}><label>Question<input required name="question" placeholder="Where should we meet on Saturday?" /></label><label>Choices, separated by commas<textarea required name="options" placeholder="Corniche, Yas Bay, Al Qana" /></label><CommunityFormActions busy={busy} onCancel={() => setComposer(null)} label="Start poll" /></form></Modal>;
     return <Modal open onClose={() => setComposer(null)} title="Recommend a place"><form className="community-form" onSubmit={event => { event.preventDefault(); const form = new FormData(event.currentTarget); void act(() => api.createCommunityPlace({ name: form.get('name'), category: form.get('category'), description: form.get('description'), area: form.get('area'), address: form.get('address') }), 'Place sent for review.'); }}><label>Place name<input required name="name" placeholder="Your favourite local find" /></label><div className="community-form-row"><label>Type<select name="category"><option value="food">Food</option><option value="shopping">Shopping</option><option value="services">Services</option><option value="community">Community</option></select></label><label>Area<input name="area" placeholder="Khalifa City" /></label></div><label>Address<input name="address" placeholder="Street or mall" /></label><label>Why recommend it?<textarea name="description" /></label><CommunityFormActions busy={busy} onCancel={() => setComposer(null)} label="Share place" /></form></Modal>;
@@ -280,4 +337,3 @@ function CommunityScreen({ onBack }) {
 }
 
 window.CommunityScreen = CommunityScreen;
-

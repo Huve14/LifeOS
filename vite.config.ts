@@ -55,7 +55,7 @@ export default defineConfig({
         // Optional feature chunks are cached the first time they are opened.
         globPatterns: [
           '**/*.{html,svg,png,ico,woff2,css}',
-          'assets/{main,supabase,native,web,base,jsx-runtime,ios-frame,tweaks-panel,components,loading-globe,animated-icon,settings,screens-home,auth,app}-*.js',
+          'assets/{main,supabase,native,web,base,jsx-runtime,ios-frame,tweaks-panel,components,loading-globe,animated-icon,settings,screens-home,auth,app,toolkit,automations}-*.js',
         ],
         navigateFallback: '/',
         navigateFallbackDenylist: [/^\/s\//],

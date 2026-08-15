@@ -81,6 +81,27 @@ from public.lifeos_products product
 where product.name = 'Biltong'
 limit 1;
 
+update public.lifeos_profiles
+set status = 'just_landed', arrived_on = current_date
+where user_id = auth.uid();
+
+do $$
+begin
+  if (select count(*) from public.lifeos_arrival_tasks where owner_id = auth.uid()) <> 3 then
+    raise exception 'Arrival automation did not generate three private tasks';
+  end if;
+  if not exists (
+    select 1 from public.lifeos_welcome_drafts
+    where owner_id = auth.uid() and published_at is not null and published_question_id is not null
+  ) then
+    raise exception 'Just-landed profile did not automatically publish its generic welcome';
+  end if;
+end;
+$$;
+
+-- Publishing again must be idempotent and return the existing question.
+select public.lifeos_publish_welcome_intro();
+
 select set_config('request.jwt.claim.sub', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', false);
 
 do $$
@@ -99,6 +120,34 @@ begin
   end if;
   if exists (select 1 from public.lifeos_price_watches) then
     raise exception 'Account B can read Account A private price watch';
+  end if;
+  if exists (
+    select 1 from public.lifeos_arrival_tasks
+    where owner_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+  ) then
+    raise exception 'Account B can read Account A private arrival tasks';
+  end if;
+  if exists (
+    select 1 from public.lifeos_automation_preferences
+    where user_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+  ) then
+    raise exception 'Account B can read Account A private automation preferences';
+  end if;
+  if exists (
+    select 1 from public.lifeos_welcome_drafts
+    where owner_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+  ) then
+    raise exception 'Account B can read Account A private welcome draft';
+  end if;
+  if not exists (
+    select 1 from public.lifeos_questions
+    where title = 'Hello from a new South African in Abu Dhabi'
+  ) then
+    raise exception 'Automatic welcome did not enter the community feed';
+  end if;
+  if not exists (select 1 from public.lifeos_toolkit_items)
+     or not exists (select 1 from public.lifeos_sa_calendar) then
+    raise exception 'Authenticated member cannot read shared toolkit/calendar reference data';
   end if;
 end;
 $$;
