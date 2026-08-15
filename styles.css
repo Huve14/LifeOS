@@ -4975,6 +4975,19 @@ img, video, canvas {
 }
 
 /* Abu Dhabi budget ------------------------------------------------------ */
+.budget-currency-toggle {
+  min-height: 38px;
+  padding: 8px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--white) 86%, transparent);
+  color: var(--dark);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
 .budget-tabs {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

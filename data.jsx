@@ -80,7 +80,7 @@ const SEED = {
     period: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`,
     currency: 'AED',
     fxToUSD: 0.272,
-    monthlyIncome: 8800,
+    monthlyIncome: 0,
     monthly: [...MONTHLY_BUDGET.map(c => ({...c}))],
     transactions: [],
     total: 2500,

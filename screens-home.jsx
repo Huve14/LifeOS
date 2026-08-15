@@ -143,6 +143,13 @@ function Onboarding({ onDone, initialDate, user }) {
   const [authName, setAuthName] = React.useState('');
   const [authEmail, setAuthEmail] = React.useState('');
   const [authPassword, setAuthPassword] = React.useState('');
+  const [authProfile, setAuthProfile] = React.useState({
+    home_town: '',
+    emirate: 'Abu Dhabi',
+    arrived_on: '',
+    status: 'just_landed',
+    employer_name: '',
+  });
   const [authAIProfile, setAuthAIProfile] = React.useState({
     home_base: '',
     priorities: '',
@@ -167,6 +174,10 @@ function Onboarding({ onDone, initialDate, user }) {
           authPassword,
           authName.trim(),
           authAIProfile,
+          {
+            ...authProfile,
+            interests: authAIProfile.interests.split(',').map(item => item.trim()).filter(Boolean),
+          },
         );
         if (suErr) setAuthError(suErr.message);
         else if (!data?.session) setAuthError('Account created. Check your email to confirm it, then sign in.');
@@ -182,6 +193,10 @@ function Onboarding({ onDone, initialDate, user }) {
 
   function updateAuthAIProfile(field, value) {
     setAuthAIProfile(current => ({ ...current, [field]: value }));
+  }
+
+  function updateAuthProfile(field, value) {
+    setAuthProfile(current => ({ ...current, [field]: value }));
   }
 
   const userName = user?.user_metadata?.display_name
@@ -336,6 +351,49 @@ function Onboarding({ onDone, initialDate, user }) {
                         <p>Optional details help your private assistant give more useful answers. You can change them later.</p>
                       </div>
                     </div>
+
+                    <div className="auth-ai-profile-grid">
+                      <label className="auth-profile-field">
+                        <span>SA home town</span>
+                        <input
+                          value={authProfile.home_town}
+                          onChange={event => updateAuthProfile('home_town', event.target.value)}
+                          placeholder="e.g. Durban"
+                          maxLength={120}
+                          required
+                        />
+                      </label>
+                      <label className="auth-profile-field">
+                        <span>Emirate</span>
+                        <select value={authProfile.emirate} onChange={event => updateAuthProfile('emirate', event.target.value)} required>
+                          <option>Abu Dhabi</option><option>Dubai</option><option>Sharjah</option><option>Ajman</option>
+                          <option>Ras Al Khaimah</option><option>Fujairah</option><option>Umm Al Quwain</option>
+                        </select>
+                      </label>
+                      <label className="auth-profile-field">
+                        <span>Your UAE chapter</span>
+                        <select value={authProfile.status} onChange={event => updateAuthProfile('status', event.target.value)}>
+                          <option value="landing_soon">Landing soon</option>
+                          <option value="just_landed">Just landed</option>
+                          <option value="settled">Settled in</option>
+                        </select>
+                      </label>
+                      <label className="auth-profile-field">
+                        <span>{authProfile.status === 'landing_soon' ? 'Expected arrival' : 'Arrival date'} <small>optional</small></span>
+                        <input type="date" value={authProfile.arrived_on} onChange={event => updateAuthProfile('arrived_on', event.target.value)} />
+                      </label>
+                    </div>
+
+                    <label className="auth-profile-field">
+                      <span>Employer <small>optional and private</small></span>
+                      <input
+                        value={authProfile.employer_name}
+                        onChange={event => updateAuthProfile('employer_name', event.target.value)}
+                        placeholder="Used only to label your benefits"
+                        maxLength={120}
+                        autoComplete="organization"
+                      />
+                    </label>
 
                     <div className="auth-ai-profile-grid">
                       <label className="auth-profile-field">
@@ -1198,41 +1256,6 @@ function DailyRhythm({ habits, today, setState, onOpen }) {
   );
 }
 
-function LoveNoteCard({ whyNote, whyNote2, onWhyChange, onWhy2Change }) {
-  const [editing, setEditing] = React.useState(false);
-  const hasNote = Boolean(whyNote.trim() || whyNote2.trim());
-
-  return (
-    <Card padding="20px" style={{
-      height: '100%',
-      background: 'linear-gradient(145deg, color-mix(in srgb, var(--gold) 9%, var(--white)) 0%, var(--white) 72%)',
-      border: '1px solid rgba(246, 209, 16, 0.46)',
-    }}>
-      <HomeSectionHeader
-        eyebrow="Keep this close"
-        title="A note for you"
-        action={<button className="home-text-button" onClick={() => setEditing(value => !value)}>{editing ? 'Done' : 'Edit'}</button>}
-      />
-      {editing ? (
-        <div className="home-note-editor">
-          <textarea value={whyNote} onChange={event => onWhyChange(event.target.value)} placeholder="Write something steady for yourself…" rows={3} />
-          <textarea value={whyNote2} onChange={event => onWhy2Change(event.target.value)} placeholder="Add another thought…" rows={2} />
-        </div>
-      ) : hasNote ? (
-        <div className="home-love-note">
-          {whyNote.trim() && <p>“{whyNote.trim()}”</p>}
-          {whyNote2.trim() && <p className="home-love-note-second">{whyNote2.trim()}</p>}
-        </div>
-      ) : (
-        <button className="home-note-empty" onClick={() => setEditing(true)}>
-          <span>💌</span>
-          <span>Add something you can return to on a hard day.</span>
-        </button>
-      )}
-    </Card>
-  );
-}
-
 function LandingKit({ first48, onAsk, onOpen }) {
   const items = [
     {
@@ -1399,7 +1422,6 @@ function Dashboard({
   preferences,
   performanceMode,
   userName = 'there',
-  userEmail = '',
 }) {
   const [clockNow, setClockNow] = React.useState(() => new Date());
   React.useEffect(() => {
@@ -1410,8 +1432,6 @@ function Dashboard({
   const model = window.__lifeos.home.buildHomeModel(state, clockNow);
   const connection = window.__lifeos.home.getConnectionSnapshot(clockNow);
   const { journey, dailyMode, phrase, priorities, glance, money, todayKey } = model;
-  const [whyNote, setWhyNote] = React.useState(state.whyNote || '');
-  const [whyNote2, setWhyNote2] = React.useState(state.whyNote2 || '');
   const [showExport, setShowExport] = React.useState(false);
   const prefs = window.__lifeos.preferences.preparePreferences(preferences);
   const liteVisuals = performanceMode === 'lite'
@@ -1428,7 +1448,6 @@ function Dashboard({
   const moneySpent = new Intl.NumberFormat('en-AE', { maximumFractionDigits: 0 }).format(money.spent);
   const habits = state.habits || [];
   const journalEntryCount = window.__lifeos.journal.prepareJournalEntries(state.journal).length;
-  const hasPrivateNote = userEmail.trim().toLowerCase() === 'suvedap@gmail.com';
   const aiSuggestions = ['Plan my week in Abu Dhabi', 'Help me feel at home', 'What should I handle next?'];
   const tools = [
     { id: 'map', label: 'My UAE map', emoji: '🗺️', detail: 'Saved places' },
@@ -1440,16 +1459,6 @@ function Dashboard({
     { id: 'housing', label: 'Home base', emoji: '🏠', detail: `${model.homePhotoCount} moments` },
     { id: 'games', label: 'Game night', emoji: '🎲', detail: 'Play together live' },
   ];
-
-  function updateWhy(value) {
-    setWhyNote(value);
-    setState(s => ({ ...s, whyNote: value }));
-  }
-
-  function updateWhy2(value) {
-    setWhyNote2(value);
-    setState(s => ({ ...s, whyNote2: value }));
-  }
 
   function setDailyMode(value) {
     setState(s => ({ ...s, dailyMode: { date: todayKey, value } }));
@@ -1587,16 +1596,8 @@ function Dashboard({
         </section>
       )}
 
-      <section className={`home-section home-support-grid${hasPrivateNote ? '' : ' is-single'}`} style={homeSectionStyle('wellbeing')}>
+      <section className="home-section home-support-grid is-single" style={homeSectionStyle('wellbeing')}>
         <DailyRhythm habits={habits} today={todayKey} setState={setState} onOpen={onModule} />
-        {hasPrivateNote && (
-          <LoveNoteCard
-            whyNote={whyNote}
-            whyNote2={whyNote2}
-            onWhyChange={updateWhy}
-            onWhy2Change={updateWhy2}
-          />
-        )}
       </section>
 
       <section className="home-section" style={homeSectionStyle('assistant')}>

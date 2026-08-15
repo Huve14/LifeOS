@@ -81,7 +81,7 @@ export function upgradeBudget(input: unknown, now = new Date()): BudgetState {
       ...source,
       version: BUDGET_VERSION,
       currency: 'AED',
-      monthlyIncome: asMoney(source.monthlyIncome) || 8800,
+      monthlyIncome: asMoney(source.monthlyIncome),
       monthly: oldMonthly.map(category => ({
         ...(category as unknown as BudgetCategory),
         planned: asMoney(category.planned),
@@ -128,7 +128,7 @@ export function upgradeBudget(input: unknown, now = new Date()): BudgetState {
     ...source,
     version: BUDGET_VERSION,
     currency: 'AED',
-    monthlyIncome: asMoney(source.monthlyIncome) || 8800,
+    monthlyIncome: asMoney(source.monthlyIncome),
     monthly: [...defaults, ...custom],
     transactions: Array.isArray(source.transactions) ? source.transactions as BudgetTransaction[] : [],
     period,

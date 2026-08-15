@@ -41,7 +41,7 @@ export {
 export { generateNudges } from './nudges.ts';
 export { projectSavings, projectGoalCompletion } from './forecasting.ts';
 export { getMonthlyReport, getCategorySpendHistory, getNetWorthSnapshot } from './reporting.ts';
-export { setExchangeRate, convertAmount, getSecondaryAmount } from './currency.ts';
+export { setExchangeRate, convertAmount, convertAmountAtRate, getSecondaryAmount } from './currency.ts';
 export {
   BudgetError,
   BudgetValidationError,

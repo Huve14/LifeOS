@@ -312,6 +312,8 @@ function App() {
   const [authReady, setAuthReady] = useState(previewSession || !!window.__suvedaUser);
   const [profile, setProfile] = useState(previewSession ? {
     user_id: 'visual-preview', display_name: 'Demo User', handle: 'demo_user', time_zone: 'Asia/Dubai',
+    home_town: 'Cape Town', emirate: 'Abu Dhabi', arrived_on: '2026-08-10', status: 'just_landed',
+    interests: ['food', 'travel'], visible_in_directory: false, employer_name: null,
     ai_profile: {
       home_base: 'Abu Dhabi', priorities: 'Build a calm weekly rhythm', interests: 'Food, travel and photography',
       response_style: 'warm_practical', daily_rhythm: 'flexible', notes: '',
@@ -341,10 +343,12 @@ function App() {
 
   useEffect(() => {
     window.__lifeosAIProfile = profile?.ai_profile || user?.user_metadata?.ai_profile || {};
+    window.__suvedaDestination = profile?.emirate || profile?.ai_profile?.home_base || 'Abu Dhabi';
     return () => {
       window.__lifeosAIProfile = {};
+      window.__suvedaDestination = '';
     };
-  }, [profile?.ai_profile, user?.user_metadata?.ai_profile]);
+  }, [profile?.ai_profile, profile?.emirate, user?.user_metadata?.ai_profile]);
 
   const lock = useAppLock();
 
@@ -593,8 +597,7 @@ function App() {
                 syncDisabled={!previewSession && (!storageReady || !store?.hasConfig || !user?.id)}
                 preferences={preferences}
                 performanceMode={performanceMode}
-                userName={displayName}
-                userEmail={user?.email || ''} />;
+                userName={displayName} />;
     }
 
     if (view === 'settings') {
@@ -619,7 +622,7 @@ function App() {
       return <NotesJournalScreen state={state} setState={setState} onBack={() => setView('home')} />;
     }
 
-    const commonProps = { state, setState, onBack: () => setView('home'), onAsk: openAi };
+    const commonProps = { state, setState, profile, onBack: () => setView('home'), onAsk: openAi };
     const featureScreens = {
       packing: ['modules', 'PackingScreen', commonProps],
       docs: ['modules', 'DocumentsScreen', commonProps],
@@ -958,6 +961,14 @@ function SettingsSegmented({ value, onChange, options, label }) {
 
 function SettingsScreen({ profile, email, preferences, onPreferencesChange, onProfileChange, onBack, onLoggedOut, onReplayIntro }) {
   const [name, setName] = useState(profile?.display_name || '');
+  const [accountProfile, setAccountProfile] = useState({
+    home_town: profile?.home_town || '',
+    emirate: profile?.emirate || 'Abu Dhabi',
+    arrived_on: profile?.arrived_on || '',
+    status: profile?.status || 'just_landed',
+    employer_name: profile?.employer_name || '',
+    visible_in_directory: profile?.visible_in_directory === true,
+  });
   const [aiProfile, setAIProfile] = useState(() => window.__lifeos?.aiProfile.prepareAIProfile(profile?.ai_profile));
   const [saving, setSaving] = useState(false);
   const [savingAI, setSavingAI] = useState(false);
@@ -970,7 +981,23 @@ function SettingsScreen({ profile, email, preferences, onPreferencesChange, onPr
 
   useEffect(() => {
     setName(profile?.display_name || '');
-  }, [profile?.display_name]);
+    setAccountProfile({
+      home_town: profile?.home_town || '',
+      emirate: profile?.emirate || 'Abu Dhabi',
+      arrived_on: profile?.arrived_on || '',
+      status: profile?.status || 'just_landed',
+      employer_name: profile?.employer_name || '',
+      visible_in_directory: profile?.visible_in_directory === true,
+    });
+  }, [
+    profile?.arrived_on,
+    profile?.display_name,
+    profile?.emirate,
+    profile?.employer_name,
+    profile?.home_town,
+    profile?.status,
+    profile?.visible_in_directory,
+  ]);
 
   useEffect(() => {
     setAIProfile(window.__lifeos?.aiProfile.prepareAIProfile(profile?.ai_profile));
@@ -1004,9 +1031,9 @@ function SettingsScreen({ profile, email, preferences, onPreferencesChange, onPr
     setMessage('');
     setSaving(true);
     try {
-      const updated = await window.__suvedaAuth?.updateProfile?.({ display_name: name });
+      const updated = await window.__suvedaAuth?.updateProfile?.({ display_name: name, ...accountProfile });
       if (updated) onProfileChange(updated);
-      setMessage('Your name has been updated.');
+      setMessage('Your profile has been updated.');
     } catch (error) {
       setMessage(error?.message || 'Your profile could not be updated.');
     } finally {
@@ -1275,6 +1302,20 @@ function SettingsScreen({ profile, email, preferences, onPreferencesChange, onPr
               {saving ? 'Saving…' : 'Save'}
             </Button>
           </div>
+          <div className="settings-ai-grid" style={{ marginTop: 14 }}>
+            <label className="auth-profile-field"><span>SA home town</span><input value={accountProfile.home_town} onChange={event => setAccountProfile(current => ({ ...current, home_town: event.target.value }))} placeholder="e.g. Durban" /></label>
+            <label className="auth-profile-field"><span>Emirate</span><select value={accountProfile.emirate} onChange={event => setAccountProfile(current => ({ ...current, emirate: event.target.value }))}><option>Abu Dhabi</option><option>Dubai</option><option>Sharjah</option><option>Ajman</option><option>Ras Al Khaimah</option><option>Fujairah</option><option>Umm Al Quwain</option></select></label>
+            <label className="auth-profile-field"><span>Your UAE chapter</span><select value={accountProfile.status} onChange={event => setAccountProfile(current => ({ ...current, status: event.target.value }))}><option value="landing_soon">Landing soon</option><option value="just_landed">Just landed</option><option value="settled">Settled in</option></select></label>
+            <label className="auth-profile-field"><span>Arrival date</span><input type="date" value={accountProfile.arrived_on} onChange={event => setAccountProfile(current => ({ ...current, arrived_on: event.target.value }))} /></label>
+            <label className="auth-profile-field"><span>Employer <small>private</small></span><input value={accountProfile.employer_name} onChange={event => setAccountProfile(current => ({ ...current, employer_name: event.target.value }))} placeholder="Used to label your benefits" autoComplete="organization" /></label>
+          </div>
+          <SettingsToggle
+            checked={accountProfile.visible_in_directory}
+            onChange={value => setAccountProfile(current => ({ ...current, visible_in_directory: value }))}
+            icon="◎"
+            label="Show me in the Community directory"
+            description="Off by default. Only your profile and community details become discoverable."
+          />
         </form>
       </Card>
 

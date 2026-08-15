@@ -1,4 +1,5 @@
 import { getAuthClient, getCurrentUser, hasConfig } from '../supabase';
+import { convertAmountAtRate } from '../budget/currency';
 
 export const PRICE_SOURCES = ['amazon', 'openprices', 'community', 'estimate'] as const;
 export type PriceSource = (typeof PRICE_SOURCES)[number];
@@ -121,7 +122,7 @@ export function formatAED(value: number, withCurrency = true): string {
 }
 
 export function formatZAR(value: number, rate: number): string {
-  const converted = Number.isFinite(rate) && rate > 0 ? value * rate : 0;
+  const converted = convertAmountAtRate(value, rate);
   return `R ${new Intl.NumberFormat('en-ZA', { maximumFractionDigits: 2 }).format(converted)}`;
 }
 

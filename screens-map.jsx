@@ -304,7 +304,7 @@ const ABU_DHABI_LOCATIONS = [
     lat: 24.1635,
     emoji: '🏥',
     description: 'A medical centre in Al Khalifa City offering GP consultations, dental, and basic lab services.',
-    tip: 'Near Al Choufeit School · Walk-in or appointment · SABIS health insurance covers visits · Check hours before going',
+    tip: 'Near Al Choufeit School · Walk-in or appointment · Check your insurer network and opening hours before going',
     huvePrompt: 'Tell me about the Khalifa City Medical Centre — what services are available, how to make an appointment, and what to bring.',
     address: 'Al Khalifa City, Abu Dhabi',
   },

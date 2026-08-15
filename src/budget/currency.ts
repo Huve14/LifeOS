@@ -1,5 +1,11 @@
 import type { BudgetState, ExchangeRate } from './types.ts';
 
+/** Shared by the browser price/budget UI and the standalone budget engine. */
+export function convertAmountAtRate(amount: number, rate: number): number {
+  if (!Number.isFinite(amount) || !Number.isFinite(rate) || rate <= 0) return 0;
+  return Math.round((amount * rate + Number.EPSILON) * 100) / 100;
+}
+
 export function setExchangeRate(state: BudgetState, from: string, to: string, rate: number, isEstimated: boolean): BudgetState {
   const s = { ...state, exchangeRates: [...state.exchangeRates] };
   const idx = s.exchangeRates.findIndex(r => r.fromCurrency === from && r.toCurrency === to);
@@ -19,12 +25,12 @@ function findRate(state: BudgetState, from: string, to: string): ExchangeRate | 
 export function convertAmount(amount: number, from: string, to: string, state: BudgetState): number {
   if (from === to) return amount;
   const direct = findRate(state, from, to);
-  if (direct) return amount * direct.rate;
+  if (direct) return convertAmountAtRate(amount, direct.rate);
   const reverse = findRate(state, to, from);
   if (reverse) return amount / reverse.rate;
   const viaUsd = findRate(state, from, 'USD');
   const usdToTarget = findRate(state, 'USD', to);
-  if (viaUsd && usdToTarget) return amount * viaUsd.rate * usdToTarget.rate;
+  if (viaUsd && usdToTarget) return convertAmountAtRate(amount, viaUsd.rate * usdToTarget.rate);
   return amount;
 }
 
@@ -38,7 +44,7 @@ export function getSecondaryAmount(primaryAmount: number, state: BudgetState): {
   if (!rate) return { amount: primaryAmount, currency: to, isEstimated: false };
 
   return {
-    amount: primaryAmount * rate.rate,
+    amount: convertAmountAtRate(primaryAmount, rate.rate),
     currency: to,
     isEstimated: rate.isEstimated,
   };

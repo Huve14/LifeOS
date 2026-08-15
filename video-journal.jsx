@@ -911,7 +911,7 @@ function VideoJournalScreen({ onBack }) {
               note={note}
               isMine={note.author_id === myId}
               unwatched={note.author_id !== myId && !store.views[note.id]?.completed}
-              authorName={names[note.author_id] || (note.author_id === myId ? 'You' : 'Them')}
+              authorName={names[note.author_id] || (note.author_id === myId ? 'You' : 'Community member')}
               onOpen={setPlaying}
               onDelete={handleDelete}
             />

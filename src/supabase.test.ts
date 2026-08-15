@@ -1,14 +1,15 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  initAuth,
+  claimShoppingItem,
+  createSuvedaStore,
   getCurrentUser,
+  initAuth,
+  loadShoppingItems,
   onAuthChange,
-  signUp,
+  prepareRegistrationMetadata,
   signIn,
   signOut,
-  createSuvedaStore,
-  loadShoppingItems,
-  claimShoppingItem,
+  signUp,
   unclaimShoppingItem,
 } from './supabase';
 
@@ -21,7 +22,6 @@ beforeEach(() => {
 describe('initAuth / getCurrentUser', () => {
   it('returns null or User (depending on Supabase session)', async () => {
     const user = await initAuth();
-    // Either null (no session) or a User object — both are valid
     expect(user === null || typeof user === 'object').toBe(true);
   });
 
@@ -103,5 +103,37 @@ describe('signUp / signIn / signOut', () => {
 
   it('signOut does not throw when not signed in', async () => {
     await expect(signOut()).resolves.toBeUndefined();
+  });
+});
+
+describe('prepareRegistrationMetadata', () => {
+  it('keeps same-name registrations independent by using real email auth outside profile metadata', () => {
+    const first = prepareRegistrationMetadata('Priya', {}, { home_town: 'Durban', emirate: 'Abu Dhabi' });
+    const second = prepareRegistrationMetadata('Priya', {}, { home_town: 'Cape Town', emirate: 'Abu Dhabi' });
+
+    expect(first.display_name).toBe('Priya');
+    expect(second.display_name).toBe('Priya');
+    expect(first.home_town).toBe('Durban');
+    expect(second.home_town).toBe('Cape Town');
+    expect(first).not.toHaveProperty('email');
+  });
+
+  it('normalises optional public-launch profile fields without opting into the directory', () => {
+    const metadata = prepareRegistrationMetadata('  Thabo  ', {}, {
+      arrived_on: '2026-08-15',
+      status: 'settled',
+      interests: [' braais ', '', 'rugby'],
+      employer_name: '  My employer ',
+    });
+
+    expect(metadata).toMatchObject({
+      display_name: 'Thabo',
+      emirate: 'Abu Dhabi',
+      arrived_on: '2026-08-15',
+      status: 'settled',
+      interests: ['braais', 'rugby'],
+      employer_name: 'My employer',
+      visible_in_directory: false,
+    });
   });
 });

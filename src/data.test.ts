@@ -29,8 +29,8 @@ describe('sampleMilestones', () => {
 
 describe('sampleBudget', () => {
   it('has salary with AED and ZAR conversion', () => {
-    expect(sampleBudget.salary.monthlyAED).toBe(8800);
-    expect(sampleBudget.salary.exchangeToZAR).toBe(5.08);
+    expect(sampleBudget.salary.monthlyAED).toBe(0);
+    expect(sampleBudget.salary.exchangeToZAR).toBeNull();
   });
 
   it('has all required budget categories', () => {

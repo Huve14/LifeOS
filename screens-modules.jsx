@@ -874,11 +874,13 @@ function TasksScreen({ state, setState, onBack }) {
 // ---------- BUDGET (inspired by YNAB / Monzo / Copilot) ----------
 const MONTHLY_BUDGET = window.MONTHLY_BUDGET;
 
-function BudgetScreen({ state, setState, onBack }) {
+function BudgetScreen({ state, setState, onBack, profile }) {
   const api = window.__lifeos?.budget;
+  const priceApi = window.__lifeos?.prices;
   const budget = state.budget || {};
   const monthly = budget.monthly || MONTHLY_BUDGET;
-  const income = Number(budget.monthlyIncome) || 8800;
+  const income = Number(budget.monthlyIncome) || 0;
+  const employerName = profile?.employer_name?.trim() || 'your employer';
   const transactions = budget.transactions || [];
   const currentTransactions = transactions.filter(transaction => {
     const date = new Date(transaction.date);
@@ -899,8 +901,13 @@ function BudgetScreen({ state, setState, onBack }) {
   const [expenseNote, setExpenseNote] = React.useState('');
   const [draft, setDraft] = React.useState(null);
   const [incomeDraft, setIncomeDraft] = React.useState(String(income));
+  const [displayCurrency, setDisplayCurrency] = React.useState('AED');
+  const [fx, setFx] = React.useState(null);
+  const [fxMessage, setFxMessage] = React.useState('');
 
-  const money = value => `${Math.round(Number(value) || 0).toLocaleString()} AED`;
+  const money = value => displayCurrency === 'ZAR' && fx?.rate
+    ? priceApi?.formatZAR(Number(value) || 0, fx.rate)
+    : `${Math.round(Number(value) || 0).toLocaleString()} AED`;
   const bucketMeta = {
     essentials: { label: 'Essentials', detail: 'The practical basics', color: 'var(--blue)' },
     lifestyle: { label: 'Life & joy', detail: 'Flexible spending without guilt', color: 'var(--honey)' },
@@ -916,6 +923,22 @@ function BudgetScreen({ state, setState, onBack }) {
 
   function setIncome(value) {
     patchBudget({ monthlyIncome: Math.max(0, Number(value) || 0) });
+  }
+
+  async function toggleBudgetCurrency() {
+    if (displayCurrency === 'ZAR') {
+      setDisplayCurrency('AED');
+      setFxMessage('');
+      return;
+    }
+    const rate = await priceApi?.loadFxRate?.();
+    if (!rate) {
+      setFxMessage('Live ZAR rate unavailable. Your plan remains safely stored in AED.');
+      return;
+    }
+    setFx(rate);
+    setDisplayCurrency('ZAR');
+    setFxMessage(`Live AED/ZAR rate · ${rate.date || 'today'}`);
   }
 
   function recordExpense() {
@@ -1153,7 +1176,7 @@ function BudgetScreen({ state, setState, onBack }) {
                   <button className="budget-category" key={category.id} onClick={() => openCategory(category)}>
                     <span className="budget-category-icon">{category.emoji}</span>
                     <span className="budget-category-copy"><strong>{category.label}</strong><small>{category.coveredByEmployer ? category.note : `${isFuture ? 'Saved this month' : 'Used'} ${money(category.spent || 0)}${isFuture && category.savedTotal ? ` · ${money(category.savedTotal)} built before this month` : ''}${category.note ? ` · ${category.note}` : ''}`}</small></span>
-                    <span className="budget-category-money"><strong>{category.coveredByEmployer ? 'Covered' : money(category.planned)}</strong><small className={over ? 'budget-negative' : ''}>{category.coveredByEmployer ? 'SABIS' : over ? `${money(Math.abs(remaining))} over` : `${money(remaining)} left`}{category.rolloverBalance ? ` · ${money(category.rolloverBalance)} rolled in` : category.rollover ? ' · rolls' : ''}</small></span>
+                    <span className="budget-category-money"><strong>{category.coveredByEmployer ? 'Covered' : money(category.planned)}</strong><small className={over ? 'budget-negative' : ''}>{category.coveredByEmployer ? employerName : over ? `${money(Math.abs(remaining))} over` : `${money(remaining)} left`}{category.rolloverBalance ? ` · ${money(category.rolloverBalance)} rolled in` : category.rollover ? ' · rolls' : ''}</small></span>
                     <span className="budget-chevron">›</span>
                   </button>
                 );
@@ -1191,7 +1214,13 @@ function BudgetScreen({ state, setState, onBack }) {
 
   const tabs = [{ id: 'today', label: 'Today' }, { id: 'plan', label: 'Plan' }, { id: 'activity', label: 'Activity' }];
   return (
-    <ModulePage title="Budget" subtitle={`${monthName} · ${summary.savingsRate}% planned for the future`} icon="Wallet" onBack={onBack}>
+    <ModulePage
+      title="Budget"
+      subtitle={`${monthName} · ${summary.savingsRate}% planned for the future${fxMessage ? ` · ${fxMessage}` : ''}`}
+      icon="Wallet"
+      onBack={onBack}
+      action={<button type="button" className="budget-currency-toggle" onClick={toggleBudgetCurrency}>{displayCurrency} · show {displayCurrency === 'AED' ? 'ZAR' : 'AED'}</button>}
+    >
       <div className="budget-tabs">{tabs.map(item => <button key={item.id} className={tab === item.id ? 'active' : ''} onClick={() => setTab(item.id)}>{item.label}</button>)}</div>
       {tab === 'today' && todayContent}
       {tab === 'plan' && planContent}
@@ -1629,7 +1658,7 @@ function ShoppingScreen({ state, setState, onBack, onAsk }) {
 }
 
 // ---------- APARTMENT DECORATION (was Housing) ----------
-function HousingScreen({ state, setState, onBack, onAsk }) {
+function HousingScreen({ state, setState, onBack, onAsk, profile }) {
   const rooms = state.housing?.rooms || [
     { id: 'living', label: 'Living Room', emoji: '🛋️', photos: [], tips: '' },
     { id: 'bedroom', label: 'Bedroom', emoji: '🛏️', photos: [], tips: '' },
@@ -1692,19 +1721,21 @@ function HousingScreen({ state, setState, onBack, onAsk }) {
     }
   }
 
+  const employerName = profile?.employer_name?.trim() || 'your employer';
+
   return (
     <ModulePage
       title="Apartment Decor"
-      subtitle="SABIS provides housing — make it yours"
+      subtitle="Turn your UAE home into a space that feels like yours"
       icon="Building2"
       onBack={onBack}
     >
-      {/* SABIS info card */}
+      {/* Employer benefit summary */}
       <Card padding="16px" style={{ background: 'var(--blue)', color: '#17272D', border: 'none', marginBottom: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{ fontSize: 32 }}>✅</div>
           <div>
-            <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 2 }}>Housing covered by SABIS</div>
+            <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 2 }}>Housing covered by {employerName}</div>
             <div style={{ fontSize: 12, opacity: 0.9, lineHeight: 1.4 }}>
               Plan how you will set up and personalise each room.
             </div>

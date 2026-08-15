@@ -29,11 +29,11 @@ export const sampleMilestones = [
 ];
 
 export const sampleBudget = {
-  salary: { monthlyAED: 8800, currency: 'AED', exchangeToZAR: 5.08 }, //Conversion to home currency for better usage of funds
-  rent: { monthlyAED: 0 }, // paid by SABIS 
+  salary: { monthlyAED: 0, currency: 'AED', exchangeToZAR: null }, // Entered by the account owner; live FX comes from the server.
+  rent: { monthlyAED: 0 }, // Set to zero only when this account has employer-provided housing.
   groceries: { monthlyAED: 800 }, // allow user to change this based on their preferences (e.g., eating out more often vs cooking at home)
   dining: { monthlyAED: 400 }, // add this to entertainment
-  transport: { monthlyAED: 0 }, // provided by SABIS 
+  transport: { monthlyAED: 0 }, // Set to zero only when transport is covered by the account owner's employer.
   entertainment: { monthlyAED: 200 }, // allow user to change this based on their preferences (e.g., going out more often vs staying in)
   wifi : { monthlyAED: 293 }, // allow user to change this based on their preferences (e.g., using more or less data) also might need a split between roomate and her
 };

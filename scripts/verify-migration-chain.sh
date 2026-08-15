@@ -60,8 +60,8 @@ $$;
 -- Phase 1 security contract: community prices are shared, personal watches
 -- are not, decimals survive, and attribution is derived from the auth user.
 insert into auth.users (id, email, raw_user_meta_data) values
-  ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'a@example.com', '{"name":"Account A"}'::jsonb),
-  ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'b@example.com', '{"name":"Account B"}'::jsonb);
+  ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'priya.one@example.com', '{"name":"Priya"}'::jsonb),
+  ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'priya.two@example.com', '{"name":"Priya"}'::jsonb);
 
 set role authenticated;
 select set_config('request.jwt.claim.sub', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', false);
@@ -87,9 +87,15 @@ do $$
 begin
   if not exists (
     select 1 from public.lifeos_price_points
-    where price = 12.99 and source = 'community' and submitted_name = 'Account A'
+    where price = 12.99 and source = 'community' and submitted_name = 'Priya'
   ) then
     raise exception 'Account B cannot read Account A community price with decimal/source/author';
+  end if;
+  if not exists (
+    select 1 from public.lifeos_profiles
+    where user_id = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb' and display_name = 'Priya'
+  ) then
+    raise exception 'Second same-name account did not retain its own profile';
   end if;
   if exists (select 1 from public.lifeos_price_watches) then
     raise exception 'Account B can read Account A private price watch';

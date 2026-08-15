@@ -488,7 +488,7 @@ function DayCard({ date, expanded, onToggle, isToday }) {
           {mine && <AnswerBlock answer={mine} name="You" highlight />}
 
           {revealed && theirs && (
-            <AnswerBlock answer={theirs} name="Them" />
+            <AnswerBlock answer={theirs} name="Another member" />
           )}
 
           {iAnswered && !revealed && (

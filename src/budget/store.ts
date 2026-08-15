@@ -50,7 +50,7 @@ export function seedState(): BudgetState {
       { id: 'period-1', label: `${y}-${m}`, startDate, endDate, currency: 'AED', currencySymbol: 'د.إ' },
     ],
     incomeEntries: [
-      { id: 'income-1', source: 'SABIS Salary', amount: 8800, received: true, periodId: 'period-1' },
+      { id: 'income-1', source: 'Monthly income', amount: 0, received: false, periodId: 'period-1' },
     ],
     envelopes: [
       { id: 'env-1', name: 'Utilities + Internet', icon: '⚡', allocated: 500, spent: 0, rollover: 0, rolloverEnabled: false, periodId: 'period-1' },

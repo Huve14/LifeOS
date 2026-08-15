@@ -4,6 +4,15 @@ import { prepareAIProfile, type AIProfile } from './lifeos/aiProfile';
 
 export type { AIProfile } from './lifeos/aiProfile';
 
+export type RegistrationProfile = {
+  home_town?: string;
+  emirate?: string;
+  arrived_on?: string;
+  status?: 'landing_soon' | 'just_landed' | 'settled';
+  interests?: string[];
+  employer_name?: string;
+};
+
 type AppSnapshot = Record<string, unknown>;
 
 type ChatMessage = {
@@ -207,7 +216,42 @@ export function onAuthChange(fn: (user: User | null) => void) {
   };
 }
 
-export async function signUp(email: string, password: string, name: string, aiProfile: unknown = {}) {
+export function prepareRegistrationMetadata(
+  name: string,
+  aiProfile: unknown = {},
+  profile: RegistrationProfile = {},
+): Record<string, unknown> {
+  const clean = (value: unknown, limit = 120) => typeof value === 'string' ? value.trim().slice(0, limit) : '';
+  const status = ['landing_soon', 'just_landed', 'settled'].includes(String(profile.status))
+    ? profile.status
+    : 'just_landed';
+  const arrivedOn = /^\d{4}-\d{2}-\d{2}$/.test(profile.arrived_on ?? '') ? profile.arrived_on : '';
+  const interests = Array.isArray(profile.interests)
+    ? profile.interests.map((interest) => clean(interest, 80)).filter(Boolean).slice(0, 12)
+    : [];
+
+  return {
+    name: clean(name, 80),
+    display_name: clean(name, 80),
+    time_zone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
+    ai_profile: prepareAIProfile(aiProfile),
+    home_town: clean(profile.home_town),
+    emirate: clean(profile.emirate) || 'Abu Dhabi',
+    arrived_on: arrivedOn,
+    status,
+    interests,
+    visible_in_directory: false,
+    employer_name: clean(profile.employer_name),
+  };
+}
+
+export async function signUp(
+  email: string,
+  password: string,
+  name: string,
+  aiProfile: unknown = {},
+  profile: RegistrationProfile = {},
+) {
   if (!hasConfig) return { data: null, error: new Error('Account services are not configured.') };
   if (!email || !email.includes('@')) {
     return { data: null, error: new Error('Please enter a valid email address.') };
@@ -219,17 +263,11 @@ export async function signUp(email: string, password: string, name: string, aiPr
     return { data: null, error: new Error('Please enter your name.') };
   }
   const client = getAuthClient();
-  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
   return client.auth.signUp({
     email,
     password,
     options: {
-      data: {
-        name: name.trim(),
-        display_name: name.trim(),
-        time_zone: timeZone,
-        ai_profile: prepareAIProfile(aiProfile),
-      },
+      data: prepareRegistrationMetadata(name, aiProfile, profile),
     },
   });
 }
@@ -262,6 +300,13 @@ export type UserProfile = {
   display_name: string;
   time_zone: string;
   ai_profile: AIProfile;
+  home_town: string | null;
+  emirate: string | null;
+  arrived_on: string | null;
+  status: 'landing_soon' | 'just_landed' | 'settled' | null;
+  interests: string[];
+  visible_in_directory: boolean;
+  employer_name: string | null;
 };
 
 export type CallProfile = Pick<UserProfile, 'user_id' | 'handle' | 'display_name'>;
@@ -348,7 +393,7 @@ export async function loadMyProfile(): Promise<UserProfile | null> {
 
   const { data, error } = await getAuthClient()
     .from('lifeos_profiles')
-    .select('user_id, handle, display_name, time_zone, ai_profile')
+    .select('user_id, handle, display_name, time_zone, ai_profile, home_town, emirate, arrived_on, status, interests, visible_in_directory, employer_name')
     .eq('user_id', user.id)
     .maybeSingle();
 
@@ -360,11 +405,29 @@ export async function updateMyProfile(patch: {
   display_name?: string;
   time_zone?: string;
   ai_profile?: unknown;
+  home_town?: string;
+  emirate?: string;
+  arrived_on?: string | null;
+  status?: RegistrationProfile['status'];
+  interests?: string[];
+  visible_in_directory?: boolean;
+  employer_name?: string;
 }): Promise<UserProfile> {
   const user = getCurrentUser();
   if (!hasConfig || !user) throw new Error('Sign in to update your profile.');
 
-  const safePatch: { display_name?: string; time_zone?: string; ai_profile?: AIProfile } = {};
+  const safePatch: {
+    display_name?: string;
+    time_zone?: string;
+    ai_profile?: AIProfile;
+    home_town?: string;
+    emirate?: string;
+    arrived_on?: string | null;
+    status?: RegistrationProfile['status'];
+    interests?: string[];
+    visible_in_directory?: boolean;
+    employer_name?: string;
+  } = {};
   if (typeof patch.display_name === 'string') {
     const displayName = patch.display_name.trim();
     if (!displayName) throw new Error('Please enter your name.');
@@ -376,12 +439,19 @@ export async function updateMyProfile(patch: {
   if (patch.ai_profile !== undefined) {
     safePatch.ai_profile = prepareAIProfile(patch.ai_profile);
   }
+  if (typeof patch.home_town === 'string') safePatch.home_town = patch.home_town.trim().slice(0, 120);
+  if (typeof patch.emirate === 'string') safePatch.emirate = patch.emirate.trim().slice(0, 120);
+  if (patch.arrived_on === null || /^\d{4}-\d{2}-\d{2}$/.test(patch.arrived_on ?? '')) safePatch.arrived_on = patch.arrived_on;
+  if (patch.status && ['landing_soon', 'just_landed', 'settled'].includes(patch.status)) safePatch.status = patch.status;
+  if (Array.isArray(patch.interests)) safePatch.interests = patch.interests.map((item) => item.trim().slice(0, 80)).filter(Boolean).slice(0, 12);
+  if (typeof patch.visible_in_directory === 'boolean') safePatch.visible_in_directory = patch.visible_in_directory;
+  if (typeof patch.employer_name === 'string') safePatch.employer_name = patch.employer_name.trim().slice(0, 120);
 
   const { data, error } = await getAuthClient()
     .from('lifeos_profiles')
     .update(safePatch)
     .eq('user_id', user.id)
-    .select('user_id, handle, display_name, time_zone, ai_profile')
+    .select('user_id, handle, display_name, time_zone, ai_profile, home_town, emirate, arrived_on, status, interests, visible_in_directory, employer_name')
     .single();
 
   if (error || !data) throw new Error(error?.message || 'Your profile could not be updated.');

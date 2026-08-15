@@ -1,224 +1,102 @@
-// auth.jsx — Login / Sign Up screen
+// auth.jsx — Real email accounts for every Life OS member.
 
 const { useState, useCallback } = React;
 
 function AuthScreen() {
-  const [mode, setMode] = useState('name'); // name | email
+  const [accountMode, setAccountMode] = useState('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+  const [homeTown, setHomeTown] = useState('');
+  const [emirate, setEmirate] = useState('Abu Dhabi');
+  const [arrivedOn, setArrivedOn] = useState('');
+  const [status, setStatus] = useState('just_landed');
+  const [employerName, setEmployerName] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
   const { signIn, signUp } = window.__suvedaAuth;
+  const registering = accountMode === 'signup';
 
-  const handleSubmit = useCallback(async (e) => {
-    e.preventDefault();
+  const handleSubmit = useCallback(async (event) => {
+    event.preventDefault();
     setError('');
     setLoading(true);
 
     try {
-      if (mode === 'name') {
-        const n = name.trim() || 'Member';
-        const autoEmail = `${n.toLowerCase().replace(/\s+/g, '.')}@lifeos.local`;
-        // Try sign in first
-        const { error: signInError } = await signIn(autoEmail, password);
-        if (signInError) {
-          // Account doesn't exist — sign up
-          const { data, error: signUpError } = await signUp(autoEmail, password, n);
-          if (signUpError) {
-            setError(signUpError.message);
-          } else if (!data?.session) {
-            setError('Account created! Try signing in again.');
-          }
-        }
+      if (registering) {
+        const { data, error: signUpError } = await signUp(email.trim(), password, name.trim(), {}, {
+          home_town: homeTown,
+          emirate,
+          arrived_on: arrivedOn,
+          status,
+          employer_name: employerName,
+        });
+        if (signUpError) setError(signUpError.message);
+        else if (!data?.session) setError('Account created. Check your email to confirm it, then sign in.');
       } else {
-        const { error: signInError } = await signIn(email, password);
-        if (signInError) {
-          setError(signInError.message);
-        }
+        const { error: signInError } = await signIn(email.trim(), password);
+        if (signInError) setError(signInError.message);
       }
     } catch (err) {
       setError(err?.message || 'Something went wrong');
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
-  }, [mode, email, password, name, signIn, signUp]);
+  }, [arrivedOn, email, emirate, employerName, homeTown, name, password, registering, signIn, signUp, status]);
 
   return (
-    <div
-      className="auth-screen"
-      style={{
-        minHeight: '100%', width: '100%',
-        display: 'flex', flexDirection: 'column',
-        justifyContent: 'center',
-        background: 'var(--cream)',
-        backgroundImage:
-          'radial-gradient(at 20% 0%, rgba(246, 209, 16, 0.18) 0%, transparent 40%),' +
-          'radial-gradient(at 100% 100%, rgba(129, 206, 235, 0.22) 0%, transparent 50%)',
-        color: 'var(--dark)',
-      }}
-    >
-      {/* Brand */}
+    <div className="auth-screen" style={{
+      minHeight: '100%', width: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center',
+      background: 'var(--cream)',
+      backgroundImage: 'radial-gradient(at 20% 0%, rgba(246, 209, 16, 0.18) 0%, transparent 40%),radial-gradient(at 100% 100%, rgba(129, 206, 235, 0.22) 0%, transparent 50%)',
+      color: 'var(--dark)',
+    }}>
       <div className="auth-brand" style={{ textAlign: 'center' }}>
         <div style={{
-          width: 72, height: 72, borderRadius: 24,
-          background: 'linear-gradient(135deg, var(--honey) 0%, var(--blue) 100%)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          margin: '0 auto 16px', fontSize: 34,
+          width: 72, height: 72, borderRadius: 24, background: 'linear-gradient(135deg, var(--honey) 0%, var(--blue) 100%)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', fontSize: 34,
           boxShadow: '0 8px 28px -8px rgba(45, 114, 139, 0.4)',
         }}>🌴</div>
-        <h1 style={{
-          fontSize: 30, fontWeight: 700, fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif',
-          letterSpacing: '-0.5px', margin: 0,
-        }}>Life OS</h1>
-        <p style={{
-          fontSize: 14, color: 'var(--muted)', marginTop: 6, fontWeight: 500,
-        }}>
-          {mode === 'name' ? 'Enter your name and create a password' : 'Sign in with email'}
+        <h1 style={{ fontSize: 30, fontWeight: 700, letterSpacing: '-0.5px', margin: 0 }}>Life OS</h1>
+        <p style={{ fontSize: 14, color: 'var(--muted)', marginTop: 6, fontWeight: 500 }}>
+          {registering ? 'Create your private Abu Dhabi companion' : 'Sign in with your email'}
         </p>
       </div>
 
-      {/* Card */}
       <div className="auth-card" style={{
-        background: 'var(--white)',
-        borderRadius: 24, padding: '28px 24px',
-        boxShadow: 'var(--shadow-lg)',
-        border: '1px solid var(--line)',
-        maxWidth: 400, width: '100%', margin: '0 auto',
+        background: 'var(--white)', borderRadius: 24, padding: '28px 24px', boxShadow: 'var(--shadow-lg)',
+        border: '1px solid var(--line)', maxWidth: registering ? 560 : 400, width: '100%', margin: '0 auto',
       }}>
-        <form onSubmit={handleSubmit}>
-          {mode === 'name' && (
-            <div style={{ marginBottom: 16 }}>
-              <label style={{
-                display: 'block', fontSize: 12, fontWeight: 600,
-                color: 'var(--muted)', marginBottom: 6,
-              }}>Name</label>
-              <input
-                type="text"
-                value={name}
-                onChange={e => setName(e.target.value)}
-                placeholder="Your name"
-                required
-                autoFocus
-                style={{
-                  width: '100%', padding: '12px 14px',
-                  border: '1px solid var(--line)', borderRadius: 12,
-                  fontSize: 15, fontFamily: 'inherit',
-                  background: 'var(--cream)',
-                  color: 'var(--dark)',
-                  outline: 'none',
-                }}
-                onFocus={e => { e.target.style.borderColor = 'var(--terracotta)'; }}
-                onBlur={e => { e.target.style.borderColor = 'var(--line)'; }}
-              />
-            </div>
-          )}
-
-          {mode === 'email' && (
-            <div style={{ marginBottom: 16 }}>
-              <label style={{
-                display: 'block', fontSize: 12, fontWeight: 600,
-                color: 'var(--muted)', marginBottom: 6,
-              }}>Email</label>
-              <input
-                type="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                placeholder="you@example.com"
-                required
-                style={{
-                  width: '100%', padding: '12px 14px',
-                  border: '1px solid var(--line)', borderRadius: 12,
-                  fontSize: 15, fontFamily: 'inherit',
-                  background: 'var(--cream)',
-                  color: 'var(--dark)',
-                  outline: 'none',
-                }}
-                onFocus={e => { e.target.style.borderColor = 'var(--terracotta)'; }}
-                onBlur={e => { e.target.style.borderColor = 'var(--line)'; }}
-              />
-            </div>
-          )}
-
-          <div style={{ marginBottom: 20 }}>
-            <label style={{
-              display: 'block', fontSize: 12, fontWeight: 600,
-              color: 'var(--muted)', marginBottom: 6,
-            }}>Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              placeholder="••••••••"
-              required
-              minLength={6}
-              style={{
-                width: '100%', padding: '12px 14px',
-                border: '1px solid var(--line)', borderRadius: 12,
-                fontSize: 15, fontFamily: 'inherit',
-                background: 'var(--cream)',
-                color: 'var(--dark)',
-                outline: 'none',
-              }}
-              onFocus={e => { e.target.style.borderColor = 'var(--terracotta)'; }}
-              onBlur={e => { e.target.style.borderColor = 'var(--line)'; }}
-            />
-          </div>
-
-          {error && (
-            <div style={{
-              background: '#fef2f2', color: '#b91c1c',
-              padding: '10px 14px', borderRadius: 12,
-              fontSize: 13, fontWeight: 500, marginBottom: 16,
-            }}>
-              {error}
-            </div>
-          )}
-
-          <button
-            type="submit"
-            disabled={loading}
-            style={{
-              width: '100%', padding: '14px',
-              borderRadius: 14, border: 'none',
-              background: loading
-                ? '#aaa'
-                : 'linear-gradient(135deg, var(--honey) 0%, var(--butter) 100%)',
-              color: '#17272D', fontSize: 16, fontWeight: 700,
-              fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif',
-              cursor: loading ? 'not-allowed' : 'pointer',
-              opacity: loading ? 0.7 : 1,
-              boxShadow: '0 4px 14px -4px rgba(45, 114, 139, 0.4)',
-            }}
-          >
-            {loading ? 'Processing…' : 'Start'}
-          </button>
-        </form>
-
-        {/* Toggle to email sign in */}
-        <div style={{ textAlign: 'center', marginTop: 16 }}>
-          <button
-            onClick={() => { setMode(m => m === 'name' ? 'email' : 'name'); setError(''); }}
-            style={{
-              background: 'none', border: 'none',
-              fontSize: 13, color: 'var(--muted)',
-              fontWeight: 500, cursor: 'pointer',
-              fontFamily: 'inherit',
-            }}
-          >
-            {mode === 'name'
-              ? <>Use email instead <span style={{color:'var(--terracotta)',fontWeight:700}}>→</span></>
-              : <>Use name instead <span style={{color:'var(--terracotta)',fontWeight:700}}>→</span></>
-            }
-          </button>
+        <div className="onboarding-auth-tabs" role="tablist" aria-label="Account access">
+          <button type="button" role="tab" aria-selected={!registering} className={!registering ? 'is-active' : ''} onClick={() => { setAccountMode('signin'); setError(''); }}>Sign in</button>
+          <button type="button" role="tab" aria-selected={registering} className={registering ? 'is-active' : ''} onClick={() => { setAccountMode('signup'); setError(''); }}>Register</button>
         </div>
+
+        <form onSubmit={handleSubmit}>
+          {registering && <label className="auth-profile-field"><span>Name</span><input value={name} onChange={event => setName(event.target.value)} placeholder="Your name" required autoComplete="name" /></label>}
+          <label className="auth-profile-field"><span>Email</span><input type="email" value={email} onChange={event => setEmail(event.target.value)} placeholder="you@example.com" required autoComplete="email" /></label>
+          <label className="auth-profile-field"><span>Password</span><input type="password" value={password} onChange={event => setPassword(event.target.value)} placeholder="••••••••" required minLength={6} autoComplete={registering ? 'new-password' : 'current-password'} /></label>
+
+          {registering && <div className="auth-ai-profile-grid" style={{ marginTop: 14 }}>
+            <label className="auth-profile-field"><span>SA home town</span><input value={homeTown} onChange={event => setHomeTown(event.target.value)} placeholder="e.g. Durban" required /></label>
+            <label className="auth-profile-field"><span>Emirate</span><select value={emirate} onChange={event => setEmirate(event.target.value)} required><option>Abu Dhabi</option><option>Dubai</option><option>Sharjah</option><option>Ajman</option><option>Ras Al Khaimah</option><option>Fujairah</option><option>Umm Al Quwain</option></select></label>
+            <label className="auth-profile-field"><span>Where are you in the journey?</span><select value={status} onChange={event => setStatus(event.target.value)}><option value="landing_soon">Landing soon</option><option value="just_landed">Just landed</option><option value="settled">Settled in</option></select></label>
+            <label className="auth-profile-field"><span>{status === 'landing_soon' ? 'Expected arrival' : 'Arrival date'} <small>optional</small></span><input type="date" value={arrivedOn} onChange={event => setArrivedOn(event.target.value)} /></label>
+            <label className="auth-profile-field"><span>Employer <small>optional</small></span><input value={employerName} onChange={event => setEmployerName(event.target.value)} placeholder="Used only for your benefits" /></label>
+          </div>}
+
+          {error && <div role="status" aria-live="polite" style={{ background: '#fef2f2', color: '#b91c1c', padding: '10px 14px', borderRadius: 12, fontSize: 13, fontWeight: 500, margin: '16px 0' }}>{error}</div>}
+
+          <button type="submit" disabled={loading} style={{
+            width: '100%', padding: '14px', marginTop: 18, borderRadius: 14, border: 'none',
+            background: loading ? '#aaa' : 'linear-gradient(135deg, var(--honey) 0%, var(--butter) 100%)',
+            color: '#17272D', fontSize: 16, fontWeight: 700, fontFamily: 'inherit', cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1,
+          }}>{loading ? 'Processing…' : registering ? 'Create account' : 'Sign in'}</button>
+        </form>
       </div>
 
-      {/* Footer */}
-      <div className="auth-footer" style={{ textAlign: 'center', fontSize: 12, color: 'var(--muted)' }}>
-        Your everyday life in Abu Dhabi
-      </div>
+      <div className="auth-footer" style={{ textAlign: 'center', fontSize: 12, color: 'var(--muted)' }}>Your everyday life in Abu Dhabi</div>
     </div>
   );
 }

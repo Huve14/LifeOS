@@ -13,6 +13,8 @@ declare global {
     __lifeos?: LifeOS;
     /** Private, user-supplied context used to personalise AI responses. */
     __lifeosAIProfile?: unknown;
+    /** Current profile location used only to ground the private AI context. */
+    __suvedaDestination?: string;
     /** Synced visual, accessibility, Home and navigation preferences. */
     __lifeosPreferences?: import('./lifeos/preferences').LifeOSPreferences;
     /** Set while a recording, upload or call is in flight. */
