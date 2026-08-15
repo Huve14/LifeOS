@@ -26,6 +26,7 @@ declare global {
     GuestCallScreen?: any;
     GamesScreen?: any;
     SpaceScreen?: any;
+    CommunityScreen?: any;
     __suvedaPhotos?: {
       upload: (file: File, onProgress?: (pct: number) => void) => Promise<string | null>;
       list: () => Promise<string[]>;

@@ -12,6 +12,8 @@ export const HOME_SECTION_IDS = [
 
 export const QUICK_NAV_IDS = [
   'map',
+  'community',
+  'shopping',
   'docs',
   'budget',
   'call',
@@ -64,7 +66,7 @@ export const DEFAULT_PREFERENCES: LifeOSPreferences = {
   haptics: true,
   homeOrder: [...HOME_SECTION_IDS],
   hiddenHomeSections: [],
-  quickNav: ['notes', 'map', 'budget'],
+  quickNav: ['map', 'community', 'shopping'],
   activePreset: 'everything',
 };
 
@@ -87,9 +89,10 @@ export function preparePreferences(value: unknown): LifeOSPreferences {
   const hiddenHomeSections = uniqueAllowed<HomeSectionId>(input.hiddenHomeSections, HOME_SECTION_IDS);
   const storedNav = uniqueAllowed<QuickNavId>(input.quickNav, QUICK_NAV_IDS).slice(0, 3);
   const isLegacyDefault = storedNav.length === 3
-    && storedNav[0] === 'map'
-    && storedNav[1] === 'docs'
-    && storedNav[2] === 'budget';
+    && (
+      (storedNav[0] === 'map' && storedNav[1] === 'docs' && storedNav[2] === 'budget')
+      || (storedNav[0] === 'notes' && storedNav[1] === 'map' && storedNav[2] === 'budget')
+    );
   const selectedNav = isLegacyDefault ? [...DEFAULT_PREFERENCES.quickNav] : storedNav;
   const quickNav = [
     ...selectedNav,
@@ -146,7 +149,7 @@ export const LIFE_MODE_PRESETS: Record<string, Partial<LifeOSPreferences>> = {
     ...DEFAULT_PREFERENCES,
     homeOrder: [...HOME_SECTION_IDS],
     hiddenHomeSections: [],
-    quickNav: ['notes', 'map', 'budget'],
+    quickNav: ['map', 'community', 'shopping'],
     activePreset: 'everything',
   },
 };

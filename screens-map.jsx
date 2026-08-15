@@ -328,22 +328,49 @@ const CATEGORIES = [
   { id: 'tourist', label: 'Tourist', emoji: '📸' },
   { id: 'essential', label: 'Essentials', emoji: '📍' },
   { id: 'neighbourhood', label: 'Neighbourhood', emoji: '🏘️' },
+  { id: 'community', label: 'Community', emoji: '🇿🇦' },
 ];
 
 const CATEGORY_COLORS = {
   tourist: 'var(--terracotta)',
   essential: 'var(--teal)',
   neighbourhood: 'var(--gold)',
+  community: 'var(--blue)',
 };
 
 /* ── Map Screen ── */
 function MapScreen({ state, onBack, onAsk }) {
   const [filter, setFilter] = useState('all');
   const [selected, setSelected] = useState(null);
+  const [communityLocations, setCommunityLocations] = useState([]);
+
+  useEffect(() => {
+    let active = true;
+    void window.__lifeos.community.loadCommunity().then(snapshot => {
+      if (!active) return;
+      setCommunityLocations(snapshot.places
+        .filter(place => place.status === 'approved' && place.longitude != null && place.latitude != null)
+        .map(place => ({
+          id: `community-${place.id}`,
+          name: place.name,
+          category: 'community',
+          lng: place.longitude,
+          lat: place.latitude,
+          emoji: '🇿🇦',
+          description: place.description || 'Recommended by a Life OS community member.',
+          tip: `${place.area || place.emirate} · Community recommendation`,
+          huvePrompt: `Tell me what is useful to know before visiting ${place.name} in ${place.area || place.emirate}.`,
+          address: place.address || place.area || place.emirate,
+        })));
+    }).catch(() => {});
+    return () => { active = false; };
+  }, []);
+
+  const allLocations = [...ABU_DHABI_LOCATIONS, ...communityLocations];
 
   const filtered = filter === 'all'
-    ? ABU_DHABI_LOCATIONS
-    : ABU_DHABI_LOCATIONS.filter(l => l.category === filter);
+    ? allLocations
+    : allLocations.filter(l => l.category === filter);
 
   /* Center map on a location when selected */
   useEffect(() => {
@@ -388,7 +415,7 @@ function MapScreen({ state, onBack, onAsk }) {
       action={
         <div style={{ display: 'flex', gap: 6 }}>
           <Button size="sm" variant="ghost" icon="⌖" onClick={() => {
-            const pick = ABU_DHABI_LOCATIONS[Math.floor(Math.random() * ABU_DHABI_LOCATIONS.length)];
+            const pick = allLocations[Math.floor(Math.random() * allLocations.length)];
             if (pick) setSelected(pick);
           }}>Suggest</Button>
           <Button size="sm" variant="ghost" icon="✨" onClick={() => onAsk('Help me choose somewhere useful or interesting to visit in Abu Dhabi today.', `I am viewing ${filtered.length} places on my Life OS UAE map.`)}>Ask AI</Button>

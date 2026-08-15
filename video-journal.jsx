@@ -817,7 +817,7 @@ function VideoJournalScreen({ onBack }) {
     api?.spaces.loadSpace().then(space => {
       if (cancelled) return;
       const map = {};
-      [space.me, space.partner].forEach(p => {
+      space.members.forEach(p => {
         if (p) map[p.user_id] = p.display_name;
       });
       setNames(map);

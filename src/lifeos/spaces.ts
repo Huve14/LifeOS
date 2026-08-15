@@ -15,6 +15,13 @@ export type Profile = {
   user_id: string;
   display_name: string;
   time_zone: string;
+  home_town?: string | null;
+  emirate?: string | null;
+  arrived_on?: string | null;
+  status?: 'landing_soon' | 'just_landed' | 'settled' | null;
+  interests?: string[];
+  visible_in_directory?: boolean;
+  employer_name?: string | null;
 };
 
 export type Space = {
@@ -25,12 +32,12 @@ export type Space = {
 export type SpaceState = {
   space: Space | null;
   me: Profile | null;
-  partner: Profile | null;
+  members: Profile[];
   /** True once a second person is in the space. */
   paired: boolean;
 };
 
-const EMPTY: SpaceState = { space: null, me: null, partner: null, paired: false };
+const EMPTY: SpaceState = { space: null, me: null, members: [], paired: false };
 
 let cache: SpaceState | null = null;
 
@@ -67,17 +74,35 @@ export async function loadSpace(force = false): Promise<SpaceState> {
     .eq('id', spaceId)
     .maybeSingle();
 
-  const me = currentUserId();
-  const all = (profiles ?? []) as Profile[];
-
-  cache = {
-    space: (spaceRow as Space) ?? { id: spaceId, name: '' },
-    me: all.find((p) => p.user_id === me) ?? null,
-    partner: all.find((p) => p.user_id !== me) ?? null,
-    paired: members.length > 1,
-  };
+  cache = createSpaceState(
+    (spaceRow as Space) ?? { id: spaceId, name: '' },
+    (profiles ?? []) as Profile[],
+    members.map((member) => member.user_id as string),
+    currentUserId(),
+  );
   applyZones(cache);
   return cache;
+}
+
+/** Build a stable, de-duplicated member view from rows already allowed by RLS. */
+export function createSpaceState(
+  space: Space | null,
+  profiles: Profile[],
+  memberIds: string[],
+  meId: string | null,
+): SpaceState {
+  const ids = new Set(memberIds);
+  const members = profiles
+    .filter((profile) => ids.has(profile.user_id))
+    .filter((profile, index, all) => all.findIndex((candidate) => candidate.user_id === profile.user_id) === index)
+    .sort((left, right) => left.user_id.localeCompare(right.user_id));
+
+  return {
+    space,
+    me: members.find((profile) => profile.user_id === meId) ?? null,
+    members,
+    paired: members.length > 1,
+  };
 }
 
 /**
@@ -86,7 +111,7 @@ export async function loadSpace(force = false): Promise<SpaceState> {
  * stable as long as the pair is.
  */
 function applyZones(state: SpaceState): void {
-  const people = [state.me, state.partner].filter((p): p is Profile => p !== null);
+  const people = state.members;
 
   setZones(
     people
@@ -120,7 +145,7 @@ export async function myTimeZone(): Promise<string> {
   return me?.time_zone || deviceZone();
 }
 
-/** Both people in the space, for dual clocks and author names. */
+/** Every distinct member zone in the space, for clocks and author names. */
 export async function zonesInSpace(): Promise<Array<{ zone: string; label: string }>> {
   const state = await loadSpace();
   const zones: Array<{ zone: string; label: string }> = [];
@@ -131,8 +156,7 @@ export async function zonesInSpace(): Promise<Array<{ zone: string; label: strin
     zones.push({ zone: profile.time_zone, label: cityFor(profile.time_zone) });
   };
 
-  add(state.me);
-  add(state.partner);
+  state.members.forEach(add);
 
   if (zones.length === 0) zones.push({ zone: deviceZone(), label: cityFor(deviceZone()) });
   return zones;
@@ -147,8 +171,8 @@ export function cityFor(zone: string): string {
 export async function displayNameFor(userId: string): Promise<string> {
   const state = await loadSpace();
   if (state.me?.user_id === userId) return state.me.display_name || 'You';
-  if (state.partner?.user_id === userId) return state.partner.display_name || 'Them';
-  return 'Them';
+  const member = state.members.find((profile) => profile.user_id === userId);
+  return member?.display_name || 'Community member';
 }
 
 export async function updateMyProfile(patch: {

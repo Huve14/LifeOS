@@ -97,6 +97,95 @@ begin
 end;
 $$;
 
+-- Phase 2 security contract: community rows cross account boundaries, private
+-- state and non-opted-in profiles do not, and three distinct reports hide a
+-- row from everyone except its author.
+select set_config('request.jwt.claim.sub', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', false);
+
+insert into public.lifeos_questions (id, author_id, title, body)
+values (
+  '11111111-1111-4111-8111-111111111111',
+  auth.uid(),
+  'Where can I find rooibos?',
+  'Looking near Khalifa City.'
+);
+
+select set_config('request.jwt.claim.sub', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', false);
+
+do $$
+begin
+  if not exists (
+    select 1 from public.lifeos_questions where id = '11111111-1111-4111-8111-111111111111'
+  ) then
+    raise exception 'Account B cannot read Account A community question';
+  end if;
+  if exists (
+    select 1 from public.lifeos_user_state where user_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+  ) then
+    raise exception 'Account B can read Account A private state';
+  end if;
+  if exists (
+    select 1 from public.lifeos_profiles where user_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+  ) then
+    raise exception 'Account A appears in directory without opting in';
+  end if;
+end;
+$$;
+
+reset role;
+insert into auth.users (id, email, raw_user_meta_data) values
+  ('cccccccc-cccc-4ccc-8ccc-cccccccccccc', 'c@example.com', '{"name":"Account C"}'::jsonb),
+  ('dddddddd-dddd-4ddd-8ddd-dddddddddddd', 'd@example.com', '{"name":"Account D"}'::jsonb);
+
+set role authenticated;
+select set_config('request.jwt.claim.sub', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', false);
+insert into public.lifeos_reports (target_table, target_id, reason, reporter_id)
+values ('questions', '11111111-1111-4111-8111-111111111111', 'Needs review', auth.uid());
+
+select set_config('request.jwt.claim.sub', 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', false);
+insert into public.lifeos_reports (target_table, target_id, reason, reporter_id)
+values ('questions', '11111111-1111-4111-8111-111111111111', 'Needs review', auth.uid());
+
+select set_config('request.jwt.claim.sub', 'dddddddd-dddd-4ddd-8ddd-dddddddddddd', false);
+insert into public.lifeos_reports (target_table, target_id, reason, reporter_id)
+values ('questions', '11111111-1111-4111-8111-111111111111', 'Needs review', auth.uid());
+
+do $$
+begin
+  if exists (
+    select 1 from public.lifeos_questions where id = '11111111-1111-4111-8111-111111111111'
+  ) then
+    raise exception 'Three reports did not hide the community row';
+  end if;
+end;
+$$;
+
+select set_config('request.jwt.claim.sub', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', false);
+do $$
+begin
+  if not exists (
+    select 1 from public.lifeos_questions
+    where id = '11111111-1111-4111-8111-111111111111' and hidden = true
+  ) then
+    raise exception 'Hidden row is not visible to its author';
+  end if;
+end;
+$$;
+
+update public.lifeos_profiles set visible_in_directory = true
+where user_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+
+select set_config('request.jwt.claim.sub', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', false);
+do $$
+begin
+  if not exists (
+    select 1 from public.lifeos_profiles where user_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+  ) then
+    raise exception 'Opted-in Account A does not appear in Account B directory';
+  end if;
+end;
+$$;
+
 reset role;
 SQL
 

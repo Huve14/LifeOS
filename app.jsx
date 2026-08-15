@@ -172,6 +172,7 @@ const LEGACY_BUNDLE_LOADERS = {
     import('./src/components/ui/map-utils.jsx'),
     import('./screens-map.jsx'),
   ]),
+  community: () => import('./community.jsx'),
   journal: () => import('./video-journal.jsx'),
   prompt: () => import('./daily-prompt.jsx'),
   trip: () => import('./trip-board.jsx'),
@@ -185,6 +186,7 @@ const VIEW_BUNDLES = {
   packing: 'modules', docs: 'modules', tasks: 'tasks', budget: 'modules',
   shopping: 'modules', housing: 'modules', habits: 'modules', people: 'modules',
   memory: 'memory', map: 'map', journal: 'journal',
+  community: 'community',
   prompt: 'prompt', trip: 'trip', call: 'call', games: 'games', space: 'space',
 };
 
@@ -291,9 +293,10 @@ function App() {
   const previewPairing = import.meta.env.DEV && previewParams.has('preview-pairing');
   const previewTasks = import.meta.env.DEV && previewParams.has('preview-tasks');
   const previewTrip = import.meta.env.DEV && previewParams.has('preview-trip');
+  const previewCommunity = import.meta.env.DEV && previewParams.has('preview-community');
   const previewOnboarding = import.meta.env.DEV && previewParams.has('preview-onboarding');
   const previewLite = import.meta.env.DEV && previewParams.has('preview-lite');
-  const previewSession = previewHome || previewCall || previewGames || previewPairing || previewTasks || previewTrip || previewOnboarding;
+  const previewSession = previewHome || previewCall || previewGames || previewPairing || previewTasks || previewTrip || previewCommunity || previewOnboarding;
   const requestedGameCode = (previewParams.get('game') || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
   const requestedPairCode = window.__lifeos.couples.normalizePairCode(previewParams.get('pair') || '');
   const previewDark = import.meta.env.DEV && previewParams.has('preview-dark');
@@ -400,7 +403,7 @@ function App() {
           moveDate: '2026-08-10',
           onboardingDone: !previewOnboarding,
         });
-        setView(previewOnboarding ? 'onboarding' : previewCall ? 'call' : previewGames ? 'games' : previewPairing ? 'space' : previewTasks ? 'tasks' : previewTrip ? 'trip' : 'home');
+        setView(previewOnboarding ? 'onboarding' : previewCall ? 'call' : previewGames ? 'games' : previewPairing ? 'space' : previewTasks ? 'tasks' : previewTrip ? 'trip' : previewCommunity ? 'community' : 'home');
         setStorageReady(true);
         return;
       }
@@ -431,7 +434,7 @@ function App() {
     return () => {
       cancelled = true;
     };
-  }, [previewCall, previewGames, previewOnboarding, previewPairing, previewSession, previewTasks, previewTrip, store, user?.id]);
+  }, [previewCall, previewCommunity, previewGames, previewOnboarding, previewPairing, previewSession, previewTasks, previewTrip, store, user?.id]);
 
   const gameInviteHandledRef = useRef(false);
   useEffect(() => {
@@ -623,6 +626,7 @@ function App() {
       tasks: ['tasks', 'TasksScreen', commonProps],
       budget: ['modules', 'BudgetScreen', commonProps],
       shopping: ['modules', 'ShoppingScreen', commonProps],
+      community: ['community', 'CommunityScreen', { onBack: () => setView('home') }],
       housing: ['modules', 'HousingScreen', commonProps],
       memory: ['memory', 'MemoryScreen', commonProps],
       habits: ['modules', 'HabitsScreen', commonProps],
@@ -1423,26 +1427,23 @@ function SettingsScreen({ profile, email, preferences, onPreferencesChange, onPr
 const NAV_CATALOG = [
   { id: 'home',    label: 'Home',      icon: 'House' },
   { id: 'map',     label: 'Map',       icon: 'Map' },
-  { id: 'docs',    label: 'Docs',      icon: 'FileText' },
+  { id: 'community', label: 'Community', icon: 'UsersRound' },
+  { id: 'shopping', label: 'Shop & Save', icon: 'ShoppingBasket' },
+  { id: 'settings', label: 'Me',       icon: 'UserRound' },
+  { id: 'notes',    label: 'Journal',  icon: 'NotebookPen' },
   { id: 'budget',  label: 'Budget',    icon: 'Wallet' },
   { id: 'call',     label: 'Calls',     icon: 'Phone' },
-  { id: 'notes',    label: 'Journal',  icon: 'NotebookPen' },
   { id: 'games',    label: 'Games',    icon: 'Gamepad2' },
-  { id: 'trip',     label: 'Trip',     icon: 'Luggage' },
+  { id: 'docs',    label: 'Documents', icon: 'FileText' },
   { id: 'habits',   label: 'Habits',   icon: 'Target' },
   { id: 'people',   label: 'People',   icon: 'Users' },
-  { id: 'settings', label: 'Settings', icon: 'Settings' },
-  { id: 'packing',  label: 'Packing',  icon: 'Package' },
   { id: 'prompt',   label: 'Prompt',   icon: 'MessageCircle' },
-  { id: 'tasks',    label: 'Timeline', icon: 'CalendarDays' },
-  { id: 'shopping', label: 'Shopping', icon: 'ShoppingCart' },
   { id: 'housing',  label: 'Housing',  icon: 'Building2' },
-  { id: 'memory',   label: 'Memory',   icon: 'Camera' },
   { id: 'space',    label: 'Pairing',  icon: 'Heart' },
 ];
 
 const QUICK_NAV_OPTIONS = NAV_CATALOG.filter(item => (
-  ['map', 'docs', 'budget', 'call', 'notes', 'games', 'trip', 'habits', 'people'].includes(item.id)
+  ['map', 'community', 'shopping', 'notes', 'budget', 'call', 'games', 'docs', 'habits', 'people'].includes(item.id)
 ));
 
 // Which nav entries currently have something waiting.
@@ -1605,22 +1606,22 @@ function BottomNav({ current, onNavigate, preferences }) {
             }}
             className={`bottom-nav-item${activeMoreItem || moreOpen ? ' is-active' : ''}`}
             aria-expanded={moreOpen}
-            aria-label={activeMoreItem ? `${activeMoreItem.label}, more destinations` : 'More destinations'}
+            aria-label="Me and more destinations"
           >
             <span className="bottom-nav-icon">
               <AnimatedIcon
-                name={activeMoreItem ? activeMoreItem.icon : 'LayoutGrid'}
+                name="UserRound"
                 size={26}
                 play={playTriggers.more || 0}
               />
             </span>
-            <span className="bottom-nav-label">{activeMoreItem ? activeMoreItem.label : 'More'}</span>
+            <span className="bottom-nav-label">Me</span>
             <NavDot show={moreNeedsAttention(current, unwatched, promptWaiting)} />
           </button>
         </div>
       </nav>
 
-      <Sheet open={moreOpen} onClose={() => setMoreOpen(false)} title="More" height="auto" lightweight>
+      <Sheet open={moreOpen} onClose={() => setMoreOpen(false)} title="Me & tools" height="auto" lightweight>
           <div className="bottom-nav-more-grid">
             {moreNav.map(item => {
               const active = navItemIsActive(item.id, current);

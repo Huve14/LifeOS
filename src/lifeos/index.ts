@@ -4,6 +4,7 @@
 // modules load.
 
 import * as call from './call';
+import * as community from './community';
 import * as couples from './couples';
 import * as aiProfile from './aiProfile';
 import * as budget from './budget';
@@ -32,6 +33,7 @@ export const lifeos = {
   aiProfile,
   budget,
   call,
+  community,
   couples,
   daylight,
   games,
