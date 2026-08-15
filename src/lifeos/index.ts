@@ -18,6 +18,7 @@ import * as net from './net';
 import * as outbox from './outbox';
 import * as preferences from './preferences';
 import * as performance from './performance';
+import * as prices from './prices';
 import * as prompts from './prompts';
 import * as push from './push';
 import * as recording from './recording';
@@ -43,6 +44,7 @@ export const lifeos = {
   outbox,
   preferences,
   performance,
+  prices,
   prompts,
   push,
   recording,

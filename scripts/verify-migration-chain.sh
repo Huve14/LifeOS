@@ -56,6 +56,48 @@ begin
   end if;
 end;
 $$;
+
+-- Phase 1 security contract: community prices are shared, personal watches
+-- are not, decimals survive, and attribution is derived from the auth user.
+insert into auth.users (id, email, raw_user_meta_data) values
+  ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'a@example.com', '{"name":"Account A"}'::jsonb),
+  ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'b@example.com', '{"name":"Account B"}'::jsonb);
+
+set role authenticated;
+select set_config('request.jwt.claim.sub', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', false);
+
+insert into public.lifeos_price_points (
+  product_id, store_id, price, currency, source, seen_at, submitted_by
+)
+select product.id, store.id, 12.99, 'AED', 'community', now(), auth.uid()
+from public.lifeos_products product
+cross join public.lifeos_stores store
+where product.name = 'Biltong' and store.name = 'Spinneys'
+limit 1;
+
+insert into public.lifeos_price_watches (owner_id, product_id, target_price)
+select auth.uid(), product.id, 10.50
+from public.lifeos_products product
+where product.name = 'Biltong'
+limit 1;
+
+select set_config('request.jwt.claim.sub', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', false);
+
+do $$
+begin
+  if not exists (
+    select 1 from public.lifeos_price_points
+    where price = 12.99 and source = 'community' and submitted_name = 'Account A'
+  ) then
+    raise exception 'Account B cannot read Account A community price with decimal/source/author';
+  end if;
+  if exists (select 1 from public.lifeos_price_watches) then
+    raise exception 'Account B can read Account A private price watch';
+  end if;
+end;
+$$;
+
+reset role;
 SQL
 
 printf 'Migration chain verified successfully.\n'

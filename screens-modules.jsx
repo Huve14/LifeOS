@@ -1201,8 +1201,25 @@ function BudgetScreen({ state, setState, onBack }) {
   );
 }
 
-// ---------- SHOPPING / TO BUY ----------
+// ---------- SHOP & SAVE ----------
+const SHOP_CATEGORIES = ['Essentials', 'Groceries', 'Apartment', 'Tech', 'Clothing'];
+const SHOP_TABS = [
+  { id: 'list', label: 'My list', icon: '✓' },
+  { id: 'check', label: 'Price check', icon: '⌕' },
+  { id: 'deals', label: 'Deals', icon: '%' },
+  { id: 'watch', label: 'Watches', icon: '◎' },
+  { id: 'sa', label: 'SA basket', icon: '🇿🇦' },
+];
+
+function shopCategory(value) {
+  if (SHOP_CATEGORIES.includes(value)) return value;
+  if (['Kitchen', 'Furniture', 'Decor', 'Home'].includes(value)) return 'Apartment';
+  return 'Essentials';
+}
+
 function ShoppingScreen({ state, setState, onBack, onAsk }) {
+  const api = window.__lifeos?.prices;
+  const [tab, setTab] = React.useState('list');
   const [filter, setFilter] = React.useState('all');
   const [shareLink, setShareLink] = React.useState('');
   const [linkCopied, setLinkCopied] = React.useState(false);
@@ -1210,155 +1227,403 @@ function ShoppingScreen({ state, setState, onBack, onAsk }) {
   const [newName, setNewName] = React.useState('');
   const [newCat, setNewCat] = React.useState('Essentials');
   const [newPrice, setNewPrice] = React.useState('');
-  const items = state.shopping || [];
-  const cats = ['all', ...new Set(items.map(s => s.cat))];
-  const list = filter === 'all' ? items : items.filter(s => s.cat === filter);
-  const total = items.reduce((a, s) => a + (s.price || 0), 0);
+  const [currency, setCurrency] = React.useState('AED');
+  const [fx, setFx] = React.useState(null);
+  const [query, setQuery] = React.useState('');
+  const [barcode, setBarcode] = React.useState('');
+  const [results, setResults] = React.useState([]);
+  const [deals, setDeals] = React.useState([]);
+  const [watches, setWatches] = React.useState([]);
+  const [saBasket, setSaBasket] = React.useState([]);
+  const [loading, setLoading] = React.useState(false);
+  const [notice, setNotice] = React.useState('');
+  const [watchEditor, setWatchEditor] = React.useState(null);
+  const [watchTarget, setWatchTarget] = React.useState('');
+  const [logOpen, setLogOpen] = React.useState(false);
+  const [logProduct, setLogProduct] = React.useState('');
+  const [logCategory, setLogCategory] = React.useState('Groceries');
+  const [logStore, setLogStore] = React.useState('');
+  const [logArea, setLogArea] = React.useState('Khalifa City');
+  const [logPrice, setLogPrice] = React.useState('');
+  const [logDate, setLogDate] = React.useState(new Date().toISOString().slice(0, 10));
+  const [logDeal, setLogDeal] = React.useState(false);
+  const [logOriginal, setLogOriginal] = React.useState('');
+  const [logExpiry, setLogExpiry] = React.useState('');
+  const [logPhoto, setLogPhoto] = React.useState(null);
+  const scanRef = React.useRef(null);
+  const proofRef = React.useRef(null);
+  const items = (state.shopping || []).map(item => ({ ...item, cat: shopCategory(item.cat) }));
+  const list = filter === 'all' ? items : items.filter(item => item.cat === filter);
+  const total = items.reduce((sum, item) => sum + (api?.parseMoneyInput(item.price) || 0), 0);
+
+  function isBought(item) {
+    return item.status === 'bought' || item.status === 'packed';
+  }
+
+  function displayMoney(value) {
+    if (currency === 'ZAR' && fx?.rate) return api?.formatZAR(value, fx.rate) || `R ${value}`;
+    return api?.formatAED(value) || `AED ${value}`;
+  }
+
+  async function toggleCurrency() {
+    const next = currency === 'AED' ? 'ZAR' : 'AED';
+    setCurrency(next);
+    if (next === 'ZAR' && !fx) {
+      const rate = await api?.loadFxRate();
+      if (rate) setFx(rate);
+      else setNotice('The live ZAR rate is unavailable. Prices remain safely stored in AED.');
+    }
+  }
 
   function toggle(id) {
-    setState(s => ({
-      ...s,
-      shopping: (s.shopping || []).map(it => it.id === id ? { ...it, status: it.status === 'packed' ? 'toBuy' : 'packed' } : it),
+    setState(current => ({
+      ...current,
+      shopping: (current.shopping || []).map(item => item.id === id
+        ? { ...item, cat: shopCategory(item.cat), status: isBought(item) ? 'toBuy' : 'bought' }
+        : item),
     }));
   }
 
   function addShoppingItem() {
     const name = newName.trim();
     if (!name) return;
-    setState(s => ({
-      ...s,
-      shopping: [...s.shopping, {
-        id: uid(), name, cat: newCat, price: parseInt(newPrice) || 0, status: 'toBuy',
+    const price = api?.parseMoneyInput(newPrice);
+    setState(current => ({
+      ...current,
+      shopping: [...(current.shopping || []), {
+        id: uid(), name, cat: newCat, price: price ?? 0, status: 'toBuy',
       }],
     }));
-    setNewName(''); setNewPrice(''); setAdding(false);
+    setNewName('');
+    setNewPrice('');
+    setAdding(false);
   }
 
   function removeShoppingItem(id) {
-    setState(s => ({
-      ...s,
-      shopping: s.shopping.filter(it => it.id !== id),
+    setState(current => ({
+      ...current,
+      shopping: (current.shopping || []).filter(item => item.id !== id),
     }));
   }
 
   async function handleShare() {
-    const token = await window.__suvedaShopping.generateShareToken('Family Share');
-    if (token) {
-      const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-      const url = isLocal
-        ? `${window.location.origin}/shared.html#${token}`
-        : `${window.location.origin}/s/${token}`;
-      setShareLink(url);
-      try {
-        await navigator.clipboard.writeText(url);
-        setLinkCopied(true);
-        setTimeout(() => setLinkCopied(false), 2000);
-      } catch {
-        // Clipboard access is optional; the share link remains selectable.
-      }
+    const token = await window.__suvedaShopping.generateShareToken('Shop & Save list');
+    if (!token) return;
+    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const url = isLocal ? `${window.location.origin}/shared.html#${token}` : `${window.location.origin}/s/${token}`;
+    setShareLink(url);
+    try {
+      await navigator.clipboard.writeText(url);
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
+    } catch {
+      // Clipboard permission is optional; the selectable link stays visible.
     }
   }
 
-  return (
-    <ModulePage
-      title="To buy"
-      subtitle={`${items.length} items · ~${total} ZAR`}
-      icon="ShoppingCart"
-      onBack={onBack}
-      action={<div style={{ display: 'flex', gap: 6 }}>
-        <Button size="sm" variant="ghost" icon="🔗" onClick={handleShare}>
-          {linkCopied ? 'Copied!' : 'Share'}
-        </Button>
-        <Button size="sm" variant="ghost" icon="✨" onClick={() => onAsk('What are 5 useful things to buy for my home in Abu Dhabi?', 'Setting up and maintaining a home in the UAE.')}>AI help</Button>
-      </div>}
-    >
-      {shareLink && (
-        <div style={{
-          padding: '10px 14px', borderRadius: 12, marginBottom: 14,
-          background: 'var(--sand)', fontSize: 12, color: 'var(--muted)',
-          wordBreak: 'break-all', border: '1px solid var(--line)',
-        }}>
-          <div style={{ fontWeight: 600, color: 'var(--dark)', marginBottom: 4 }}>🔗 Shared link</div>
-          {shareLink}
-        </div>
-      )}
+  async function openTab(next) {
+    setTab(next);
+    setNotice('');
+    if (!api || !['deals', 'watch', 'sa'].includes(next)) return;
+    setLoading(true);
+    try {
+      if (next === 'deals') setDeals(await api.loadDeals());
+      if (next === 'watch') setWatches(await api.loadPriceWatches());
+      if (next === 'sa') setSaBasket(await api.loadSaBasket());
+    } catch (error) {
+      setNotice(error?.message || 'This section could not refresh. Try again when you are online.');
+    } finally {
+      setLoading(false);
+    }
+  }
 
-      <div style={{ display: 'flex', gap: 6, marginBottom: 14, overflowX: 'auto', paddingBottom: 4 }}>
-        {cats.map(c => (
-          <Pill key={c} active={filter === c} onClick={() => setFilter(c)}>
-            {c === 'all' ? 'All' : c}
+  async function checkPrices(event, refresh = true) {
+    event?.preventDefault();
+    const value = (query || barcode).trim();
+    if (!value || !api) return;
+    setLoading(true);
+    setNotice('');
+    try {
+      if (refresh) {
+        try {
+          const update = await api.refreshExternalPrices(value, barcode || (/^\d{8,14}$/.test(value) ? value : ''));
+          if (update.warnings?.length && !update.imported) setNotice(update.warnings[0]);
+        } catch {
+          setNotice('Showing saved community data. Live sources could not refresh right now.');
+        }
+      }
+      const found = await api.searchPrices(value);
+      setResults(found);
+      if (!found.length) setNotice('No saved price yet. Log what you see and help the next South African shopper.');
+    } catch (error) {
+      setNotice(error?.message || 'Prices could not load.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function scanBarcodeImage(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const BarcodeDetector = window.BarcodeDetector;
+    if (!BarcodeDetector) {
+      setNotice('Camera barcode reading is not available on this device. Type the barcode instead.');
+      return;
+    }
+    setLoading(true);
+    try {
+      const image = await createImageBitmap(file);
+      const detector = new BarcodeDetector({ formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e'] });
+      const codes = await detector.detect(image);
+      const value = codes[0]?.rawValue || '';
+      if (!value) throw new Error('No barcode was found. Try a sharper photo.');
+      setBarcode(value);
+      setQuery(value);
+      setNotice(`Barcode ${value} found. Tap Check sources.`);
+    } catch (error) {
+      setNotice(error?.message || 'That barcode could not be read.');
+    } finally {
+      setLoading(false);
+      event.target.value = '';
+    }
+  }
+
+  function openLogPrice(productName = '', price = '') {
+    setLogProduct(productName);
+    setLogPrice(price === '' ? '' : String(price));
+    setLogOpen(true);
+    setNotice('');
+  }
+
+  async function submitLoggedPrice(event) {
+    event.preventDefault();
+    if (!api) return;
+    setLoading(true);
+    try {
+      let photoPath = null;
+      if (logPhoto) photoPath = await window.__suvedaPhotos?.upload(logPhoto);
+      const point = await api.logCommunityPrice({
+        productName: logProduct,
+        category: logCategory,
+        storeName: logStore,
+        area: logArea,
+        price: logPrice,
+        seenAt: logDate,
+        photoPath,
+        isDeal: logDeal,
+        originalPrice: logOriginal,
+        expiresAt: logExpiry || null,
+      });
+      setLogOpen(false);
+      setLogProduct('');
+      setLogStore('');
+      setLogPrice('');
+      setLogPhoto(null);
+      setNotice(`${point.product.name} saved with source and date.`);
+      if (tab === 'check' && query.trim()) setResults(await api.searchPrices(query.trim()));
+      if (tab === 'deals') setDeals(await api.loadDeals());
+      if (tab === 'sa') setSaBasket(await api.loadSaBasket());
+    } catch (error) {
+      setNotice(error?.message || 'The price could not be saved.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function saveWatch(event) {
+    event.preventDefault();
+    if (!api || !watchEditor) return;
+    setLoading(true);
+    try {
+      await api.setPriceWatch(watchEditor.productId, watchTarget);
+      setWatchEditor(null);
+      setWatchTarget('');
+      setWatches(await api.loadPriceWatches());
+      setTab('watch');
+      setNotice('Price watch saved. Alerts switch on in the automation phase.');
+    } catch (error) {
+      setNotice(error?.message || 'The watch could not be saved.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function removeWatch(id) {
+    if (!api) return;
+    try {
+      await api.deletePriceWatch(id);
+      setWatches(await api.loadPriceWatches());
+    } catch (error) {
+      setNotice(error?.message || 'The watch could not be removed.');
+    }
+  }
+
+  const listContent = (
+    <div className="shop-panel-stack">
+      <div className="shop-list-summary">
+        <div><span>LIST TOTAL</span><strong>{displayMoney(total)}</strong></div>
+        <div><span>LEFT TO BUY</span><strong>{items.filter(item => !isBought(item)).length}</strong></div>
+        <button type="button" onClick={handleShare}>{linkCopied ? 'Copied' : 'Share list'} ↗</button>
+      </div>
+      {shareLink && <div className="shop-share-link"><strong>Anyone with this link can help:</strong><span>{shareLink}</span></div>}
+      <div className="shop-filter-row">
+        {['all', ...SHOP_CATEGORIES].map(category => (
+          <Pill key={category} active={filter === category} onClick={() => setFilter(category)}>
+            {category === 'all' ? 'All' : category}
           </Pill>
         ))}
       </div>
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div className="shop-list">
         {list.map(item => (
-          <Card key={item.id} padding="14px 16px" onClick={() => toggle(item.id)}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <Checkbox checked={item.status === 'packed'} onChange={() => toggle(item.id)} />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 14, fontWeight: 600,
-                  textDecoration: item.status === 'packed' ? 'line-through' : 'none',
-                  color: item.status === 'packed' ? 'var(--muted)' : 'var(--dark)',
-                }}>{item.name}</div>
-                <div style={{ display: 'flex', gap: 8, fontSize: 11, color: 'var(--muted)', marginTop: 3 }}>
-                  <span>{item.cat}</span>
-                  {item.price != null && <><span>·</span><span>{item.price} ZAR</span></>}
-                </div>
+          <Card key={item.id} className={`shop-list-card${isBought(item) ? ' is-bought' : ''}`} padding="14px 16px">
+            <Checkbox checked={isBought(item)} onChange={() => toggle(item.id)} />
+            <button type="button" className="shop-item-main" onClick={() => toggle(item.id)}>
+              <strong>{item.name}</strong>
+              <span>{item.cat}{item.price != null ? ` · ${displayMoney(api?.parseMoneyInput(item.price) || 0)}` : ''}</span>
+            </button>
+            <button type="button" className="shop-row-action" onClick={() => { setQuery(item.name); setBarcode(''); void openTab('check'); }}>Compare</button>
+            <button type="button" className="shop-row-action" onClick={() => openLogPrice(item.name, item.price || '')}>Log</button>
+            <button type="button" className="shop-row-remove" onClick={() => removeShoppingItem(item.id)} aria-label={`Remove ${item.name}`}>×</button>
+          </Card>
+        ))}
+        {!list.length && <EmptyState emoji="🧺" title="Your list is clear" body="Add something you need, then compare what Abu Dhabi shoppers have seen." />}
+      </div>
+      {adding ? (
+        <Card className="shop-add-card" padding="16px">
+          <div className="shop-add-fields">
+            <label><span>Item</span><input value={newName} onChange={event => setNewName(event.target.value)} placeholder="e.g. Rooibos tea" autoFocus /></label>
+            <label><span>Expected price (AED)</span><input value={newPrice} onChange={event => setNewPrice(event.target.value)} type="number" min="0" step="0.01" placeholder="0.00" /></label>
+          </div>
+          <div className="shop-filter-row">{SHOP_CATEGORIES.map(category => <Pill key={category} active={newCat === category} onClick={() => setNewCat(category)}>{category}</Pill>)}</div>
+          <div className="shop-form-actions"><Button variant="ghost" onClick={() => setAdding(false)}>Cancel</Button><Button onClick={addShoppingItem}>Add to list</Button></div>
+        </Card>
+      ) : <Button full variant="soft" icon="＋" onClick={() => setAdding(true)}>Add to my list</Button>}
+    </div>
+  );
+
+  const checkContent = (
+    <div className="shop-panel-stack">
+      <Card className="shop-search-card" padding="20px">
+        <div><span className="shop-kicker">PRICE CHECK</span><h2>What are you looking for?</h2><p>Search a name or scan a barcode. Results are cheapest first and always show where and when.</p></div>
+        <form className="shop-search-form" onSubmit={event => checkPrices(event, true)}>
+          <input value={query} onChange={event => { setQuery(event.target.value); setBarcode(/^\d{8,14}$/.test(event.target.value) ? event.target.value : ''); }} placeholder="Biltong, rooibos, barcode…" />
+          <input ref={scanRef} type="file" accept="image/*" capture="environment" hidden onChange={scanBarcodeImage} />
+          <button type="button" onClick={() => scanRef.current?.click()}>▣ Scan</button>
+          <button type="submit" className="shop-primary-action" disabled={loading || !query.trim()}>{loading ? 'Checking…' : 'Check sources'}</button>
+        </form>
+      </Card>
+      {results.map(group => (
+        <Card key={group.product.id} className="price-result-card" padding="0">
+          <div className="price-result-head">
+            <div><span>{group.product.brand || group.product.category}</span><h3>{group.product.name}</h3></div>
+            <div className="price-result-actions"><button type="button" onClick={() => openLogPrice(group.product.name)}>＋ Log price</button><button type="button" onClick={() => { setWatchEditor({ productId: group.product.id, name: group.product.name }); setWatchTarget(group.cheapest ? String(group.cheapest.price) : ''); }}>◎ Watch</button></div>
+          </div>
+          {group.prices.length ? (
+            <>
+              <div className="price-comparison-list">
+                {group.prices.map((point, index) => (
+                  <div key={point.id} className={`price-comparison-row${point.source === 'estimate' ? ' is-estimate' : ''}`}>
+                    <div className="price-rank">{index + 1}</div>
+                    <div className="price-store"><strong>{point.store.name}</strong><span>{point.store.area || 'Abu Dhabi'} · {api.sourceLabel(point.source, point.submittedName)} · {api.ageLabel(point.seenAt)}</span></div>
+                    <strong className="price-amount">{displayMoney(point.price)}</strong>
+                  </div>
+                ))}
               </div>
-              {item.status !== 'packed' && <Badge status={item.status} size="sm" />}
-              {item.status === 'packed' && <span style={{ fontSize: 16 }}>✅</span>}
-              <button
-                onClick={e => { e.stopPropagation(); removeShoppingItem(item.id); }}
-                style={{
-                  fontSize: 14, padding: '2px', border: 'none',
-                  background: 'none', cursor: 'pointer', color: 'var(--muted)',
-                  fontFamily: 'inherit', opacity: 0.4,
-                }}
-              >✕</button>
-            </div>
+              {group.savings > 0 && <div className="price-saving">Choose the cheapest and save <strong>{displayMoney(group.savings)}</strong> versus the priciest observation.</div>}
+            </>
+          ) : <EmptyState emoji="🔎" title="No verified price yet" body="You found the product. Be the first to log what you paid." action={<Button onClick={() => openLogPrice(group.product.name)}>Log a price</Button>} />}
+        </Card>
+      ))}
+      {!results.length && !loading && <div className="shop-tip-card"><span>GOOD TO KNOW</span><strong>Real first, estimates last</strong><p>Community and Open Prices observations stay separate from visibly labelled AI estimates.</p></div>}
+    </div>
+  );
+
+  const dealsContent = (
+    <div className="shop-card-grid">
+      {deals.map(deal => {
+        const discount = deal.originalPrice && deal.originalPrice > 0 ? Math.round((1 - deal.currentPrice / deal.originalPrice) * 100) : null;
+        return (
+          <Card key={deal.id} className="shop-deal-card" padding="20px">
+            <div className="deal-badges"><span>{api.sourceLabel(deal.source)}</span>{discount ? <strong>−{discount}%</strong> : <strong>SPECIAL</strong>}</div>
+            <div className="deal-product-mark">{deal.product.imageUrl ? <img src={deal.product.imageUrl} alt="" /> : deal.product.name.slice(0, 1)}</div>
+            <h3>{deal.title || deal.product.name}</h3><p>{deal.store.name} · {deal.store.area}</p>
+            <div className="deal-price"><strong>{displayMoney(deal.currentPrice)}</strong>{deal.originalPrice ? <s>{displayMoney(deal.originalPrice)}</s> : null}</div>
+            <small>{deal.expiresAt ? `Ends ${new Intl.DateTimeFormat('en-AE', { day: 'numeric', month: 'short' }).format(new Date(deal.expiresAt))}` : 'Check availability before travelling'}</small>
+          </Card>
+        );
+      })}
+      {!loading && !deals.length && <Card className="shop-empty-wide"><EmptyState emoji="🏷️" title="No live specials yet" body="Flag a special while logging a price and it will appear here for other members." action={<Button onClick={() => openLogPrice()}>Log a special</Button>} /></Card>}
+    </div>
+  );
+
+  const watchContent = (
+    <div className="shop-panel-stack">
+      <div className="shop-watch-intro"><div><span className="shop-kicker">PRIVATE TO YOU</span><h2>Your price targets</h2><p>Set the price that feels right. The daily alert check arrives in the automation phase.</p></div><button type="button" onClick={() => openTab('check')}>Find a product →</button></div>
+      <div className="shop-list">
+        {watches.map(watch => (
+          <Card key={watch.id} className="watch-row" padding="18px">
+            <div className="watch-icon">◎</div><div><span>{watch.active ? 'WATCHING' : 'PAUSED'}</span><strong>{watch.product.name}</strong><small>Notify below {displayMoney(watch.targetPrice)}</small></div>
+            <button type="button" onClick={() => removeWatch(watch.id)}>Remove</button>
+          </Card>
+        ))}
+        {!loading && !watches.length && <EmptyState emoji="◎" title="No price watches yet" body="Search for a product, tap Watch, and choose your target AED price." action={<Button onClick={() => openTab('check')}>Search prices</Button>} />}
+      </div>
+    </div>
+  );
+
+  const saContent = (
+    <div className="shop-panel-stack">
+      <div className="sa-basket-hero"><div><span>THE SOUTH AFRICAN SHELF</span><h2>A little taste of home</h2><p>Who stocks it, what members paid, and how fresh that observation is.</p></div><div aria-hidden="true">🇿🇦</div></div>
+      <div className="shop-card-grid">
+        {saBasket.map(group => (
+          <Card key={group.product.id} className="sa-product-card" padding="20px">
+            <div className="sa-product-top"><span>{group.product.name === 'Biltong' ? '🥩' : group.product.name.includes('Rooibos') ? '🫖' : group.product.name.includes('chutney') ? '🍑' : '🌶️'}</span><button type="button" onClick={() => openLogPrice(group.product.name)}>＋ Log</button></div>
+            <h3>{group.product.name}</h3>
+            {group.cheapest ? <><strong>{displayMoney(group.cheapest.price)}</strong><p>{group.cheapest.store.name} · {group.cheapest.store.area}</p><small>{api.sourceLabel(group.cheapest.source, group.cheapest.submittedName)} · {api.ageLabel(group.cheapest.seenAt)}</small></> : <><strong>Price needed</strong><p>No Abu Dhabi observation yet</p><small>Help the community next time you see it.</small></>}
           </Card>
         ))}
       </div>
+    </div>
+  );
 
-      {adding && (
-        <Card padding="14px" style={{ marginTop: 10 }}>
-          <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-            <input
-              value={newName}
-              onChange={e => setNewName(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && addShoppingItem()}
-              placeholder="Item name..."
-              style={{
-                flex: 1, padding: '8px 10px', border: '1px solid var(--line)',
-                borderRadius: 8, fontSize: 13, fontFamily: 'inherit',
-                background: 'var(--cream)', outline: 'none',
-              }}
-            />
-            <input
-              value={newPrice}
-              onChange={e => setNewPrice(e.target.value)}
-              placeholder="Price"
-              type="number"
-              style={{
-                width: 80, padding: '8px 10px', border: '1px solid var(--line)',
-                borderRadius: 8, fontSize: 13, fontFamily: 'inherit',
-                background: 'var(--cream)', outline: 'none',
-              }}
-            />
-            <Button size="sm" onClick={addShoppingItem}>Add</Button>
-          </div>
-          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-            {['Essentials', 'Kitchen', 'Tech', 'Furniture', 'Decor'].map(c => (
-              <Pill key={c} active={newCat === c} onClick={() => setNewCat(c)}>{c}</Pill>
-            ))}
-          </div>
-        </Card>
-      )}
+  return (
+    <ModulePage
+      title="Shop & Save"
+      subtitle="Real Abu Dhabi prices, with their source and age"
+      icon="ShoppingCart"
+      onBack={onBack}
+      action={<div className="shop-header-actions"><button type="button" onClick={toggleCurrency}>{currency === 'AED' ? 'AED · show ZAR' : 'ZAR · show AED'}</button><button type="button" onClick={() => onAsk('Help me plan a practical Abu Dhabi shopping list.', `My Shop & Save list: ${items.map(item => item.name).join(', ')}`)}>AI help</button></div>}
+    >
+      <nav className="shop-tabs" aria-label="Shop and Save sections">{SHOP_TABS.map(item => <button key={item.id} type="button" className={tab === item.id ? 'is-active' : ''} onClick={() => openTab(item.id)}><span>{item.icon}</span>{item.label}</button>)}</nav>
+      {notice && <div className="shop-notice" role="status">{notice}<button type="button" onClick={() => setNotice('')}>×</button></div>}
+      {tab === 'list' && listContent}
+      {tab === 'check' && checkContent}
+      {tab === 'deals' && dealsContent}
+      {tab === 'watch' && watchContent}
+      {tab === 'sa' && saContent}
 
-      <div style={{ marginTop: 14 }}>
-        <Button full variant="soft" icon="＋" onClick={() => setAdding(true)}>Add something</Button>
-      </div>
+      <Modal open={logOpen} onClose={() => setLogOpen(false)} title="Log a real price">
+        <form className="price-log-form" onSubmit={submitLoggedPrice}>
+          <p>What you saw becomes useful community data. Your name, store and date stay attached.</p>
+          <label><span>Product</span><input value={logProduct} onChange={event => setLogProduct(event.target.value)} required placeholder="e.g. Woolworths biltong" /></label>
+          <div className="price-log-grid"><label><span>Store</span><input value={logStore} onChange={event => setLogStore(event.target.value)} required placeholder="Spinneys" /></label><label><span>Area</span><input value={logArea} onChange={event => setLogArea(event.target.value)} placeholder="Khalifa City" /></label></div>
+          <div className="price-log-grid"><label><span>Price (AED)</span><input value={logPrice} onChange={event => setLogPrice(event.target.value)} required type="number" min="0" step="0.01" placeholder="34.50" /></label><label><span>Date seen</span><input value={logDate} onChange={event => setLogDate(event.target.value)} required type="date" /></label></div>
+          <label><span>Category</span><select value={logCategory} onChange={event => setLogCategory(event.target.value)}>{SHOP_CATEGORIES.map(category => <option key={category}>{category}</option>)}</select></label>
+          <label className="price-proof-picker"><span>Shelf-tag photo <small>optional proof</small></span><input ref={proofRef} type="file" accept="image/*" capture="environment" hidden onChange={event => setLogPhoto(event.target.files?.[0] || null)} /><button type="button" onClick={() => proofRef.current?.click()}>▣ {logPhoto ? logPhoto.name : 'Add a photo'}</button></label>
+          <label className="price-deal-toggle"><input type="checkbox" checked={logDeal} onChange={event => setLogDeal(event.target.checked)} /><span><strong>This is a special</strong><small>Add it to Deals this week.</small></span></label>
+          {logDeal && <div className="price-log-grid"><label><span>Usual price</span><input value={logOriginal} onChange={event => setLogOriginal(event.target.value)} type="number" min="0" step="0.01" /></label><label><span>Ends</span><input value={logExpiry} onChange={event => setLogExpiry(event.target.value)} type="date" /></label></div>}
+          <div className="shop-form-actions"><Button variant="ghost" onClick={() => setLogOpen(false)}>Cancel</Button><Button type="submit" disabled={loading}>{loading ? 'Saving…' : 'Save price'}</Button></div>
+        </form>
+      </Modal>
+
+      <Modal open={Boolean(watchEditor)} onClose={() => setWatchEditor(null)} title="Set a price watch">
+        <form className="price-log-form" onSubmit={saveWatch}>
+          <p>Choose your target for <strong>{watchEditor?.name}</strong>. Watches belong only to your account.</p>
+          <label><span>Notify me at or below (AED)</span><input value={watchTarget} onChange={event => setWatchTarget(event.target.value)} type="number" min="0" step="0.01" required autoFocus /></label>
+          <input className="price-range" type="range" min="0" max={Math.max(500, Number(watchTarget) * 2 || 500)} step="1" value={Number(watchTarget) || 0} onChange={event => setWatchTarget(event.target.value)} />
+          <div className="shop-form-actions"><Button variant="ghost" onClick={() => setWatchEditor(null)}>Cancel</Button><Button type="submit" disabled={loading}>Save watch</Button></div>
+        </form>
+      </Modal>
     </ModulePage>
   );
 }
