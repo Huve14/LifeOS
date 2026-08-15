@@ -41,12 +41,17 @@ describe('Life OS preferences', () => {
 
   it('swaps duplicate dock choices instead of removing a slot', () => {
     const next = setQuickNavSlot(DEFAULT_PREFERENCES, 0, 'shopping');
-    expect(next).toEqual(['shopping', 'community', 'map']);
+    expect(next).toEqual(['shopping', 'budget', 'map']);
   });
 
   it('moves accounts on the old default dock to Map, Community, Shop & Save', () => {
     const migrated = preparePreferences({ quickNav: ['map', 'docs', 'budget'] });
-    expect(migrated.quickNav).toEqual(['map', 'community', 'shopping']);
+    expect(migrated.quickNav).toEqual(['map', 'budget', 'shopping']);
+  });
+
+  it('replaces the former Community default shortcut with Budget', () => {
+    const migrated = preparePreferences({ quickNav: ['map', 'community', 'shopping'] });
+    expect(migrated.quickNav).toEqual(['map', 'budget', 'shopping']);
   });
 
   it('applies a life mode while keeping a complete preference object', () => {

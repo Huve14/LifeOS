@@ -1531,9 +1531,9 @@ function SettingsScreen({ profile, email, preferences, onPreferencesChange, onPr
 const NAV_CATALOG = [
   { id: 'home',    label: 'Home',      icon: 'House' },
   { id: 'map',     label: 'Map',       icon: 'Map' },
-  { id: 'community', label: 'Community', icon: 'UsersRound' },
-  { id: 'shopping', label: 'Shop & Save', icon: 'ShoppingBasket' },
-  { id: 'settings', label: 'Me',       icon: 'UserRound' },
+  { id: 'community', label: 'Community', icon: 'Users' },
+  { id: 'shopping', label: 'Shop & Save', icon: 'ShoppingCart' },
+  { id: 'settings', label: 'Settings', icon: 'Settings' },
   { id: 'notes',    label: 'Journal',  icon: 'NotebookPen' },
   { id: 'budget',  label: 'Budget',    icon: 'Wallet' },
   { id: 'call',     label: 'Calls',     icon: 'Phone' },
@@ -1711,22 +1711,22 @@ function BottomNav({ current, onNavigate, preferences }) {
             }}
             className={`bottom-nav-item${activeMoreItem || moreOpen ? ' is-active' : ''}`}
             aria-expanded={moreOpen}
-            aria-label="Me and more destinations"
+            aria-label="Settings and more destinations"
           >
             <span className="bottom-nav-icon">
               <AnimatedIcon
-                name="UserRound"
+                name="Settings"
                 size={26}
                 play={playTriggers.more || 0}
               />
             </span>
-            <span className="bottom-nav-label">Me</span>
+            <span className="bottom-nav-label">Settings</span>
             <NavDot show={moreNeedsAttention(current, unwatched, promptWaiting)} />
           </button>
         </div>
       </nav>
 
-      <Sheet open={moreOpen} onClose={() => setMoreOpen(false)} title="Me & tools" height="auto" lightweight>
+      <Sheet open={moreOpen} onClose={() => setMoreOpen(false)} title="Settings & tools" height="auto" lightweight>
           <div className="bottom-nav-more-grid">
             {moreNav.map(item => {
               const active = navItemIsActive(item.id, current);
