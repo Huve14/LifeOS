@@ -147,7 +147,7 @@ function applyProgress(seed, level) {
   });
 
   // documents
-  data.documents.forEach((d, i) => {
+  data.documents.forEach(d => {
     if (Math.random() < ratio) d.status = 'done';
   });
 
@@ -237,7 +237,7 @@ async function askHuve(prompt, context = '') {
     try {
       const resp = await window.claude.complete({ messages: [ { role: 'user', content: `${sys}\n\n${user}` } ] });
       return typeof resp === 'string' ? resp : (resp.text || resp.content || '...');
-    } catch (e) {
+    } catch {
       return "I'm having trouble connecting. Please try again in a moment.";
     }
   }

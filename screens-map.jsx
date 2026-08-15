@@ -176,15 +176,15 @@ const ABU_DHABI_LOCATIONS = [
   },
   {
     id: 'lulu-hypermarket',
-    name: 'Lulu Hypermarket (Al Khalifa)',
+    name: 'Lulu Hypermarket (Forsan Central)',
     category: 'essential',
-    lng: 54.3986,
-    lat: 24.1559,
+    lng: 54.5654649,
+    lat: 24.4104672,
     emoji: '🛒',
-    description: 'Your go-to grocery store near Al Khalifa City. Fresh produce, household items, and international foods.',
-    tip: 'Open daily 8AM–12AM · Wide selection of Indian/Asian products · Affordable prices · Delivery via Lulu app',
+    description: 'A full-size hypermarket inside Forsan Central Mall in Khalifa City, with fresh produce, household items, and international foods.',
+    tip: 'Inside Forsan Central Mall · Wide international selection · Check today’s hours before travelling · Delivery via Lulu app',
     huvePrompt: 'Tell me about grocery shopping in Abu Dhabi — which stores near Al Khalifa City are best for different needs, delivery options, and approximate prices.',
-    address: 'Al Khalifa City, Abu Dhabi',
+    address: 'Forsan Central Mall, Khalifa City, Abu Dhabi',
   },
   // ── Neighbourhood ──
   {
@@ -258,18 +258,6 @@ const ABU_DHABI_LOCATIONS = [
     description: 'Your school in Al Khalifa City. A modern campus serving the local community.',
     tip: 'Walking distance from most studios in Al Khalifa City A · Carpool with colleagues · Nearby bus route',
     huvePrompt: 'Tell me about Al Choufeit School in Al Khalifa City, Abu Dhabi — what the campus is like, the community feel, and tips for settling in as a new teacher.',
-    address: 'Al Khalifa City, Abu Dhabi',
-  },
-  {
-    id: 'lulu-khalifa',
-    name: 'Lulu Hypermarket (Al Khalifa)',
-    category: 'neighbourhood',
-    lng: 54.4298,
-    lat: 24.1638,
-    emoji: '🛒',
-    description: 'The go-to grocery store for fresh produce, international foods, and household essentials. Walkable from the city A.',
-    tip: 'Open 8AM–midnight · Fresh bread section · Halal meat · Great for spice mixes and South Asian staples',
-    huvePrompt: 'Tell me about Lulu Hypermarket in Al Khalifa City — what to buy there, the best times to shop, and how it compares to back home.',
     address: 'Al Khalifa City, Abu Dhabi',
   },
   {
@@ -349,7 +337,7 @@ const CATEGORY_COLORS = {
 };
 
 /* ── Map Screen ── */
-function MapScreen({ state, setState, onBack, onAsk }) {
+function MapScreen({ state, onBack, onAsk }) {
   const [filter, setFilter] = useState('all');
   const [selected, setSelected] = useState(null);
 

@@ -213,7 +213,7 @@ function TweaksPanel({ title = 'Tweaks', noDeckControls = false, children }) {
     return () => window.removeEventListener('message', onMsg);
   }, [hasDeckStage, railEnabled]);
   const [railVisible, setRailVisible] = React.useState(() => {
-    try { return localStorage.getItem('deck-stage.railVisible') !== '0'; } catch (e) { return true; }
+    try { return localStorage.getItem('deck-stage.railVisible') !== '0'; } catch { return true; }
   });
   const toggleRail = (on) => {
     setRailVisible(on);

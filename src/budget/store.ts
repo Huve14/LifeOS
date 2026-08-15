@@ -1,3 +1,5 @@
+/// <reference types="node" />
+
 import { readFile, writeFile, mkdir, rename } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join } from 'path';

@@ -1,6 +1,6 @@
 // shared-list.jsx — Mobile-optimised shared shopping list with live claiming
 
-const { useState, useEffect, useCallback, Fragment } = React;
+const { useState, useEffect, useCallback } = React;
 
 const SHOPPER_NAME_KEY = 'lifeos:shopper-name';
 
@@ -14,7 +14,6 @@ function saveName(n) {
 function SharedList({ token }) {
   const [items, setItems] = useState([]);
   const [valid, setValid] = useState(null);
-  const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [shopperName, setShopperName] = useState(loadSavedName);
   const [showNameInput, setShowNameInput] = useState(false);
@@ -188,14 +187,6 @@ function SharedList({ token }) {
 
       {/* Items grouped by category */}
       <div style={{ padding: '16px 14px' }}>
-        {error && (
-          <div style={{
-            background: '#fef2f2', color: '#b91c1c',
-            padding: '10px 14px', borderRadius: 12,
-            fontSize: 13, fontWeight: 500, marginBottom: 12,
-          }}>{error}</div>
-        )}
-
         {Object.entries(categories).map(([cat, catItems]) => (
           <div key={cat} style={{ marginBottom: 20 }}>
             <h3 style={{

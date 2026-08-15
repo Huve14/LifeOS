@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 // Map utility / lightweight MapLibre GL wrapper for the legacy modules
 // Uses inline styles to match the existing codebase (no Tailwind dependency)
 
-const { useEffect, useRef, useState, useCallback, useMemo } = React;
+const { useEffect, useRef, useState, useMemo } = React;
 
 /* ── Theme detection (matches app's [data-dark] attr) ── */
 function useMapTheme() {
@@ -32,12 +32,6 @@ const STYLES = {
   dark: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
   light: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
 };
-
-function createPopupContent(html) {
-  const el = document.createElement('div');
-  el.innerHTML = html;
-  return el;
-}
 
 /* ── Map component ── */
 function MapLibreMap({
@@ -87,7 +81,7 @@ function MapLibreMap({
   const ctx = useMemo(() => ({ map: mapRef, loaded }), [loaded]);
 
   return (
-    <div ref={containerRef} style={{ width: '100%', height: '100%', position: 'relative' }}>
+    <div ref={containerRef} className={className} style={{ width: '100%', height: '100%', position: 'relative' }}>
       {children && loaded && (
         <MapContextProvider ctx={ctx}>{children}</MapContextProvider>
       )}
@@ -107,7 +101,7 @@ function useMapCtx() {
 }
 
 /* ── Marker ── */
-function MapMarker({ longitude, latitude, children, onClick, color }) {
+function MapMarker({ longitude, latitude, children, onClick }) {
   const { map } = useMapCtx();
   const markerRef = useRef(null);
 

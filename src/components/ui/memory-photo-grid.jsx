@@ -114,8 +114,6 @@ function MemoryPhotoGrid({
   const wrapperRef = useRef(null);
   const scrollContainerRef = useRef(null);
   const [containerReady, setContainerReady] = useState(false);
-  const imageCount = images.length || FALLBACK_IMAGES.length;
-
   useEffect(() => {
     const parent = getScrollParent(wrapperRef.current) ?? document.getElementById('root');
     if (parent) scrollContainerRef.current = parent;
@@ -151,7 +149,7 @@ function MemoryPhotoGrid({
   );
 
   return (
-    <div ref={wrapperRef} style={{ position: 'relative', width: '100%' }}>
+    <div ref={wrapperRef} className={className} style={{ position: 'relative', width: '100%' }}>
       {containerReady && (
         <div style={{
           margin: '0 auto', width: '100%',

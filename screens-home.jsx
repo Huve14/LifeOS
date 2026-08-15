@@ -468,71 +468,6 @@ function Onboarding({ onDone, initialDate, user }) {
 }
 
 // ---------- Countdown ----------
-function CountdownHero({ moveDate, layout, total, done, destination }) {
-  const days = daysUntil(moveDate);
-  const pct = total > 0 ? Math.round((done/total) * 100) : 0;
-
-  if (layout === 'cards') {
-    // Compact card style
-    return (
-      <Card style={{ background: 'linear-gradient(135deg, var(--honey) 0%, var(--butter) 100%)', color: '#17272D', border: 'none' }} padding="20px">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <div>
-            <div style={{ fontSize: 11, opacity: 0.85, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Wheels up in</div>
-            <div style={{ fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif', fontWeight: 800, fontSize: 56, lineHeight: 1, marginTop: 6 }}>
-              {days}
-              <span style={{ fontSize: 18, fontWeight: 600, opacity: 0.85, marginLeft: 6 }}>days</span>
-            </div>
-            <div style={{ fontSize: 12, opacity: 0.8, marginTop: 6 }}>{formatDate(moveDate)} · AUH 🛬</div>
-          </div>
-          <div style={{ fontSize: 56, opacity: 0.4 }}>✈️</div>
-        </div>
-      </Card>
-    );
-  }
-
-  if (layout === 'timeline') {
-    return (
-      <Card padding="20px">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <ProgressBar value={done} total={total || 1} style="circle" color="var(--terracotta)" />
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Move day</div>
-            <div style={{ fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif', fontSize: 22, fontWeight: 700, marginTop: 2 }}>
-              {days} {days === 1 ? 'day' : 'days'}
-            </div>
-            <div style={{ fontSize: 12, color: 'var(--muted)' }}>{formatDate(moveDate)}</div>
-          </div>
-        </div>
-      </Card>
-    );
-  }
-
-  // Default "classic"
-  return (
-    <Card padding="22px" style={{ background: 'var(--white)' }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-        <span style={{ fontSize: 13, color: 'var(--muted)', fontWeight: 600 }}>📍 {destination || 'Set your destination'}</span>
-      </div>
-      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 8 }}>
-        <div>
-          <div style={{ fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif', fontWeight: 800, fontSize: 64, lineHeight: 0.95, color: 'var(--terracotta)' }}>
-            {days}
-          </div>
-          <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>days until {formatDate(moveDate)}</div>
-        </div>
-        <ProgressBar value={done} total={total || 1} style="circle" color="var(--gold)" />
-      </div>
-      <div style={{ marginTop: 16, display: 'flex', gap: 8, alignItems: 'center', fontSize: 12, color: 'var(--muted)' }}>
-        <div style={{ flex: 1, height: 1, background: 'var(--line)' }} />
-        <span>{pct}% packed in spirit</span>
-        <div style={{ flex: 1, height: 1, background: 'var(--line)' }} />
-      </div>
-    </Card>
-  );
-}
-
-// ---------- Module card on dashboard ----------
 function ModuleCard({ module, progress, onClick, progressStyle, layout }) {
   const { done, total, isMoney } = progress;
   const pct = total > 0 ? Math.round((done/total) * 100) : 0;
@@ -1774,7 +1709,9 @@ function AskHuveSheet({ open, onClose, initialPrompt, context = '' }) {
         const path = await window.__suvedaPhotos?.upload(file);
         const url = path ? await window.__suvedaPhotos?.signedUrl(path, 600) : null;
         if (path && url) newFiles.push({ id: uid(), path, url, name: file.name, type: file.type });
-      } catch {}
+      } catch {
+        // Keep the successful uploads when one selected file fails.
+      }
     }
     if (newFiles.length > 0) {
       setUploadedFiles(f => [...f, ...newFiles]);
@@ -1802,7 +1739,7 @@ function AskHuveSheet({ open, onClose, initialPrompt, context = '' }) {
       const aiMessage = { role: 'ai', text: reply };
       setMessages(m => [...m, aiMessage]);
       await store?.appendChatMessage?.(aiMessage, 'main');
-    } catch (e) {
+    } catch {
       const aiMessage = { role: 'ai', text: "I'm having trouble right now. Try again in a moment." };
       setMessages(m => [...m, aiMessage]);
       await store?.appendChatMessage?.(aiMessage, 'main');
@@ -1999,6 +1936,6 @@ function AskHuveSheet({ open, onClose, initialPrompt, context = '' }) {
 }
 
 Object.assign(window, {
-  Onboarding, Dashboard, AskHuveSheet, CountdownHero, ModuleCard, NotesJournalScreen,
+  Onboarding, Dashboard, AskHuveSheet, ModuleCard, NotesJournalScreen,
   MODULES, daysUntil, formatDate, moduleProgress, overallProgress,
 });
