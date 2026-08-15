@@ -1,5 +1,6 @@
 import './index.css'
-import { initPwaUpdates } from './pwa'
+import { initPwaInstallPrompt, initPwaUpdates } from './pwa'
 import './legacy-entry'
 
+initPwaInstallPrompt()
 initPwaUpdates()

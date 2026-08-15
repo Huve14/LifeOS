@@ -1,5 +1,13 @@
 // screens-home.jsx — Home/Dashboard, written journal, Onboarding, AI sheet
 
+import {
+  canPromptPwaInstall,
+  detectPwaInstallPlatform,
+  getPwaInstallGuide,
+  isPwaInstalled,
+  promptPwaInstall,
+} from './src/pwa.ts';
+
 const SolarGravityHero = React.lazy(() => import('./src/components/ui/solar-gravity-hero.tsx'));
 
 // ---------- Helpers ----------
@@ -160,6 +168,37 @@ function Onboarding({ onDone, initialDate, user }) {
   });
   const [authError, setAuthError] = React.useState('');
   const [authLoading, setAuthLoading] = React.useState(false);
+  const [installGuideVisible, setInstallGuideVisible] = React.useState(() => !isPwaInstalled());
+  const [installPromptReady, setInstallPromptReady] = React.useState(() => canPromptPwaInstall());
+  const [installStatus, setInstallStatus] = React.useState('idle');
+  const installGuide = getPwaInstallGuide(detectPwaInstallPlatform());
+
+  React.useEffect(() => {
+    const handlePromptReady = () => setInstallPromptReady(true);
+    const handleInstalled = () => {
+      setInstallStatus('installed');
+      setInstallPromptReady(false);
+      window.setTimeout(() => setInstallGuideVisible(false), 1400);
+    };
+    window.addEventListener('lifeos:pwa-install-ready', handlePromptReady);
+    window.addEventListener('lifeos:pwa-installed', handleInstalled);
+    return () => {
+      window.removeEventListener('lifeos:pwa-install-ready', handlePromptReady);
+      window.removeEventListener('lifeos:pwa-installed', handleInstalled);
+    };
+  }, []);
+
+  async function installLifeOSApp() {
+    setInstallStatus('prompting');
+    const outcome = await promptPwaInstall();
+    if (outcome === 'accepted') {
+      setInstallStatus('installed');
+      setInstallPromptReady(false);
+      window.setTimeout(() => setInstallGuideVisible(false), 1400);
+      return;
+    }
+    setInstallStatus(outcome === 'dismissed' ? 'dismissed' : 'idle');
+  }
 
   async function handleAuth(e) {
     e.preventDefault();
@@ -260,6 +299,39 @@ function Onboarding({ onDone, initialDate, user }) {
                 Your everyday companion for life in Abu Dhabi. Sign in to continue or register your private account.
               </p>
             </div>
+            {installGuideVisible && (
+              <section className="onboarding-install-card" aria-labelledby="onboarding-install-title">
+                <div className="onboarding-install-heading">
+                  <span className="onboarding-install-icon" aria-hidden="true"><AnimatedIcon name="Download" size={24} /></span>
+                  <div>
+                    <div className="onboarding-install-eyebrow">INSTALL THE WEB APP</div>
+                    <h2 id="onboarding-install-title">Put Life OS on your Home Screen</h2>
+                    <p>Open it full-screen like an app and receive every new update automatically. No App Store needed.</p>
+                  </div>
+                </div>
+                <div className="onboarding-install-platform"><span aria-hidden="true">●</span>{installGuide.label}</div>
+                <ol className="onboarding-install-steps">
+                  {installGuide.steps.map((instruction, index) => (
+                    <li key={instruction}><span>{index + 1}</span><p>{instruction}</p></li>
+                  ))}
+                </ol>
+                {installStatus === 'installed' ? (
+                  <div className="onboarding-install-success" role="status"><AnimatedIcon name="CircleCheck" size={19} /> Life OS is installed</div>
+                ) : (
+                  <div className="onboarding-install-actions">
+                    {installPromptReady && (
+                      <Button full onClick={installLifeOSApp} disabled={installStatus === 'prompting'}>
+                        <AnimatedIcon name="Download" size={18} /> {installStatus === 'prompting' ? 'Opening install…' : 'Install Life OS'}
+                      </Button>
+                    )}
+                    <button type="button" className="onboarding-install-later" onClick={() => setInstallGuideVisible(false)}>
+                      {installPromptReady ? 'Not now' : 'Got it — continue to sign in'}
+                    </button>
+                  </div>
+                )}
+                {installStatus === 'dismissed' && <p className="onboarding-install-note" role="status">No problem — you can use the steps above whenever you are ready.</p>}
+              </section>
+            )}
             {/* Auth form card */}
             <div className={`onboarding-auth-card${authMode === 'signup' ? ' is-registering' : ''}`} style={{
               background: 'var(--white)', borderRadius: 20, padding: '22px 20px',

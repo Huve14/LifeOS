@@ -2,8 +2,104 @@ const SERVICE_WORKER_URL = '/sw.js';
 const UPDATE_INTERVAL_MS = 30 * 60 * 1000;
 const MIN_CHECK_GAP_MS = 60 * 1000;
 
+type BeforeInstallPromptEvent = Event & {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
+};
+
+export type PwaInstallPlatform = 'ios' | 'android' | 'desktop';
+export type PwaInstallOutcome = 'accepted' | 'dismissed' | 'unavailable';
+
+export type PwaInstallGuide = {
+  platform: PwaInstallPlatform;
+  label: string;
+  steps: [string, string, string];
+};
+
 let initialized = false;
 let reloadStarted = false;
+let installPromptInitialized = false;
+let deferredInstallPrompt: BeforeInstallPromptEvent | null = null;
+
+export function detectPwaInstallPlatform(
+  userAgent = navigator.userAgent,
+  maxTouchPoints = navigator.maxTouchPoints,
+): PwaInstallPlatform {
+  if (/iPhone|iPad|iPod/i.test(userAgent) || (/Macintosh/i.test(userAgent) && maxTouchPoints > 1)) return 'ios';
+  if (/Android/i.test(userAgent)) return 'android';
+  return 'desktop';
+}
+
+export function getPwaInstallGuide(platform: PwaInstallPlatform): PwaInstallGuide {
+  if (platform === 'ios') {
+    return {
+      platform,
+      label: 'On iPhone or iPad',
+      steps: [
+        'Open Life OS in Safari and tap the Share button.',
+        'Scroll down and choose “Add to Home Screen”.',
+        'Tap “Add” — Life OS will appear with your other apps.',
+      ],
+    };
+  }
+  if (platform === 'android') {
+    return {
+      platform,
+      label: 'On Android',
+      steps: [
+        'Tap “Install Life OS” below, or open your browser menu.',
+        'Choose “Install app” or “Add to Home screen”.',
+        'Confirm Install, then open Life OS from your Home Screen.',
+      ],
+    };
+  }
+  return {
+    platform,
+    label: 'On this computer',
+    steps: [
+      'Select “Install Life OS” below or the install icon in the address bar.',
+      'Confirm Install when your browser asks.',
+      'Open Life OS from your desktop, Dock, or Start menu.',
+    ],
+  };
+}
+
+export function isPwaInstalled(): boolean {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') return false;
+  const standaloneNavigator = navigator as Navigator & { standalone?: boolean };
+  return window.matchMedia?.('(display-mode: standalone)').matches === true
+    || standaloneNavigator.standalone === true;
+}
+
+export function canPromptPwaInstall(): boolean {
+  return deferredInstallPrompt !== null;
+}
+
+export async function promptPwaInstall(): Promise<PwaInstallOutcome> {
+  const prompt = deferredInstallPrompt;
+  if (!prompt) return 'unavailable';
+  await prompt.prompt();
+  const choice = await prompt.userChoice;
+  if (choice.outcome === 'accepted') deferredInstallPrompt = null;
+  return choice.outcome;
+}
+
+/** Capture the browser's one-time install prompt before the React shell mounts. */
+export function initPwaInstallPrompt(): void {
+  if (installPromptInitialized || typeof window === 'undefined') return;
+  installPromptInitialized = true;
+
+  window.addEventListener('beforeinstallprompt', event => {
+    event.preventDefault();
+    deferredInstallPrompt = event as BeforeInstallPromptEvent;
+    window.dispatchEvent(new CustomEvent('lifeos:pwa-install-ready'));
+  });
+
+  window.addEventListener('appinstalled', () => {
+    deferredInstallPrompt = null;
+    window.dispatchEvent(new CustomEvent('lifeos:pwa-installed'));
+  });
+}
 
 function refreshWhenSafe(): void {
   if (reloadStarted) return;
