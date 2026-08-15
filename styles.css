@@ -2266,7 +2266,25 @@ img, video, canvas {
 }
 
 .onboarding-auth-screen .onboarding-visual {
+  display: grid;
+  width: 100%;
+  place-items: center;
   margin-bottom: clamp(10px, 2vh, 18px);
+}
+
+.onboarding-auth-screen .onboarding-visual-scale {
+  --onboarding-globe-size: 200px;
+  --onboarding-globe-scale: 1;
+  display: grid;
+  width: var(--onboarding-globe-size);
+  height: var(--onboarding-globe-size);
+  place-items: start;
+  margin-inline: auto;
+}
+
+.onboarding-auth-screen .onboarding-visual-scale > * {
+  transform: scale(var(--onboarding-globe-scale));
+  transform-origin: top left;
 }
 
 .onboarding-auth-intro {
@@ -5848,9 +5866,8 @@ img, video, canvas {
   }
 
   .onboarding-auth-screen .onboarding-visual-scale {
-    height: 156px;
-    transform: scale(0.78);
-    transform-origin: top center;
+    --onboarding-globe-size: 156px;
+    --onboarding-globe-scale: 0.78;
   }
 
   .onboarding-tour-screen {
@@ -6185,7 +6202,8 @@ img, video, canvas {
   }
 
   .onboarding-auth-screen .onboarding-visual-scale {
-    transform: scale(0.68);
+    --onboarding-globe-size: 136px;
+    --onboarding-globe-scale: 0.68;
   }
 
   .onboarding-tour-screen {
