@@ -6,6 +6,9 @@ describe('Shop & Save price helpers', () => {
     expect(parseMoneyInput('12.99')).toBe(12.99);
     expect(parseMoneyInput('1,204.50')).toBe(1204.5);
     expect(parseMoneyInput('-1')).toBeNull();
+    expect(parseMoneyInput(undefined)).toBeNull();
+    expect(parseMoneyInput(null)).toBeNull();
+    expect(parseMoneyInput({ amount: 12.99 })).toBeNull();
     expect(formatAED(12.99)).toBe('AED 12.99');
   });
 

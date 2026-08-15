@@ -106,7 +106,8 @@ const PRODUCT_SELECT = 'id, name, brand, barcode, category, image_url, is_sa_fav
 const STORE_SELECT = 'id, name, area, emirate';
 const PRICE_SELECT = `id, product_id, store_id, price, currency, source, seen_at, submitted_by, submitted_name, confidence, photo_path, product:lifeos_products(${PRODUCT_SELECT}), store:lifeos_stores(${STORE_SELECT})`;
 
-export function parseMoneyInput(value: string | number): number | null {
+export function parseMoneyInput(value: unknown): number | null {
+  if (typeof value !== 'string' && typeof value !== 'number') return null;
   if (typeof value === 'string' && value.trim() === '') return null;
   const amount = typeof value === 'number' ? value : Number.parseFloat(value.replace(/,/g, '').trim());
   if (!Number.isFinite(amount) || amount < 0) return null;
