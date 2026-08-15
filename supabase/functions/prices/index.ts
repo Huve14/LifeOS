@@ -1,16 +1,25 @@
 // Server-side price ingestion for Shop & Save.
 //
 // The browser invokes this authenticated function on the Supabase domain. It
-// never receives external API credentials and never contacts retailer sites.
-// Open Food Facts identifies barcodes, Open Prices supplies attributed price
-// observations, Frankfurter supplies AED/ZAR, and NVIDIA is the explicitly
-// labelled last-resort estimate tier.
+// never receives external API credentials. Open Food Facts identifies barcodes,
+// Open Prices supplies attributed price observations, Frankfurter supplies
+// AED/ZAR, and NVIDIA is the explicitly labelled last-resort estimate tier.
+//
+// `refresh-deals` additionally reads the Abu Dhabi and Dubai retailers and
+// flyer aggregators listed in sources/catalogue.ts. Those are read through the
+// shared schema.org parser, honour robots.txt, and report per-source health
+// into lifeos_price_sources so a dead feed is visible rather than silent.
 
 import { createClient, type SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 
+import { SOURCE_CATALOGUE, findSource } from './sources/catalogue.ts';
+import { collectFromSources } from './sources/ingest.ts';
+import { detectEmirate } from './sources/normalize.ts';
+import { UNKNOWN_EMIRATE, persistOffers, recordHealth } from './persist.ts';
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-cron-secret',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
@@ -20,7 +29,7 @@ const FRANKFURTER_URL = 'https://api.frankfurter.dev/v2/rate/AED/ZAR';
 const NVIDIA_URL = 'https://integrate.api.nvidia.com/v1/chat/completions';
 const USER_AGENT = 'LifeOS/1.0 (https://life-os-hs.vercel.app)';
 
-type LookupBody = { action?: string; query?: string; barcode?: string };
+type LookupBody = { action?: string; query?: string; barcode?: string; slugs?: string[] };
 type ProductIdentity = {
   name: string;
   brand: string;
@@ -129,7 +138,7 @@ async function ensureProduct(client: SupabaseClient, identity: ProductIdentity):
   return created.data.id;
 }
 
-function storeIdentity(row: OpenPrice): { name: string; area: string } {
+function storeIdentity(row: OpenPrice): { name: string; area: string; emirate: string } {
   const location = asObject(row.location);
   const name = cleanText(location.osm_name)
     || cleanText(location.name)
@@ -139,19 +148,27 @@ function storeIdentity(row: OpenPrice): { name: string; area: string } {
     || cleanText(location.locality)
     || cleanText(location.address)
     || (row.location_id ? `Location ${row.location_id}` : '');
-  return { name, area };
+  // Open Prices is a worldwide dataset, so the emirate has to be derived from
+  // the record rather than assumed. Anything unrecognised stays unknown.
+  return { name, area, emirate: detectEmirate(area, name) ?? UNKNOWN_EMIRATE };
 }
 
-async function ensureStore(client: SupabaseClient, name: string, area: string): Promise<string> {
+async function ensureStore(
+  client: SupabaseClient,
+  name: string,
+  area: string,
+  emirate: string,
+): Promise<string> {
   const existing = await client
     .from('lifeos_stores')
     .select('id')
     .ilike('name', name)
     .ilike('area', area)
+    .ilike('emirate', emirate)
     .limit(1)
     .maybeSingle();
   if (existing.data?.id) return existing.data.id;
-  const created = await client.from('lifeos_stores').insert({ name, area, emirate: 'Abu Dhabi' }).select('id').single();
+  const created = await client.from('lifeos_stores').insert({ name, area, emirate }).select('id').single();
   if (created.error || !created.data) throw created.error ?? new Error('Could not store location');
   return created.data.id;
 }
@@ -187,7 +204,7 @@ async function importOpenPrices(
       .maybeSingle();
     if (alreadyThere.data) continue;
     const store = storeIdentity(row);
-    const storeId = await ensureStore(client, store.name, store.area);
+    const storeId = await ensureStore(client, store.name, store.area, store.emirate);
     const seenAt = row.date ? `${row.date}T12:00:00.000Z` : new Date().toISOString();
     const insert = await client.from('lifeos_price_points').insert({
       product_id: productId,
@@ -256,7 +273,7 @@ async function importAiEstimate(
   const high = Number(estimate.high);
   if (!Number.isFinite(low) || !Number.isFinite(high) || low < 0 || high < low) return 0;
   const price = Math.round(((low + high) / 2 + Number.EPSILON) * 100) / 100;
-  const storeId = await ensureStore(client, 'Abu Dhabi estimate', 'Market-wide');
+  const storeId = await ensureStore(client, 'Abu Dhabi estimate', 'Market-wide', 'Abu Dhabi');
   const day = new Date().toISOString().slice(0, 10);
   const reference = `estimate:${productId}:${day}`;
   const existing = await client.from('lifeos_price_points').select('id').eq('source', 'estimate').eq('source_reference', reference).maybeSingle();
@@ -303,18 +320,130 @@ async function handleLookup(client: SupabaseClient, body: LookupBody): Promise<R
   return response({ productId, imported, deals, warnings });
 }
 
+async function sha256(value: string): Promise<string> {
+  const bytes = new TextEncoder().encode(value);
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
+}
+
+function constantTimeEqual(left: string, right: string): boolean {
+  if (left.length !== right.length) return false;
+  let difference = 0;
+  for (let index = 0; index < left.length; index += 1) {
+    difference |= left.charCodeAt(index) ^ right.charCodeAt(index);
+  }
+  return difference === 0;
+}
+
+/** The scheduled refresh authenticates with the shared cron secret, not a JWT. */
+async function authorizedCron(request: Request, client: SupabaseClient): Promise<boolean> {
+  const supplied = request.headers.get('x-cron-secret')?.trim() ?? '';
+  if (!supplied) return false;
+
+  const configured = Deno.env.get('PRICES_CRON_SECRET')?.trim()
+    ?? Deno.env.get('AUTOMATIONS_CRON_SECRET')?.trim()
+    ?? '';
+  if (configured && constantTimeEqual(supplied, configured)) return true;
+
+  const stored = await client
+    .from('lifeos_automation_cron_tokens')
+    .select('secret_digest')
+    .eq('id', true)
+    .maybeSingle();
+  if (stored.error || !stored.data?.secret_digest) return false;
+  return constantTimeEqual(await sha256(supplied), stored.data.secret_digest);
+}
+
+function serviceClient(): SupabaseClient {
+  return createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+    { auth: { persistSession: false, autoRefreshToken: false } },
+  );
+}
+
+/**
+ * Read every enabled source and store what they publish.
+ *
+ * Sources are isolated from one another, so a retailer that blocks us, changes
+ * its markup or goes down shows up as one 'error' row in lifeos_price_sources
+ * while the rest of the run still delivers specials.
+ */
+async function handleRefreshDeals(client: SupabaseClient, body: LookupBody): Promise<Response> {
+  const requested = Array.isArray(body.slugs)
+    ? body.slugs.map(slug => findSource(String(slug))).filter(source => source !== null)
+    : null;
+  const wanted = requested && requested.length > 0 ? requested : SOURCE_CATALOGUE;
+
+  // A source disabled in the registry stays untouched until it is re-enabled.
+  const { data: registry } = await client
+    .from('lifeos_price_sources')
+    .select('slug, enabled')
+    .in('slug', wanted.map(source => source.slug));
+  const disabled = new Set(
+    (registry ?? [])
+      .filter(row => (row as { enabled: boolean }).enabled === false)
+      .map(row => (row as { slug: string }).slug),
+  );
+  const definitions = wanted.filter(source => !disabled.has(source.slug));
+
+  for (const source of wanted.filter(candidate => disabled.has(candidate.slug))) {
+    await recordHealth(client, { slug: source.slug, status: 'skipped', prices: 0, deals: 0, error: null });
+  }
+
+  const results = await collectFromSources(definitions, {
+    userAgent: USER_AGENT,
+    fetchPage: async (url, init) => {
+      const apiResponse = await fetch(url, {
+        signal: init.signal,
+        redirect: 'follow',
+        headers: { 'User-Agent': USER_AGENT, Accept: 'text/html,application/xhtml+xml', 'Accept-Language': 'en-AE,en' },
+      });
+      // Only read the body when it is worth parsing.
+      const body = apiResponse.ok ? await apiResponse.text() : '';
+      return { ok: apiResponse.ok, status: apiResponse.status, body };
+    },
+  });
+
+  const summaries = [];
+  for (const result of results) {
+    summaries.push(await persistOffers(client, result));
+  }
+
+  return response({
+    sources: summaries.length,
+    prices: summaries.reduce((total, summary) => total + summary.prices, 0),
+    deals: summaries.reduce((total, summary) => total + summary.deals, 0),
+    live: summaries.filter(summary => summary.status === 'ok').map(summary => summary.slug),
+    failing: summaries.filter(summary => summary.status === 'error').map(summary => summary.slug),
+    empty: summaries.filter(summary => summary.status === 'empty').map(summary => summary.slug),
+  });
+}
+
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (request.method !== 'POST') return response({ error: 'Method not allowed' }, 405);
-  const auth = await authenticate(request);
-  if (!auth) return response({ error: 'Unauthorized' }, 401);
+
   let body: LookupBody;
   try {
     body = await request.json();
   } catch {
     return response({ error: 'JSON body required' }, 400);
   }
+
   try {
+    // The scheduler calls in with the cron secret and no user session.
+    if (body.action === 'refresh-deals') {
+      const client = serviceClient();
+      const viaCron = await authorizedCron(request, client);
+      const viaUser = viaCron ? null : await authenticate(request);
+      if (!viaCron && !viaUser) return response({ error: 'Unauthorized' }, 401);
+      return await handleRefreshDeals(client, body);
+    }
+
+    const auth = await authenticate(request);
+    if (!auth) return response({ error: 'Unauthorized' }, 401);
+
     if (body.action === 'fx') {
       const apiResponse = await fetch(FRANKFURTER_URL);
       if (!apiResponse.ok) return response({ error: 'Exchange rate unavailable' }, 502);
