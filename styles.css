@@ -4258,6 +4258,11 @@ img, video, canvas {
   padding-top: 16px;
 }
 
+/* One action left when live calling is hidden for regional compliance. */
+.home-connection-actions.is-single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .home-connection-actions button,
 .home-phrase-actions button {
   display: inline-flex;

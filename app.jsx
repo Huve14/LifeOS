@@ -2,6 +2,13 @@
 
 const { useState, useEffect, useMemo, useRef, useCallback } = React;
 
+// Live audio and video calling is hidden unless a deployment opts in. The UAE
+// reserves consumer VoIP for licensed operators, so every call entry point in
+// this shell — the route, the dock, the More menu, the developer jump list and
+// the browser invitation link — is gated on this one flag. See
+// src/lifeos/features.ts and docs/CALLS.md.
+const CALLS_ENABLED = window.__lifeos.features.CALLS_ENABLED;
+
 function createSeedState(tweaks) {
   return {
     moveDate: tweaks.moveDate,
@@ -155,6 +162,33 @@ function LockScreen({ onUnlock }) {
   );
 }
 
+// A saved /join/<token> invitation can still be opened after calling was
+// switched off. Answer it plainly instead of loading the call bundle.
+function CallingUnavailable() {
+  return (
+    <div className="app" style={{
+      minHeight: '100dvh', display: 'grid', placeItems: 'center',
+      padding: 'clamp(18px, 5vw, 48px)', background: 'var(--cream)', color: 'var(--dark)',
+    }}>
+      <main style={{ width: 'min(100%, 420px)', textAlign: 'center' }} role="alert">
+        <div style={{
+          width: 68, height: 68, margin: '0 auto 18px', borderRadius: 24,
+          display: 'grid', placeItems: 'center', fontSize: 28,
+          background: 'var(--sand)',
+        }} aria-hidden="true">☎</div>
+        <h1 style={{ fontSize: 'clamp(21px, 6vw, 28px)', marginBottom: 10 }}>
+          Calling is unavailable
+        </h1>
+        <p style={{ color: 'var(--muted)', lineHeight: 1.6, fontSize: 13, marginBottom: 22 }}>
+          {window.__lifeos.features.CALLS_DISABLED_NOTICE} You can still send a
+          video note or a message from inside Life OS.
+        </p>
+        <Button onClick={() => { window.location.href = '/'; }}>Open Life OS</Button>
+      </main>
+    </div>
+  );
+}
+
 // Feature screens are legacy global modules, but they do not need to occupy
 // memory before the user opens them. Keep one promise per bundle so taps,
 // pointer preloads and repeated visits always share the same request.
@@ -177,7 +211,7 @@ const LEGACY_BUNDLE_LOADERS = {
   journal: () => import('./video-journal.jsx'),
   prompt: () => import('./daily-prompt.jsx'),
   trip: () => import('./trip-board.jsx'),
-  call: () => import('./call.jsx'),
+  ...(CALLS_ENABLED ? { call: () => import('./call.jsx') } : {}),
   games: () => import('./games.jsx'),
   space: () => import('./space.jsx'),
   shared: () => import('./shared-list.jsx'),
@@ -189,7 +223,8 @@ const VIEW_BUNDLES = {
   memory: 'memory', map: 'map', journal: 'journal',
   community: 'community',
   toolkit: 'toolkit',
-  prompt: 'prompt', trip: 'trip', call: 'call', games: 'games', space: 'space',
+  prompt: 'prompt', trip: 'trip', games: 'games', space: 'space',
+  ...(CALLS_ENABLED ? { call: 'call' } : {}),
 };
 
 const legacyBundlePromises = new Map();
@@ -262,6 +297,7 @@ function App() {
   // onboarding so a recipient never needs a Life OS account or app install.
   const callInviteMatch = window.location.pathname.match(/^\/join\/([^/]+)/);
   if (callInviteMatch) {
+    if (!CALLS_ENABLED) return <CallingUnavailable />;
     const requestedMode = new URLSearchParams(window.location.search).get('mode');
     return (
       <LazyLegacyScreen
@@ -290,7 +326,7 @@ function App() {
   // branch from production builds because import.meta.env.DEV is false there.
   const previewParams = new URLSearchParams(window.location.search);
   const previewHome = import.meta.env.DEV && previewParams.has('preview-home');
-  const previewCall = import.meta.env.DEV && previewParams.has('preview-call');
+  const previewCall = import.meta.env.DEV && CALLS_ENABLED && previewParams.has('preview-call');
   const previewGames = import.meta.env.DEV && previewParams.has('preview-games');
   const previewPairing = import.meta.env.DEV && previewParams.has('preview-pairing');
   const previewTasks = import.meta.env.DEV && previewParams.has('preview-tasks');
@@ -498,6 +534,7 @@ function App() {
   useEffect(() => {
     function onOpenScreen(event) {
       const screen = event.detail?.screen;
+      if (screen === 'call' && !CALLS_ENABLED) return;
       if (screen) setView(screen);
     }
     window.addEventListener('lifeos:open-screen', onOpenScreen);
@@ -542,6 +579,7 @@ function App() {
   }
 
   function openModule(id, options = {}) {
+    if (id === 'call' && !CALLS_ENABLED) return;
     if (id === 'call' && options.autoStart) {
       setCallLaunch(current => ({
         id: current.id + 1,
@@ -645,20 +683,23 @@ function App() {
         initialCode: requestedPairCode,
         demo: previewPairing,
         onBack: () => setView('home'),
-        onCall: () => {
+        // Undefined hides the Call button in the couple space.
+        onCall: CALLS_ENABLED ? () => {
           setCallLaunch(current => ({ id: current.id + 1, mode: 'video' }));
           setView('call');
-        },
+        } : undefined,
       }],
-      call: ['call', 'CallScreen', {
-        launch: callLaunch,
-        onLaunchHandled: () => setCallLaunch(current => ({ ...current, id: 0 })),
-        onBack: () => setView('home'),
-        onRecordInstead: () => {
-          window.dispatchEvent(new CustomEvent('lifeos:record-video-note'));
-          setView('journal');
-        },
-      }],
+      ...(CALLS_ENABLED ? {
+        call: ['call', 'CallScreen', {
+          launch: callLaunch,
+          onLaunchHandled: () => setCallLaunch(current => ({ ...current, id: 0 })),
+          onBack: () => setView('home'),
+          onRecordInstead: () => {
+            window.dispatchEvent(new CustomEvent('lifeos:record-video-note'));
+            setView('journal');
+          },
+        }],
+      } : {}),
       games: ['games', 'GamesScreen', {
         profile,
         initialCode: requestedGameCode,
@@ -878,7 +919,7 @@ function LifeOSTweaks({ tweaks, setTweak, setView }) {
             { id: 'notes',      label: '📓 Journal' },
             { id: 'prompt',     label: '💬 Prompt' },
             { id: 'trip',       label: '🧳 Trip' },
-            { id: 'call',       label: '📞 Calls & video' },
+            ...(CALLS_ENABLED ? [{ id: 'call', label: '📞 Calls & video' }] : []),
             { id: 'games',      label: '🎲 Games' },
             { id: 'space',      label: '💞 Pairing' },
             { id: 'memory',     label: '💭 Memory' },
@@ -905,7 +946,9 @@ function LifeOSTweaks({ tweaks, setTweak, setView }) {
 
 const SETTINGS_HOME_SECTIONS = [
   { id: 'priorities', label: 'Today’s priorities', description: 'Your clearest next actions', icon: '✓' },
-  { id: 'connection', label: 'Calls & daily Arabic', description: 'Connection windows and a local phrase', icon: '☎' },
+  CALLS_ENABLED
+    ? { id: 'connection', label: 'Calls & daily Arabic', description: 'Connection windows and a local phrase', icon: '☎' }
+    : { id: 'connection', label: 'Time together & daily Arabic', description: 'Good-hours windows and a local phrase', icon: '◷' },
   { id: 'overview', label: 'Life at a glance', description: 'Progress across your key areas', icon: '◫' },
   { id: 'snapshots', label: 'Money & UAE map', description: 'Budget and saved-place snapshots', icon: '⌖' },
   { id: 'games', label: 'Game night', description: 'A shortcut into shared games', icon: '♠' },
@@ -925,7 +968,7 @@ const SETTINGS_PALETTES = [
 const SETTINGS_LIFE_MODES = [
   { id: 'calm', label: 'Calm', icon: '◌', description: 'Only the essentials, with gentle motion.' },
   { id: 'explorer', label: 'Explorer', icon: '⌖', description: 'Places, trips and local tools come first.' },
-  { id: 'connected', label: 'Connected', icon: '♥', description: 'Calls, games and your people lead the day.' },
+  { id: 'connected', label: 'Connected', icon: '♥', description: CALLS_ENABLED ? 'Calls, games and your people lead the day.' : 'Games, notes and your people lead the day.' },
   { id: 'everything', label: 'Everything', icon: '□', description: 'The full Life OS experience.' },
 ];
 
@@ -1536,7 +1579,11 @@ const NAV_CATALOG = [
   { id: 'settings', label: 'Settings', icon: 'Settings' },
   { id: 'notes',    label: 'Journal',  icon: 'NotebookPen' },
   { id: 'budget',  label: 'Budget',    icon: 'Wallet' },
-  { id: 'call',     label: 'Calls',     icon: 'Phone' },
+  // With calling hidden, the slot carries the video journal instead, so
+  // unwatched video notes keep a home in the dock and the More menu.
+  ...(CALLS_ENABLED
+    ? [{ id: 'call', label: 'Calls', icon: 'Phone' }]
+    : [{ id: 'journal', label: 'Video notes', icon: 'Video' }]),
   { id: 'games',    label: 'Games',    icon: 'Gamepad2' },
   { id: 'docs',    label: 'Documents', icon: 'FileText' },
   { id: 'habits',   label: 'Habits',   icon: 'Target' },
@@ -1548,24 +1595,29 @@ const NAV_CATALOG = [
 ];
 
 const QUICK_NAV_OPTIONS = NAV_CATALOG.filter(item => (
-  ['map', 'community', 'shopping', 'notes', 'budget', 'call', 'games', 'docs', 'habits', 'people'].includes(item.id)
+  ['map', 'community', 'shopping', 'notes', 'budget', 'games', 'docs', 'habits', 'people']
+    .concat(CALLS_ENABLED ? ['call'] : [])
+    .includes(item.id)
 ));
+
+// The dock entry that carries the unwatched-video-note dot.
+const VIDEO_NOTE_NAV_ID = CALLS_ENABLED ? 'call' : 'journal';
 
 // Which nav entries currently have something waiting.
 function navNeedsAttention(id, unwatched, promptWaiting) {
-  if (id === 'call') return unwatched > 0;
+  if (id === VIDEO_NOTE_NAV_ID) return unwatched > 0;
   if (id === 'prompt') return promptWaiting;
   return false;
 }
 
 function moreNeedsAttention(current, unwatched, promptWaiting) {
-  const journal = unwatched > 0 && current !== 'journal' && current !== 'call';
+  const journal = unwatched > 0 && current !== 'journal' && current !== VIDEO_NOTE_NAV_ID;
   const prompt = promptWaiting && current !== 'prompt';
   return journal || prompt;
 }
 
 function navItemIsActive(itemId, current) {
-  return itemId === current || (itemId === 'call' && current === 'journal');
+  return itemId === current || (CALLS_ENABLED && itemId === 'call' && current === 'journal');
 }
 
 // Small dot for "there is something waiting here".

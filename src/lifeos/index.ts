@@ -10,6 +10,7 @@ import * as aiProfile from './aiProfile';
 import * as automations from './automations';
 import * as budget from './budget';
 import * as daylight from './daylight';
+import * as features from './features';
 import * as ice from './ice';
 import * as journal from './journal';
 import * as home from './home';
@@ -38,6 +39,7 @@ export const lifeos = {
   community,
   couples,
   daylight,
+  features,
   games,
   home,
   ice,

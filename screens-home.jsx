@@ -1,5 +1,6 @@
 // screens-home.jsx — Home/Dashboard, written journal, Onboarding, AI sheet
 
+import { CALLS_ENABLED } from './src/lifeos/features.ts';
 import {
   canPromptPwaInstall,
   detectPwaInstallPlatform,
@@ -123,18 +124,27 @@ function OnboardingInfographic({ type, name }) {
     );
   }
 
+  const closeTools = CALLS_ENABLED
+    ? [['◉', 'Video call'], ['♬', 'Audio call'], ['♠', 'Game night'], ['↗', 'Invite link']]
+    : [['◉', 'Video notes'], ['♥', 'Shared space'], ['♠', 'Game night'], ['↗', 'Invite link']];
+
   return (
-    <div className="tour-infographic tour-infographic-close" role="img" aria-label="Private calls, shared game nights and invitations keeping your chosen people close">
+    <div
+      className="tour-infographic tour-infographic-close"
+      role="img"
+      aria-label={CALLS_ENABLED
+        ? 'Private calls, shared game nights and invitations keeping your chosen people close'
+        : 'Video notes, a shared space and game nights keeping your chosen people close'}
+    >
       <div className="tour-connection-map" aria-hidden="true">
         <div className="tour-person-node tour-person-node-you"><span>{initial}</span><strong>You</strong><small>Abu Dhabi</small></div>
         <div className="tour-connection-line"><i /><b>Connected</b><i /></div>
         <div className="tour-person-node tour-person-node-them"><span>♥</span><strong>Your people</strong><small>Wherever they are</small></div>
       </div>
       <div className="tour-connection-tools" aria-hidden="true">
-        <span><b>◉</b><small>Video call</small></span>
-        <span><b>♬</b><small>Audio call</small></span>
-        <span><b>♠</b><small>Game night</small></span>
-        <span><b>↗</b><small>Invite link</small></span>
+        {closeTools.map(([glyph, label]) => (
+          <span key={label}><b>{glyph}</b><small>{label}</small></span>
+        ))}
       </div>
       <div className="tour-secure-note" aria-hidden="true"><span>✓</span> Your space, shared only with people you invite</div>
     </div>
@@ -262,7 +272,9 @@ function Onboarding({ onDone, initialDate, user }) {
       visual: 'close',
       eyebrow: 'CLOSER, FROM ANYWHERE',
       title: 'Keep your people close',
-      body: 'Start private audio or video calls, invite the people you choose, and make time for a nostalgic game night—all from one shared place.',
+      body: CALLS_ENABLED
+        ? 'Start private audio or video calls, invite the people you choose, and make time for a nostalgic game night—all from one shared place.'
+        : 'Send private video notes, share a space with the people you choose, and make time for a nostalgic game night—all from one place.',
       cta: 'Open my home',
     },
   ];
@@ -1420,13 +1432,21 @@ function ConnectionBridge({ connection, onOpen }) {
       <div className={`home-call-window${connection.isGoodWindow ? ' is-good' : ''}`}>
         <span />{connection.status}
       </div>
-      <div className="home-connection-actions">
-        <button onClick={() => onOpen('call', { mode: 'video', autoStart: true })}><span>▣</span> Video call</button>
-        <button onClick={() => onOpen('call', { mode: 'audio', autoStart: true })}><span>☎</span> Audio call</button>
-      </div>
-      <button className="home-connection-note" onClick={() => onOpen('journal')}>
-        Can’t talk now? Send a video note <span aria-hidden="true">→</span>
-      </button>
+      {CALLS_ENABLED ? (
+        <>
+          <div className="home-connection-actions">
+            <button onClick={() => onOpen('call', { mode: 'video', autoStart: true })}><span>▣</span> Video call</button>
+            <button onClick={() => onOpen('call', { mode: 'audio', autoStart: true })}><span>☎</span> Audio call</button>
+          </div>
+          <button className="home-connection-note" onClick={() => onOpen('journal')}>
+            Can’t talk now? Send a video note <span aria-hidden="true">→</span>
+          </button>
+        </>
+      ) : (
+        <div className="home-connection-actions is-single">
+          <button onClick={() => onOpen('journal')}><span>▣</span> Send a video note</button>
+        </div>
+      )}
     </article>
   );
 }

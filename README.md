@@ -18,6 +18,16 @@ A warm, private everyday companion for life in Abu Dhabi.
 - **Confetti celebrations** when you complete a module
 - **South African rand (ZAR)** on the shopping list
 
+## Live calling is hidden
+
+The UAE reserves consumer voice and video over IP for licensed telecom
+operators, so the LiveKit calling feature ships switched off: no call route, no
+call buttons, no navigation entry, and `/api/livekit-token` refuses to mint a
+room grant. The code is intact behind one flag — see
+[`docs/CALLS.md`](docs/CALLS.md) to turn it on where consumer calling is
+permitted. Recorded **video notes** are store-and-forward, not realtime VoIP,
+and remain available.
+
 ## Stack
 
 - **React** — app shell with JSX modules
@@ -51,6 +61,8 @@ API: window.__suvedaApiUrl → Cloudflare Worker → NVIDIA API
 | `VITE_SUPABASE_ANON_KEY` | Supabase anon/public key |
 | `VITE_API_URL` | AI proxy endpoint (Cloudflare Worker) |
 | `NVIDIA_API_KEY` | NVIDIA API key (Worker secret) |
+| `VITE_ENABLE_CALLS` | Set to `true` to un-hide live audio/video calling (off by default) |
+| `ENABLE_CALLS` | Server-side twin; without it `/api/livekit-token` returns 404 |
 
 ## Local dev
 

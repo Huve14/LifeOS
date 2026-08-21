@@ -3,10 +3,12 @@ import {
   DEFAULT_PREFERENCES,
   HOME_SECTION_IDS,
   applyLifeMode,
+  isQuickNavAvailable,
   moveHomeSection,
   preparePreferences,
   setQuickNavSlot,
 } from './preferences';
+import { CALLS_ENABLED } from './features';
 
 describe('Life OS preferences', () => {
   it('repairs invalid or partial saved preferences', () => {
@@ -57,7 +59,37 @@ describe('Life OS preferences', () => {
   it('applies a life mode while keeping a complete preference object', () => {
     const calm = applyLifeMode(DEFAULT_PREFERENCES, 'calm');
     expect(calm.activePreset).toBe('calm');
-    expect(calm.quickNav).toEqual(['notes', 'call', 'habits']);
+    expect(calm.quickNav).toEqual(CALLS_ENABLED
+      ? ['notes', 'call', 'habits']
+      : ['notes', 'habits', 'people']);
     expect(calm.hiddenHomeSections).toContain('games');
+  });
+
+  it('keeps every life mode at three usable dock shortcuts', () => {
+    for (const preset of ['calm', 'explorer', 'connected', 'everything']) {
+      const applied = applyLifeMode(DEFAULT_PREFERENCES, preset);
+      expect(applied.quickNav).toHaveLength(3);
+      expect(new Set(applied.quickNav).size).toBe(3);
+      expect(applied.quickNav.every(isQuickNavAvailable)).toBe(true);
+    }
+  });
+
+  it('drops a shortcut this build hides and refills the dock', () => {
+    const migrated = preparePreferences({ quickNav: ['call', 'games', 'notes'] });
+    expect(migrated.quickNav).toHaveLength(3);
+    expect(migrated.quickNav.every(isQuickNavAvailable)).toBe(true);
+    if (!CALLS_ENABLED) {
+      expect(migrated.quickNav).not.toContain('call');
+      expect(migrated.quickNav.slice(0, 2)).toEqual(['games', 'notes']);
+    }
+  });
+
+  it('refuses to assign a shortcut this build hides', () => {
+    const next = setQuickNavSlot(DEFAULT_PREFERENCES, 0, 'call');
+    if (CALLS_ENABLED) {
+      expect(next[0]).toBe('call');
+    } else {
+      expect(next).toEqual(DEFAULT_PREFERENCES.quickNav);
+    }
   });
 });

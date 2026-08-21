@@ -290,7 +290,8 @@ function CoupleHeader({ snapshot, syncStatus, onCall }) {
         <span>{initialFor(mine?.displayName)}</span><i /><span>{initialFor(partner?.displayName)}</span>
       </div>
       <div className={`couple-live-pill is-${syncStatus}`}><i />{syncStatus === 'live' ? 'Live sync' : syncStatus === 'connecting' ? 'Connecting' : 'Reconnect when online'}</div>
-      <button type="button" className="couple-call-button" onClick={onCall}><AnimatedIcon name="Phone" size={18} /> Call</button>
+      {/* Absent when live calling is hidden for regional compliance. */}
+      {onCall && <button type="button" className="couple-call-button" onClick={onCall}><AnimatedIcon name="Phone" size={18} /> Call</button>}
     </section>
   );
 }
