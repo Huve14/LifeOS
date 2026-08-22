@@ -30,10 +30,31 @@ const IDEA_CATEGORIES = [
   { id: 'kindness', icon: '✦', label: 'Kindness' },
 ];
 
-const EMPTY_SHARED_DATA = { notes: [], reactions: [], checkIns: [], ideas: [], promptAnswers: [] };
+const EMPTY_SHARED_DATA = {
+  notes: [], reactions: [], checkIns: [], checkInHistory: [],
+  ideas: [], promptAnswers: [], thoughts: [], dates: [],
+};
 
 function coupleApi() {
   return window.__lifeos?.couples;
+}
+
+function closenessApi() {
+  return window.__lifeos?.closeness;
+}
+
+/**
+ * A ticking clock, shared by the partner's local time and the thought
+ * cooldown. Both are wrong the moment they stop moving, and neither is worth a
+ * dependency.
+ */
+function useNow(intervalMs) {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), intervalMs);
+    return () => window.clearInterval(timer);
+  }, [intervalMs]);
+  return now;
 }
 
 function memberName(snapshot, userId) {
@@ -59,6 +80,23 @@ function shortTime(value) {
   }
 }
 
+function demoDateKey(daysFromNow) {
+  return closenessApi().shiftDateKey(coupleApi().localDateKey(), daysFromNow);
+}
+
+function demoCheckInHistory(today) {
+  const history = [];
+  for (let offset = 9; offset >= 1; offset -= 1) {
+    const day = closenessApi().shiftDateKey(today, -offset);
+    history.push({ couple_id: 42, user_id: 'visual-preview', checkin_date: day, mood: 'steady', energy: 4, need: '', updated_at: day });
+    // One missed day, so the strip reads as a rhythm rather than a scoreboard.
+    if (offset !== 4) {
+      history.push({ couple_id: 42, user_id: 'partner-preview', checkin_date: day, mood: 'bright', energy: 4, need: '', updated_at: day });
+    }
+  }
+  return history;
+}
+
 function demoCoupleState() {
   const today = coupleApi().localDateKey();
   return {
@@ -81,11 +119,26 @@ function demoCoupleState() {
         { couple_id: 42, user_id: 'visual-preview', checkin_date: today, mood: 'steady', energy: 4, need: 'A quiet call later', updated_at: new Date().toISOString() },
         { couple_id: 42, user_id: 'partner-preview', checkin_date: today, mood: 'bright', energy: 5, need: 'Tell me about your day', updated_at: new Date().toISOString() },
       ],
+      checkInHistory: [
+        ...demoCheckInHistory(today),
+        { couple_id: 42, user_id: 'visual-preview', checkin_date: today, mood: 'steady', energy: 4, need: 'A quiet call later', updated_at: new Date().toISOString() },
+        { couple_id: 42, user_id: 'partner-preview', checkin_date: today, mood: 'bright', energy: 5, need: 'Tell me about your day', updated_at: new Date().toISOString() },
+      ],
       ideas: [
         { id: 1, couple_id: 42, added_by: 'visual-preview', title: 'Sunset walk and karak', category: 'date', status: 'picked', scheduled_for: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
         { id: 2, couple_id: 42, added_by: 'partner-preview', title: 'Choose a recipe and cook together on video', category: 'home', status: 'idea', scheduled_for: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
       ],
       promptAnswers: [],
+      thoughts: [
+        { id: 3, couple_id: 42, sender_id: 'partner-preview', gesture: 'heart', created_at: new Date(Date.now() - 6 * 60_000).toISOString(), seen_at: null },
+        { id: 2, couple_id: 42, sender_id: 'visual-preview', gesture: 'sun', created_at: new Date(Date.now() - 5 * 3_600_000).toISOString(), seen_at: new Date().toISOString() },
+        { id: 1, couple_id: 42, sender_id: 'partner-preview', gesture: 'moon', created_at: new Date(Date.now() - 14 * 3_600_000).toISOString(), seen_at: new Date().toISOString() },
+      ],
+      dates: [
+        { id: 1, couple_id: 42, created_by: 'visual-preview', kind: 'reunion', label: 'Sam lands in Abu Dhabi', happens_on: demoDateKey(23), repeats_annually: false, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+        { id: 2, couple_id: 42, created_by: 'partner-preview', kind: 'anniversary', label: 'The day we met', happens_on: '2019-11-04', repeats_annually: true, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+        { id: 3, couple_id: 42, created_by: 'visual-preview', kind: 'birthday', label: 'Sam', happens_on: '1994-04-02', repeats_annually: true, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+      ],
     },
   };
 }
@@ -275,21 +328,333 @@ function PairSetup({ snapshot, initialCode, onChanged }) {
   );
 }
 
-function CoupleHeader({ snapshot, syncStatus, onCall }) {
+/**
+ * One tap, no words. This sits above the tabs rather than inside one, because
+ * the impulse it serves — the one that used to reach for the call button —
+ * does not arrive while you are thinking about which tab you are on.
+ */
+function ThoughtsBar({ snapshot, thoughts, onRefresh, demo }) {
+  const api = coupleApi();
+  const closeness = closenessApi();
+  const now = useNow(1000);
+  const me = currentCoupleUserId(snapshot);
+  const partner = snapshot.members.find(member => member.userId !== me);
+  const [sending, setSending] = useState('');
+  const [message, setMessage] = useState('');
+  const [justSent, setJustSent] = useState('');
+
+  const mineLatest = thoughts.find(thought => thought.sender_id === me);
+  const cooldown = closeness.cooldownRemaining(mineLatest?.created_at, now);
+  const suggested = closeness.suggestGesture(partner?.timeZone, now);
+  const unseen = thoughts.filter(thought => thought.sender_id !== me && !thought.seen_at);
+
+  // Opening the space is the acknowledgement. Nothing on screen waits for it.
+  useEffect(() => {
+    if (demo || unseen.length === 0) return;
+    void api.markThoughtsSeen(snapshot.coupleId);
+  }, [api, demo, snapshot.coupleId, unseen.length]);
+
+  async function send(gesture) {
+    if (cooldown > 0 || sending) return;
+    setMessage('');
+    if (demo) {
+      setJustSent(gesture);
+      setMessage('Preview: they would get this on their phone');
+      return;
+    }
+    setSending(gesture);
+    try {
+      await api.sendThought(snapshot.coupleId, gesture);
+      setJustSent(gesture);
+      await onRefresh();
+    } catch (error) {
+      setMessage(error?.message || 'That thought could not be sent.');
+    } finally {
+      setSending('');
+    }
+  }
+
+  return (
+    <section className="couple-thoughts" aria-label="Send a thought">
+      <div className="couple-thoughts-head">
+        <div>
+          <p className="couple-eyebrow">NO WORDS NEEDED</p>
+          <h2>Send a thought</h2>
+        </div>
+        {unseen.length > 0 && <span className="couple-thoughts-badge">{unseen.length} new</span>}
+      </div>
+
+      <div className="couple-thought-picker" role="group" aria-label="Thoughts you can send">
+        {closeness.THOUGHT_GESTURES.map(gesture => (
+          <button
+            key={gesture.id}
+            type="button"
+            className={`couple-thought-button${gesture.id === suggested ? ' is-suggested' : ''}${justSent === gesture.id ? ' is-sent' : ''}`}
+            onClick={() => send(gesture.id)}
+            disabled={cooldown > 0 || Boolean(sending)}
+            aria-label={gesture.label}
+            title={gesture.label}
+          >
+            <b aria-hidden="true">{gesture.glyph}</b>
+            <span>{gesture.label}</span>
+          </button>
+        ))}
+      </div>
+
+      <p className="couple-thought-status" role="status">
+        {message
+          || (cooldown > 0 ? `Another in ${cooldown}s` : 'Lands on their phone straight away.')}
+      </p>
+
+      {thoughts.length > 0 && (
+        <ul className="couple-thought-feed">
+          {thoughts.slice(0, 4).map(thought => {
+            const isMine = thought.sender_id === me;
+            const glyph = closeness.gestureById(thought.gesture)?.glyph || '♥';
+            return (
+              <li key={thought.id} className={isMine ? 'is-mine' : ''}>
+                <b aria-hidden="true">{glyph}</b>
+                <span>{closeness.describeThought(thought.gesture, memberName(snapshot, thought.sender_id), isMine)}</span>
+                <time dateTime={thought.created_at}>{closeness.relativeSince(thought.created_at, now)}</time>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+/** A fortnight of shared check-ins. Gaps are gaps, never failures. */
+function PulseRhythm({ snapshot, history }) {
+  const closeness = closenessApi();
+  const me = currentCoupleUserId(snapshot);
+  const partner = snapshot.members.find(member => member.userId !== me);
+  const rhythm = closeness.buildPulseRhythm(history, me, partner?.userId, coupleApi().localDateKey());
+  if (rhythm.length === 0) return null;
+
+  return (
+    <section className="couple-rhythm">
+      <div className="couple-rhythm-head">
+        <p className="couple-eyebrow">YOUR RHYTHM</p>
+        <span>Last 14 days</span>
+      </div>
+      <ol className="couple-rhythm-strip">
+        {rhythm.map(day => {
+          const state = day.both ? 'is-both' : day.mine ? 'is-mine' : day.theirs ? 'is-theirs' : '';
+          const who = day.both ? 'both of you' : day.mine ? 'you' : day.theirs ? partner?.displayName || 'them' : 'nobody';
+          return (
+            <li key={day.dateKey} className={state} title={`${closeness.formatDateKey(day.dateKey, false)} — ${who}`}>
+              <span className="visually-hidden">{closeness.formatDateKey(day.dateKey, false)}: {who}</span>
+            </li>
+          );
+        })}
+      </ol>
+      <ul className="couple-rhythm-legend" aria-hidden="true">
+        <li><i className="is-mine" />You</li>
+        <li><i className="is-theirs" />{partner?.displayName || 'Them'}</li>
+      </ul>
+      <p className="couple-rhythm-summary">{closeness.rhythmSummary(rhythm)}</p>
+    </section>
+  );
+}
+
+function DateRow({ resolved, onRefresh, demo }) {
+  const api = coupleApi();
+  const closeness = closenessApi();
+  const [busy, setBusy] = useState('');
+  const [message, setMessage] = useState('');
+  const kind = closeness.dateKindById(resolved.date.kind);
+
+  async function run(action, work) {
+    if (demo) { setMessage('Preview only'); return; }
+    setBusy(action);
+    setMessage('');
+    try {
+      await work();
+      await onRefresh();
+    } catch (error) {
+      setMessage(error?.message || 'That change could not be saved.');
+    } finally {
+      setBusy('');
+    }
+  }
+
+  return (
+    <article className={`couple-date-card${resolved.passed ? ' is-passed' : ''}`}>
+      <span className="couple-date-glyph" aria-hidden="true">{kind?.glyph || '◈'}</span>
+      <div className="couple-date-copy">
+        <strong>{resolved.date.label}</strong>
+        <small>
+          {closeness.formatDateKey(resolved.occursOn)}
+          {resolved.years ? ` · ${resolved.years} ${resolved.years === 1 ? 'year' : 'years'}` : ''}
+          {resolved.date.repeats_annually ? ' · every year' : ''}
+        </small>
+        {message && <em role="status">{message}</em>}
+      </div>
+      <span className={`couple-date-countdown${resolved.daysAway === 0 ? ' is-today' : ''}`}>
+        {closeness.countdownLabel(resolved.daysAway)}
+      </span>
+      <div className="couple-date-actions">
+        {/* Either partner may correct a shared date, so this is an edit, not a request. */}
+        <label>
+          <span className="visually-hidden">Change the date for {resolved.date.label}</span>
+          <input
+            type="date"
+            value={resolved.date.happens_on}
+            disabled={busy !== ''}
+            onChange={event => {
+              const happensOn = event.target.value;
+              if (happensOn) void run('date', () => api.updateCoupleDate(resolved.date.id, { happens_on: happensOn }));
+            }}
+          />
+        </label>
+        <button
+          type="button"
+          disabled={busy !== ''}
+          onClick={() => run('remove', () => api.deleteCoupleDate(resolved.date.id))}
+          aria-label={`Remove ${resolved.date.label}`}
+        >{busy === 'remove' ? '…' : '×'}</button>
+      </div>
+    </article>
+  );
+}
+
+function DateComposer({ coupleId, onSaved, demo }) {
+  const api = coupleApi();
+  const closeness = closenessApi();
+  const [kind, setKind] = useState('reunion');
+  const [label, setLabel] = useState('');
+  const [happensOn, setHappensOn] = useState('');
+  const [repeats, setRepeats] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState('');
+
+  // Changing the kind picks the sensible repeat, which is still overridable.
+  function chooseKind(next) {
+    setKind(next);
+    setRepeats(closeness.dateKindById(next)?.repeatsByDefault ?? false);
+  }
+
+  async function save(event) {
+    event.preventDefault();
+    if (!label.trim() || !happensOn) return;
+    if (demo) { setMessage('Preview: this date would be shared with both of you'); return; }
+    setSaving(true);
+    setMessage('');
+    try {
+      await api.addCoupleDate({ coupleId, kind, label, happensOn, repeatsAnnually: repeats });
+      setLabel('');
+      setHappensOn('');
+      await onSaved();
+    } catch (error) {
+      setMessage(error?.message || 'That date could not be saved.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <form className="couple-date-composer" onSubmit={save}>
+      <div className="couple-date-kinds" role="group" aria-label="What kind of date">
+        {closeness.COUPLE_DATE_KINDS.map(item => (
+          <button key={item.id} type="button" className={kind === item.id ? 'is-active' : ''} onClick={() => chooseKind(item.id)}>
+            <b aria-hidden="true">{item.glyph}</b><span>{item.label}</span>
+          </button>
+        ))}
+      </div>
+      <label className="couple-date-label">
+        <span>What is it?</span>
+        <input value={label} maxLength={80} onChange={event => setLabel(event.target.value)} placeholder="Sam lands in Abu Dhabi" />
+      </label>
+      <label className="couple-date-when">
+        <span>When</span>
+        <input type="date" value={happensOn} onChange={event => setHappensOn(event.target.value)} />
+      </label>
+      <label className="couple-date-repeat">
+        <input type="checkbox" checked={repeats} onChange={event => setRepeats(event.target.checked)} />
+        <span>Comes round every year</span>
+      </label>
+      <div className="couple-form-footer">
+        <span role="status">{message}</span>
+        <button type="submit" disabled={saving || !label.trim() || !happensOn}>{saving ? 'Adding…' : 'Add date'}</button>
+      </div>
+    </form>
+  );
+}
+
+function DatesPanel({ snapshot, data, onRefresh, demo }) {
+  const closeness = closenessApi();
+  const resolved = closeness.resolveCoupleDates(data.dates, coupleApi().localDateKey());
+  const ahead = resolved.filter(item => !item.passed);
+  const behind = resolved.filter(item => item.passed);
+
+  return (
+    <div className="couple-panel-stack">
+      <section className="couple-section-heading">
+        <div><p className="couple-eyebrow">DATES THAT MATTER</p><h2>What you are counting towards</h2></div>
+        <span>{ahead.length} ahead</span>
+      </section>
+
+      {resolved.length === 0 && (
+        <section className="couple-empty">
+          <b aria-hidden="true">✈</b>
+          <strong>Nothing on the calendar yet</strong>
+          <span>Add the next time you are in the same place. Both of you will see the countdown.</span>
+        </section>
+      )}
+
+      {ahead.map(item => <DateRow key={item.date.id} resolved={item} onRefresh={onRefresh} demo={demo} />)}
+
+      {behind.length > 0 && (
+        <>
+          <p className="couple-date-divider">Already happened</p>
+          {behind.map(item => <DateRow key={item.date.id} resolved={item} onRefresh={onRefresh} demo={demo} />)}
+        </>
+      )}
+
+      <DateComposer coupleId={snapshot.coupleId} onSaved={onRefresh} demo={demo} />
+    </div>
+  );
+}
+
+function CoupleHeader({ snapshot, syncStatus, dates, onCall }) {
+  const closeness = closenessApi();
+  const now = useNow(30_000);
   const me = currentCoupleUserId(snapshot);
   const mine = snapshot.members.find(member => member.userId === me) || snapshot.members[0];
   const partner = snapshot.members.find(member => member.userId !== mine?.userId) || snapshot.members[1];
+  // Their zone has been stored on every member since pairing shipped and was
+  // never shown. This screen is where you decide whether to send something, so
+  // it is exactly where knowing it is 04:00 for them belongs.
+  const presence = closeness.partnerPresence(partner?.timeZone, now);
+  const reunion = closeness.nextReunion(dates || [], coupleApi().localDateKey());
+
   return (
     <section className="couple-connected-hero">
       <div className="couple-connected-copy">
         <p className="couple-eyebrow">YOUR SHARED SPACE</p>
         <h1>{mine?.displayName || 'You'} <span>♥</span> {partner?.displayName || 'Your person'}</h1>
         <p>One small place to keep choosing each other.</p>
+        {presence.known && (
+          <div className={`couple-presence-pill${presence.quiet ? ' is-quiet' : ''}`}>
+            <b aria-hidden="true">{presence.quiet ? '☾' : '☀'}</b>
+            <span>{partner?.displayName || 'They'} · {presence.clock}</span>
+            <small>{presence.quiet ? 'Quiet hours there' : presence.label}</small>
+          </div>
+        )}
       </div>
       <div className="couple-connected-people" aria-label="Connected couple">
         <span>{initialFor(mine?.displayName)}</span><i /><span>{initialFor(partner?.displayName)}</span>
       </div>
       <div className={`couple-live-pill is-${syncStatus}`}><i />{syncStatus === 'live' ? 'Live sync' : syncStatus === 'connecting' ? 'Connecting' : 'Reconnect when online'}</div>
+      {reunion && (
+        <div className={`couple-reunion-pin${reunion.passed ? ' is-passed' : ''}`}>
+          <b aria-hidden="true">✈</b>
+          <strong>{closeness.reunionHeadline(reunion.daysAway)}</strong>
+          <small>{reunion.date.label} · {closeness.formatDateKey(reunion.occursOn)}</small>
+        </div>
+      )}
       {/* Absent when live calling is hidden for regional compliance. */}
       {onCall && <button type="button" className="couple-call-button" onClick={onCall}><AnimatedIcon name="Phone" size={18} /> Call</button>}
     </section>
@@ -417,6 +782,7 @@ function TodayPanel({ snapshot, data, onRefresh, demo }) {
         {snapshot.members.map(member => <CheckInCard key={member.userId} member={member} checkIn={data.checkIns.find(item => item.user_id === member.userId)} isMine={member.userId === me} />)}
       </div>
       <CheckInEditor coupleId={snapshot.coupleId} current={myCheckIn} onSaved={onRefresh} demo={demo} />
+      <PulseRhythm snapshot={snapshot} history={data.checkInHistory} />
       <DailyQuestion snapshot={snapshot} answers={data.promptAnswers} onSaved={onRefresh} demo={demo} />
     </div>
   );
@@ -586,9 +952,13 @@ function IdeasPanel({ snapshot, data, onRefresh, demo }) {
 function PairedSpace({ snapshot, data, syncStatus, onRefresh, onCall, demo }) {
   const [tab, setTab] = useState('today');
   const [leaving, setLeaving] = useState(false);
+  const upcomingDates = closenessApi()
+    .resolveCoupleDates(data.dates, coupleApi().localDateKey())
+    .filter(item => !item.passed).length;
   const tabs = [
     { id: 'today', label: 'Today', icon: 'HeartPulse' },
     { id: 'notes', label: 'Notes', icon: 'MessageCircleHeart', count: data.notes.length },
+    { id: 'dates', label: 'Dates', icon: 'CalendarDays', count: upcomingDates },
     { id: 'ideas', label: 'Adventure Jar', icon: 'Sparkles', count: data.ideas.filter(idea => idea.status !== 'done').length },
   ];
 
@@ -608,12 +978,14 @@ function PairedSpace({ snapshot, data, syncStatus, onRefresh, onCall, demo }) {
 
   return (
     <div className="couple-space">
-      <CoupleHeader snapshot={snapshot} syncStatus={syncStatus} onCall={onCall} />
+      <CoupleHeader snapshot={snapshot} syncStatus={syncStatus} dates={data.dates} onCall={onCall} />
+      <ThoughtsBar snapshot={snapshot} thoughts={data.thoughts} onRefresh={onRefresh} demo={demo} />
       <nav className="couple-tabs" aria-label="Couple space sections">
         {tabs.map(item => <button key={item.id} type="button" className={tab === item.id ? 'is-active' : ''} onClick={() => setTab(item.id)}><AnimatedIcon name={item.icon} size={19} /><span>{item.label}</span>{item.count > 0 && <b>{item.count}</b>}</button>)}
       </nav>
       {tab === 'today' && <TodayPanel snapshot={snapshot} data={data} onRefresh={onRefresh} demo={demo} />}
       {tab === 'notes' && <NotesPanel snapshot={snapshot} data={data} onRefresh={onRefresh} demo={demo} />}
+      {tab === 'dates' && <DatesPanel snapshot={snapshot} data={data} onRefresh={onRefresh} demo={demo} />}
       {tab === 'ideas' && <IdeasPanel snapshot={snapshot} data={data} onRefresh={onRefresh} demo={demo} />}
       <section className="couple-safety-footer"><AnimatedIcon name="ShieldCheck" size={18} /><span><strong>Protected for two.</strong> Every shared row is checked against your couple membership before Supabase returns it.</span><button type="button" onClick={leave} disabled={leaving}>{leaving ? 'Disconnecting…' : 'Disconnect'}</button></section>
     </div>

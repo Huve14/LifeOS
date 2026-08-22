@@ -1404,7 +1404,32 @@ function LandingKit({ first48, onAsk, onOpen }) {
   );
 }
 
+/**
+ * The couple's pinned reunion, if there is one.
+ *
+ * Loaded after mount and never awaited by anything on screen: Home is the hot
+ * path and a shared countdown is a bonus, not a dependency.
+ */
+function useNextReunion() {
+  const [reunion, setReunion] = React.useState(null);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const api = window.__lifeos;
+      const dates = (await api?.couples?.loadMyCoupleDates?.()) || [];
+      if (cancelled || dates.length === 0) return;
+      setReunion(api.closeness.nextReunion(dates, api.couples.localDateKey()));
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  return reunion;
+}
+
 function ConnectionBridge({ connection, onOpen }) {
+  const reunion = useNextReunion();
+  const closeness = window.__lifeos.closeness;
   return (
     <article className="home-everyday-card home-connection-card">
       <div className="home-everyday-topline">
@@ -1432,6 +1457,16 @@ function ConnectionBridge({ connection, onOpen }) {
       <div className={`home-call-window${connection.isGoodWindow ? ' is-good' : ''}`}>
         <span />{connection.status}
       </div>
+      {reunion && (
+        <button type="button" className="home-reunion-line" onClick={() => onOpen('space')}>
+          <b aria-hidden="true">✈</b>
+          <span>
+            <strong>{closeness.countdownLabel(reunion.daysAway)}</strong>
+            <small>{reunion.date.label}</small>
+          </span>
+          <i aria-hidden="true">›</i>
+        </button>
+      )}
       {CALLS_ENABLED ? (
         <>
           <div className="home-connection-actions">

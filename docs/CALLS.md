@@ -47,6 +47,11 @@ Recording and sending **video notes** (`video-journal.jsx`) is a store-and-
 forward feature, not realtime VoIP, and stays available. So do the shared
 couple space, games, community, and everything else.
 
+What a couple loses with calling hidden is the unplanned gesture, not the
+ability to talk. [CLOSENESS.md](CLOSENESS.md) covers what fills that gap:
+one-tap thoughts, shared countdowns, their local time, and the check-in
+rhythm.
+
 The LiveKit client is still emitted as a lazy chunk that nothing requests: it
 is reachable only through the gated route, and it is excluded from the service
 worker precache list, so a phone never downloads it. Dropping the chunk from

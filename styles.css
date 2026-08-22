@@ -4258,6 +4258,14 @@ img, video, canvas {
   padding-top: 16px;
 }
 
+/* The couple's next reunion, when they have set one. */
+.home-reunion-line { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; width: 100%; margin-top: 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 15px; background: var(--sand); color: var(--dark); font: inherit; text-align: left; cursor: pointer; }
+.home-reunion-line b { display: grid; width: 26px; height: 26px; place-items: center; border-radius: 9px; background: color-mix(in srgb, var(--honey) 62%, white); font-size: 12px; }
+.home-reunion-line span { display: grid; gap: 1px; min-width: 0; }
+.home-reunion-line strong { font-size: 11px; font-weight: 800; }
+.home-reunion-line small { overflow: hidden; color: var(--muted); font-size: 9px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
+.home-reunion-line i { color: var(--muted); font-size: 13px; font-style: normal; }
+
 /* One action left when live calling is hidden for regional compliance. */
 .home-connection-actions.is-single {
   grid-template-columns: minmax(0, 1fr);
@@ -9639,7 +9647,7 @@ button.games-playing-card:not(:disabled):hover { translate: 0 -8px; }
 .couple-call-button { position: absolute; z-index: 3; top: 22px; right: 24px; display: inline-flex; min-height: 40px; align-items: center; gap: 7px; padding: 0 14px; border: 1px solid rgba(255,255,255,.8); border-radius: 99px; background: rgba(255,255,255,.68); color: var(--dark); font: inherit; font-size: 11px; font-weight: 800; cursor: pointer; -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
 @keyframes couple-live-pulse { 70% { box-shadow: 0 0 0 8px rgba(41,147,108,0); } 100% { box-shadow: 0 0 0 0 rgba(41,147,108,0); } }
 
-.couple-tabs { position: sticky; z-index: 30; top: max(8px, env(safe-area-inset-top)); display: grid; grid-template-columns: repeat(3, 1fr); width: min(720px, calc(100% - 24px)); margin: -19px auto 28px; padding: 6px; border: 1px solid rgba(255,255,255,.76); border-radius: 21px; background: color-mix(in srgb, var(--white) 77%, transparent); box-shadow: 0 18px 32px -28px var(--blue-ink); -webkit-backdrop-filter: blur(20px) saturate(1.4); backdrop-filter: blur(20px) saturate(1.4); }
+.couple-tabs { position: sticky; z-index: 30; top: max(8px, env(safe-area-inset-top)); display: grid; grid-template-columns: repeat(4, 1fr); width: min(720px, calc(100% - 24px)); margin: -19px auto 28px; padding: 6px; border: 1px solid rgba(255,255,255,.76); border-radius: 21px; background: color-mix(in srgb, var(--white) 77%, transparent); box-shadow: 0 18px 32px -28px var(--blue-ink); -webkit-backdrop-filter: blur(20px) saturate(1.4); backdrop-filter: blur(20px) saturate(1.4); }
 .couple-tabs button { position: relative; display: flex; min-width: 0; min-height: 45px; align-items: center; justify-content: center; gap: 7px; padding: 0 10px; border: 0; border-radius: 15px; background: transparent; color: var(--muted); font: inherit; font-size: 11px; font-weight: 750; cursor: pointer; }
 .couple-tabs button.is-active { background: color-mix(in srgb, var(--butter) 72%, white); color: var(--dark); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--honey) 24%, transparent); }
 .couple-tabs button b { display: grid; min-width: 18px; height: 18px; place-items: center; padding: 0 4px; border-radius: 99px; background: var(--honey); color: var(--dark); font-size: 8px; }
@@ -10301,3 +10309,110 @@ button.games-playing-card:not(:disabled):hover { translate: 0 -8px; }
 }
 
 @media (prefers-reduced-motion: reduce) { .community-orbit { animation: none; } }
+
+/* ---------- Closeness: thoughts, rhythm and shared dates ---------- */
+
+/* The new markup labels icon-only controls for screen readers. */
+.visually-hidden { position: absolute !important; overflow: hidden; clip-path: inset(50%); width: 1px; height: 1px; white-space: nowrap; }
+
+/* In the flow rather than pinned: absolute placement collided with the eyebrow
+   on wide screens and with the copy on narrow ones. */
+.couple-presence-pill { position: relative; z-index: 3; display: inline-flex; align-items: baseline; gap: 7px; margin-top: 14px; padding: 7px 13px; border: 1px solid rgba(255,255,255,.7); border-radius: 99px; background: rgba(255,255,255,.6); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
+.couple-presence-pill b { font-size: 13px; }
+.couple-presence-pill span { color: var(--dark); font-size: 11px; font-weight: 800; }
+.couple-presence-pill small { color: var(--muted); font-size: 9px; font-weight: 700; }
+.couple-presence-pill.is-quiet { background: rgba(31,42,58,.72); border-color: rgba(255,255,255,.22); }
+.couple-presence-pill.is-quiet span, .couple-presence-pill.is-quiet b { color: #fff; }
+.couple-presence-pill.is-quiet small { color: rgba(255,255,255,.72); }
+
+/* The live-sync pill is pinned to the hero's bottom-right corner, so the pin
+   reserves the space rather than sitting underneath it. */
+.couple-reunion-pin { position: relative; z-index: 3; grid-column: 1 / -1; margin-bottom: 30px; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 4px 13px; padding: 15px 18px; border: 1px solid rgba(255,255,255,.72); border-radius: 22px; background: rgba(255,255,255,.62); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
+.couple-reunion-pin b { grid-row: 1 / span 2; display: grid; width: 38px; height: 38px; place-items: center; border-radius: 13px; background: color-mix(in srgb, var(--honey) 62%, white); font-size: 17px; }
+.couple-reunion-pin strong { color: var(--dark); font-size: 14px; font-weight: 800; line-height: 1.3; }
+.couple-reunion-pin small { color: var(--muted); font-size: 10px; font-weight: 700; }
+.couple-reunion-pin.is-passed b { background: color-mix(in srgb, var(--blue) 50%, white); }
+
+.couple-thoughts { width: min(720px, calc(100% - 24px)); margin: 0 auto 20px; padding: clamp(16px, 3vw, 22px); border: 1px solid var(--line); border-radius: 26px; background: var(--white); box-shadow: 0 18px 40px -34px var(--blue-ink); }
+.couple-thoughts-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.couple-thoughts-head h2 { margin: 2px 0 0; font-size: 17px; }
+.couple-thoughts-badge { padding: 5px 10px; border-radius: 99px; background: var(--honey); color: var(--dark); font-size: 9px; font-weight: 850; text-transform: uppercase; }
+
+.couple-thought-picker { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 7px; }
+.couple-thought-button { display: flex; min-width: 0; min-height: 66px; flex-direction: column; align-items: center; justify-content: center; gap: 5px; padding: 8px 4px; border: 1px solid var(--line); border-radius: 17px; background: var(--sand); color: var(--dark); font: inherit; cursor: pointer; transition: transform .12s ease, background .16s ease, border-color .16s ease; }
+.couple-thought-button b { font-size: 19px; line-height: 1; }
+.couple-thought-button span { overflow: hidden; width: 100%; color: var(--muted); font-size: 8px; font-weight: 750; text-align: center; text-overflow: ellipsis; white-space: nowrap; }
+.couple-thought-button:hover:not(:disabled) { transform: translateY(-2px); border-color: color-mix(in srgb, var(--honey) 60%, var(--line)); }
+.couple-thought-button.is-suggested { border-color: color-mix(in srgb, var(--honey) 72%, var(--line)); background: color-mix(in srgb, var(--butter) 68%, white); }
+.couple-thought-button.is-sent { border-color: color-mix(in srgb, var(--teal) 55%, var(--line)); background: color-mix(in srgb, var(--blue) 34%, white); }
+.couple-thought-button:disabled { opacity: .5; cursor: default; }
+
+.couple-thought-status { margin: 11px 0 0; color: var(--muted); font-size: 10px; font-weight: 700; text-align: center; }
+
+.couple-thought-feed { display: grid; gap: 6px; margin: 13px 0 0; padding: 13px 0 0; border-top: 1px solid var(--line); list-style: none; }
+.couple-thought-feed li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 9px; }
+.couple-thought-feed b { display: grid; width: 25px; height: 25px; place-items: center; border-radius: 9px; background: color-mix(in srgb, var(--blue) 26%, white); font-size: 12px; }
+.couple-thought-feed li.is-mine b { background: color-mix(in srgb, var(--butter) 78%, white); }
+.couple-thought-feed span { overflow: hidden; color: var(--dark); font-size: 11px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
+.couple-thought-feed time { color: var(--muted); font-size: 9px; font-weight: 750; }
+
+.couple-rhythm { padding: clamp(16px, 3vw, 22px); border: 1px solid var(--line); border-radius: 24px; background: var(--white); }
+.couple-rhythm-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+.couple-rhythm-head span { color: var(--muted); font-size: 9px; font-weight: 800; text-transform: uppercase; }
+.couple-rhythm-strip { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 5px; margin: 0; padding: 0; list-style: none; }
+/* Each mark is split: your half on top, theirs below. An empty day has to read
+   as empty at a glance, so it is hollow rather than another shade of cream. */
+.couple-rhythm-strip li { height: 34px; border: 1px solid var(--line); border-radius: 8px; background: transparent; }
+.couple-rhythm-strip li.is-mine { background: linear-gradient(180deg, color-mix(in srgb, var(--honey) 80%, white) 0 50%, transparent 50%); }
+.couple-rhythm-strip li.is-theirs { background: linear-gradient(180deg, transparent 0 50%, color-mix(in srgb, var(--blue) 74%, white) 50%); }
+.couple-rhythm-strip li.is-both { border-color: color-mix(in srgb, var(--teal) 40%, var(--line)); background: linear-gradient(180deg, color-mix(in srgb, var(--honey) 80%, white) 0 50%, color-mix(in srgb, var(--blue) 74%, white) 50%); }
+
+.couple-rhythm-legend { display: flex; align-items: center; gap: 11px; margin: 11px 0 0; padding: 0; list-style: none; }
+.couple-rhythm-legend li { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); font-size: 9px; font-weight: 750; }
+.couple-rhythm-legend i { width: 11px; height: 11px; border: 1px solid var(--line); border-radius: 4px; }
+.couple-rhythm-legend i.is-mine { background: color-mix(in srgb, var(--honey) 80%, white); }
+.couple-rhythm-legend i.is-theirs { background: color-mix(in srgb, var(--blue) 74%, white); }
+.couple-rhythm-summary { margin: 12px 0 0; color: var(--muted); font-size: 11px; font-weight: 700; }
+
+.couple-empty { display: grid; justify-items: center; gap: 6px; padding: 30px 22px; border: 1px dashed var(--line); border-radius: 22px; background: var(--white); text-align: center; }
+.couple-empty b { font-size: 24px; }
+.couple-empty strong { font-size: 14px; }
+.couple-empty span { max-width: 34ch; color: var(--muted); font-size: 11px; line-height: 1.5; }
+
+.couple-date-card { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 6px 13px; padding: 15px 17px; border: 1px solid var(--line); border-radius: 20px; background: var(--white); }
+.couple-date-card.is-passed { opacity: .62; }
+.couple-date-glyph { display: grid; width: 38px; height: 38px; place-items: center; border-radius: 13px; background: var(--sand); font-size: 16px; }
+.couple-date-copy { display: grid; gap: 2px; min-width: 0; }
+.couple-date-copy strong { overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.couple-date-copy small { color: var(--muted); font-size: 10px; font-weight: 650; }
+.couple-date-copy em { color: var(--terracotta); font-size: 10px; font-style: normal; font-weight: 700; }
+.couple-date-countdown { padding: 6px 11px; border-radius: 99px; background: var(--sand); color: var(--dark); font-size: 10px; font-weight: 800; white-space: nowrap; }
+.couple-date-countdown.is-today { background: var(--honey); }
+.couple-date-actions { display: flex; grid-column: 2 / -1; align-items: center; gap: 8px; }
+.couple-date-actions input[type="date"] { min-height: 32px; padding: 0 8px; border: 1px solid var(--line); border-radius: 10px; background: var(--sand); color: var(--muted); font: inherit; font-size: 10px; }
+.couple-date-actions button { display: grid; width: 32px; height: 32px; place-items: center; border: 1px solid var(--line); border-radius: 10px; background: var(--white); color: var(--muted); font: inherit; font-size: 15px; cursor: pointer; }
+.couple-date-actions button:hover:not(:disabled) { border-color: var(--terracotta); color: var(--terracotta); }
+
+.couple-date-divider { margin: 10px 0 0; color: var(--muted); font-size: 9px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+
+.couple-date-composer { display: grid; gap: 12px; padding: clamp(16px, 3vw, 22px); border: 1px solid var(--line); border-radius: 24px; background: var(--sand); }
+.couple-date-kinds { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; }
+.couple-date-kinds button { display: flex; min-width: 0; min-height: 58px; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 8px 4px; border: 1px solid var(--line); border-radius: 15px; background: var(--white); color: var(--muted); font: inherit; cursor: pointer; }
+.couple-date-kinds button b { font-size: 16px; }
+.couple-date-kinds button span { overflow: hidden; width: 100%; font-size: 8px; font-weight: 750; text-align: center; text-overflow: ellipsis; white-space: nowrap; }
+.couple-date-kinds button.is-active { border-color: color-mix(in srgb, var(--honey) 70%, var(--line)); background: color-mix(in srgb, var(--butter) 72%, white); color: var(--dark); }
+.couple-date-composer label { display: grid; gap: 5px; }
+.couple-date-composer label > span { color: var(--muted); font-size: 10px; font-weight: 800; }
+.couple-date-composer input[type="text"], .couple-date-composer input:not([type]), .couple-date-composer input[type="date"] { min-height: 42px; padding: 0 13px; border: 1px solid var(--line); border-radius: 13px; background: var(--white); color: var(--dark); font: inherit; font-size: 13px; }
+.couple-date-repeat { display: flex; align-items: center; gap: 9px; }
+.couple-date-repeat input { width: 17px; height: 17px; }
+.couple-date-repeat span { color: var(--muted); font-size: 11px; font-weight: 700; }
+
+@media (max-width: 560px) {
+  .couple-thought-picker { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  /* A fourth tab leaves no room for both an icon and "Adventure Jar". */
+  .couple-tabs button svg { display: none; }
+  .couple-tabs button { padding: 0 6px; font-size: 10px; }
+  .couple-date-card { grid-template-columns: auto minmax(0, 1fr); }
+  .couple-date-countdown { grid-column: 2; justify-self: start; }
+}

@@ -4,6 +4,7 @@
 // modules load.
 
 import * as call from './call';
+import * as closeness from './closeness';
 import * as community from './community';
 import * as couples from './couples';
 import * as aiProfile from './aiProfile';
@@ -36,6 +37,7 @@ export const lifeos = {
   automations,
   budget,
   call,
+  closeness,
   community,
   couples,
   daylight,

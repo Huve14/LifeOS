@@ -17,6 +17,8 @@ A warm, private everyday companion for life in Abu Dhabi.
 - **"Why I'm doing this"** — editable anchor note pinned to the dashboard
 - **Confetti celebrations** when you complete a module
 - **South African rand (ZAR)** on the shopping list
+- **A shared space for two** — a two-minute pulse, a reveal-together question, shared notes and an adventure jar
+- **Closeness without a call** — one-tap thoughts that push to their phone, shared countdowns to the next time you are together, their local time, and a fortnight of your check-in rhythm ([`docs/CLOSENESS.md`](docs/CLOSENESS.md))
 
 ## Live calling is hidden
 
