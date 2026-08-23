@@ -121,6 +121,10 @@ scripts/verify-migration-chain.sh      # needs initdb/pg_ctl on PATH
 npm test                               # the pure rules, no database
 ```
 
+Every statement in it is guarded, so pasting it into the SQL editor twice is
+harmless — verified against a real cluster, including re-applying inside a
+single transaction, with the policy count unchanged at four per table.
+
 The chain script applies every migration to a throwaway cluster and then
 asserts the security contract: a partner can read and correct a shared date, a
 recipient can mark a thought seen, a sender cannot, an outsider sees neither

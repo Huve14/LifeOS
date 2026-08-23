@@ -58,10 +58,12 @@ create index if not exists lifeos_couple_thoughts_sender_idx
 
 alter table public.lifeos_couple_thoughts enable row level security;
 
+drop policy if exists "couple members read their thoughts" on public.lifeos_couple_thoughts;
 create policy "couple members read their thoughts"
 on public.lifeos_couple_thoughts for select to authenticated
 using ((select private.lifeos_is_couple_member(couple_id)));
 
+drop policy if exists "couple members send their own thoughts" on public.lifeos_couple_thoughts;
 create policy "couple members send their own thoughts"
 on public.lifeos_couple_thoughts for insert to authenticated
 with check (
@@ -71,6 +73,7 @@ with check (
 
 -- Only the recipient marks a thought seen, and there is nothing else on the
 -- row to change. Withholding update from the sender keeps "seen" honest.
+drop policy if exists "recipients mark thoughts seen" on public.lifeos_couple_thoughts;
 create policy "recipients mark thoughts seen"
 on public.lifeos_couple_thoughts for update to authenticated
 using (
@@ -82,6 +85,7 @@ with check (
   and sender_id <> (select auth.uid())
 );
 
+drop policy if exists "senders withdraw their own thoughts" on public.lifeos_couple_thoughts;
 create policy "senders withdraw their own thoughts"
 on public.lifeos_couple_thoughts for delete to authenticated
 using (
@@ -216,10 +220,12 @@ create index if not exists lifeos_couple_dates_author_idx
 
 alter table public.lifeos_couple_dates enable row level security;
 
+drop policy if exists "couple members read their dates" on public.lifeos_couple_dates;
 create policy "couple members read their dates"
 on public.lifeos_couple_dates for select to authenticated
 using ((select private.lifeos_is_couple_member(couple_id)));
 
+drop policy if exists "couple members add their own dates" on public.lifeos_couple_dates;
 create policy "couple members add their own dates"
 on public.lifeos_couple_dates for insert to authenticated
 with check (
@@ -230,11 +236,13 @@ with check (
 -- Either of them may correct a date. A wrong flight date entered by one
 -- person is exactly the thing the other needs to be able to fix, so these are
 -- shared facts rather than authored posts.
+drop policy if exists "couple members update their dates" on public.lifeos_couple_dates;
 create policy "couple members update their dates"
 on public.lifeos_couple_dates for update to authenticated
 using ((select private.lifeos_is_couple_member(couple_id)))
 with check ((select private.lifeos_is_couple_member(couple_id)));
 
+drop policy if exists "couple members remove their dates" on public.lifeos_couple_dates;
 create policy "couple members remove their dates"
 on public.lifeos_couple_dates for delete to authenticated
 using ((select private.lifeos_is_couple_member(couple_id)));
