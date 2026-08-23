@@ -18,6 +18,7 @@ export type PwaInstallGuide = {
 
 let initialized = false;
 let reloadStarted = false;
+let deferralWatched = false;
 let installPromptInitialized = false;
 let deferredInstallPrompt: BeforeInstallPromptEvent | null = null;
 
@@ -101,14 +102,68 @@ export function initPwaInstallPrompt(): void {
   });
 }
 
+/**
+ * Whether the person is part-way through typing something.
+ *
+ * The busy flag covers recordings, uploads, syncs and calls, but not a
+ * half-written note or a date label. An update that reloads the page out from
+ * under a filled-in field silently destroys work, which is a worse experience
+ * than not updating at all — so an empty field is fair game and a field with
+ * something in it is not.
+ */
+export function hasUnfinishedTyping(active: Element | null = document.activeElement): boolean {
+  if (!active) return false;
+
+  if (active instanceof HTMLTextAreaElement) return active.value.trim() !== '';
+  if (active instanceof HTMLInputElement) {
+    // Buttons, checkboxes, ranges and the like carry no text to lose. The app
+    // uses no contenteditable regions, so there is nothing else to cover.
+    const typed = ['text', 'search', 'url', 'email', 'tel', 'password', 'number', 'date'];
+    return typed.includes(active.type) && active.value.trim() !== '';
+  }
+  return false;
+}
+
+/** An update may take the page now only if nothing would be lost by it. */
+export function isSafeToReload(): boolean {
+  return !window.__lifeosBusy && !hasUnfinishedTyping();
+}
+
+/**
+ * Retry the deferred reload the moment the reason for deferring goes away.
+ *
+ * Without this a pending update waits for setBusy(false), which never comes if
+ * the deferral was typing rather than an upload.
+ */
+function watchForSafeMoment(): void {
+  if (deferralWatched) return;
+  deferralWatched = true;
+
+  const retry = () => {
+    if (!window.__lifeosPendingReload) return;
+    if (!isSafeToReload()) return;
+    window.__lifeosPendingReload = false;
+    window.location.reload();
+  };
+
+  // focusout fires as they leave the field; the visibility and pagehide checks
+  // catch the case where they simply put the phone down mid-sentence.
+  window.addEventListener('focusout', () => window.setTimeout(retry, 0));
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') retry();
+  });
+}
+
 function refreshWhenSafe(): void {
   if (reloadStarted) return;
   reloadStarted = true;
 
-  // Never interrupt a recording, upload, sync, or active call. setBusy(false)
-  // performs the pending refresh as soon as that work finishes.
-  if (window.__lifeosBusy) {
+  // Never interrupt a recording, upload, sync, active call, or a field someone
+  // is still typing into. setBusy(false) and watchForSafeMoment() each perform
+  // the pending refresh as soon as their reason for waiting clears.
+  if (!isSafeToReload()) {
     window.__lifeosPendingReload = true;
+    watchForSafeMoment();
     return;
   }
 

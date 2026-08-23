@@ -10,6 +10,7 @@ A warm, private everyday companion for life in Abu Dhabi.
 - **Onboarding** with embedded auth — spinning globe intro, name/password signup, date picker
 - **Supabase persistence** — state, chat, and shopping list sync across devices
 - **Shared shopping list** — standalone page for family to view/claim items, real-time via Supabase
+- **Auto-updating PWA** — an installed Home Screen app picks up each new release on its own, deferring the reload while a recording, upload or half-typed note is in flight ([`docs/PWA_UPDATES.md`](docs/PWA_UPDATES.md))
 - **Dark mode** and theme accent picker (terracotta / teal / gold)
 - **Budget planner** — monthly (AED 8,800 income) + one-time move costs, with ZAR home-currency comparison
 - **First 48 Hours guide** — arrival essentials: SIM, groceries, mosque, first meal, transport
