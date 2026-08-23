@@ -1262,6 +1262,9 @@ function ShoppingScreen({ state, setState, onBack, onAsk }) {
   const [barcode, setBarcode] = React.useState('');
   const [results, setResults] = React.useState([]);
   const [deals, setDeals] = React.useState([]);
+  const [dealEmirate, setDealEmirate] = React.useState('all');
+  const [priceSources, setPriceSources] = React.useState([]);
+  const [refreshingDeals, setRefreshingDeals] = React.useState(false);
   const [watches, setWatches] = React.useState([]);
   const [saBasket, setSaBasket] = React.useState([]);
   const [loading, setLoading] = React.useState(false);
@@ -1356,13 +1359,57 @@ function ShoppingScreen({ state, setState, onBack, onAsk }) {
     if (!api || !['deals', 'watch', 'sa'].includes(next)) return;
     setLoading(true);
     try {
-      if (next === 'deals') setDeals(await api.loadDeals());
+      if (next === 'deals') {
+        const [live, sources] = await Promise.all([
+          api.loadDeals(dealEmirate === 'all' ? undefined : dealEmirate),
+          api.loadPriceSources(),
+        ]);
+        setDeals(live);
+        setPriceSources(sources);
+      }
       if (next === 'watch') setWatches(await api.loadPriceWatches());
       if (next === 'sa') setSaBasket(await api.loadSaBasket());
     } catch (error) {
       setNotice(error?.message || 'This section could not refresh. Try again when you are online.');
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function chooseDealEmirate(next) {
+    setDealEmirate(next);
+    if (!api) return;
+    setLoading(true);
+    try {
+      setDeals(await api.loadDeals(next === 'all' ? undefined : next));
+    } catch (error) {
+      setNotice(error?.message || 'Specials could not refresh. Try again when you are online.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // The scheduled job refreshes specials every few hours; this is the manual
+  // pull so nobody is stuck looking at yesterday's prices.
+  async function refreshDealsNow() {
+    if (!api || refreshingDeals) return;
+    setRefreshingDeals(true);
+    setNotice('');
+    try {
+      const result = await api.refreshDeals();
+      const [live, sources] = await Promise.all([
+        api.loadDeals(dealEmirate === 'all' ? undefined : dealEmirate),
+        api.loadPriceSources(),
+      ]);
+      setDeals(live);
+      setPriceSources(sources);
+      setNotice(result.deals > 0
+        ? `Found ${result.deals} new special${result.deals === 1 ? '' : 's'}.`
+        : 'No new specials right now. Checked every connected store.');
+    } catch (error) {
+      setNotice(error?.message || 'Specials could not refresh. Try again when you are online.');
+    } finally {
+      setRefreshingDeals(false);
     }
   }
 
@@ -1567,21 +1614,68 @@ function ShoppingScreen({ state, setState, onBack, onAsk }) {
     </div>
   );
 
+  const sourceLabels = api?.sourceLabelMap ? api.sourceLabelMap(priceSources) : {};
+  const liveSources = priceSources.filter(source => source.enabled && source.lastStatus === 'ok');
+  const lastChecked = priceSources
+    .map(source => source.lastRunAt)
+    .filter(Boolean)
+    .sort()
+    .at(-1);
+
   const dealsContent = (
-    <div className="shop-card-grid">
-      {deals.map(deal => {
-        const discount = deal.originalPrice && deal.originalPrice > 0 ? Math.round((1 - deal.currentPrice / deal.originalPrice) * 100) : null;
-        return (
-          <Card key={deal.id} className="shop-deal-card" padding="20px">
-            <div className="deal-badges"><span>{api.sourceLabel(deal.source)}</span>{discount ? <strong>−{discount}%</strong> : <strong>SPECIAL</strong>}</div>
-            <div className="deal-product-mark">{deal.product.imageUrl ? <img src={deal.product.imageUrl} alt="" /> : deal.product.name.slice(0, 1)}</div>
-            <h3>{deal.title || deal.product.name}</h3><p>{deal.store.name} · {deal.store.area}</p>
-            <div className="deal-price"><strong>{displayMoney(deal.currentPrice)}</strong>{deal.originalPrice ? <s>{displayMoney(deal.originalPrice)}</s> : null}</div>
-            <small>{deal.expiresAt ? `Ends ${new Intl.DateTimeFormat('en-AE', { day: 'numeric', month: 'short' }).format(new Date(deal.expiresAt))}` : 'Check availability before travelling'}</small>
+    <div className="shop-panel-stack">
+      <div className="deal-toolbar">
+        <div className="deal-filter" role="group" aria-label="Filter specials by emirate">
+          {[['all', 'All'], ['Abu Dhabi', 'Abu Dhabi'], ['Dubai', 'Dubai']].map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              className={dealEmirate === value ? 'is-active' : ''}
+              aria-pressed={dealEmirate === value}
+              onClick={() => chooseDealEmirate(value)}
+            >{label}</button>
+          ))}
+        </div>
+        <button type="button" className="deal-refresh" onClick={refreshDealsNow} disabled={refreshingDeals}>
+          {refreshingDeals ? 'Checking stores…' : 'Check for new specials'}
+        </button>
+      </div>
+
+      {priceSources.length > 0 && (
+        <p className="deal-source-note">
+          {liveSources.length > 0
+            ? `${liveSources.length} of ${priceSources.length} stores reporting${lastChecked ? ` · checked ${api.ageLabel(lastChecked)}` : ''}`
+            : 'No store feed has reported yet. Specials below were added by members.'}
+        </p>
+      )}
+
+      <div className="shop-card-grid">
+        {deals.map(deal => {
+          const discount = deal.originalPrice && deal.originalPrice > 0 ? Math.round((1 - deal.currentPrice / deal.originalPrice) * 100) : null;
+          return (
+            <Card key={deal.id} className="shop-deal-card" padding="20px">
+              <div className="deal-badges"><span>{api.sourceLabel(deal.source, '', sourceLabels)}</span>{discount ? <strong>−{discount}%</strong> : <strong>SPECIAL</strong>}</div>
+              <div className="deal-product-mark">{deal.product.imageUrl ? <img src={deal.product.imageUrl} alt="" /> : deal.product.name.slice(0, 1)}</div>
+              <h3>{deal.title || deal.product.name}</h3>
+              <p>{deal.store.name}{deal.store.area ? ` · ${deal.store.area}` : ''}{deal.store.emirate && deal.store.emirate !== 'UAE' ? ` · ${deal.store.emirate}` : ''}</p>
+              <div className="deal-price"><strong>{displayMoney(deal.currentPrice)}</strong>{deal.originalPrice ? <s>{displayMoney(deal.originalPrice)}</s> : null}</div>
+              <small>{deal.expiresAt ? `Ends ${new Intl.DateTimeFormat('en-AE', { day: 'numeric', month: 'short' }).format(new Date(deal.expiresAt))}` : 'Check availability before travelling'}</small>
+            </Card>
+          );
+        })}
+        {!loading && !deals.length && (
+          <Card className="shop-empty-wide">
+            <EmptyState
+              emoji="🏷️"
+              title={dealEmirate === 'all' ? 'No live specials right now' : `No live specials in ${dealEmirate} right now`}
+              body={dealEmirate === 'all'
+                ? 'Check the stores again, or flag a special yourself while logging a price.'
+                : 'Try All emirates, check the stores again, or flag one yourself while logging a price.'}
+              action={<Button onClick={refreshDealsNow} disabled={refreshingDeals}>{refreshingDeals ? 'Checking stores…' : 'Check for new specials'}</Button>}
+            />
           </Card>
-        );
-      })}
-      {!loading && !deals.length && <Card className="shop-empty-wide"><EmptyState emoji="🏷️" title="No live specials yet" body="Flag a special while logging a price and it will appear here for other members." action={<Button onClick={() => openLogPrice()}>Log a special</Button>} /></Card>}
+        )}
+      </div>
     </div>
   );
 
