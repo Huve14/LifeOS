@@ -176,7 +176,7 @@ function Onboarding({ onDone, initialDate, user }) {
     daily_rhythm: 'flexible',
     notes: '',
   });
-  const [authError, setAuthError] = React.useState('');
+  const [authFeedback, setAuthFeedback] = React.useState(null);
   const [authLoading, setAuthLoading] = React.useState(false);
   const [installGuideVisible, setInstallGuideVisible] = React.useState(() => !isPwaInstalled());
   const [installPromptReady, setInstallPromptReady] = React.useState(() => canPromptPwaInstall());
@@ -212,13 +212,17 @@ function Onboarding({ onDone, initialDate, user }) {
 
   async function handleAuth(e) {
     e.preventDefault();
-    setAuthError('');
+    setAuthFeedback(null);
     setAuthLoading(true);
     const { signIn, signUp } = window.__suvedaAuth || {};
-    if (!signIn || !signUp) { setAuthError('Auth not ready'); setAuthLoading(false); return; }
+    if (!signIn || !signUp) {
+      setAuthFeedback({ tone: 'error', message: 'Auth not ready' });
+      setAuthLoading(false);
+      return;
+    }
     try {
       if (authMode === 'signup') {
-        const { data, error: suErr } = await signUp(
+        const result = await signUp(
           authEmail.trim(),
           authPassword,
           authName.trim(),
@@ -228,14 +232,13 @@ function Onboarding({ onDone, initialDate, user }) {
             interests: authAIProfile.interests.split(',').map(item => item.trim()).filter(Boolean),
           },
         );
-        if (suErr) setAuthError(suErr.message);
-        else if (!data?.session) setAuthError('Account created. Check your email to confirm it, then sign in.');
+        setAuthFeedback(window.__lifeos.registration.describeSignUpOutcome(result, authEmail.trim()));
       } else {
         const { error: siErr } = await signIn(authEmail.trim(), authPassword);
-        if (siErr) setAuthError(siErr.message);
+        if (siErr) setAuthFeedback({ tone: 'error', message: siErr.message });
       }
     } catch (err) {
-      setAuthError(err?.message || 'Something went wrong');
+      setAuthFeedback({ tone: 'error', message: err?.message || 'Something went wrong' });
     }
     setAuthLoading(false);
   }
@@ -356,7 +359,7 @@ function Onboarding({ onDone, initialDate, user }) {
                   role="tab"
                   aria-selected={authMode === 'signin'}
                   className={authMode === 'signin' ? 'is-active' : ''}
-                  onClick={() => { setAuthMode('signin'); setAuthError(''); }}
+                  onClick={() => { setAuthMode('signin'); setAuthFeedback(null); }}
                 >
                   Sign in
                 </button>
@@ -365,7 +368,7 @@ function Onboarding({ onDone, initialDate, user }) {
                   role="tab"
                   aria-selected={authMode === 'signup'}
                   className={authMode === 'signup' ? 'is-active' : ''}
-                  onClick={() => { setAuthMode('signup'); setAuthError(''); }}
+                  onClick={() => { setAuthMode('signup'); setAuthFeedback(null); }}
                 >
                   Register
                 </button>
@@ -550,9 +553,9 @@ function Onboarding({ onDone, initialDate, user }) {
                   </section>
                 )}
 
-                {authError && (
-                  <div role="status" aria-live="polite" style={{ background: '#fef2f2', color: '#b91c1c', padding: '10px 14px', borderRadius: 12, fontSize: 13, fontWeight: 500, marginBottom: 14 }}>
-                    {authError}
+                {authFeedback && (
+                  <div role="status" aria-live="polite" className={`auth-feedback is-${authFeedback.tone}`}>
+                    {authFeedback.message}
                   </div>
                 )}
 

@@ -12,38 +12,38 @@ function AuthScreen() {
   const [arrivedOn, setArrivedOn] = useState('');
   const [status, setStatus] = useState('just_landed');
   const [employerName, setEmployerName] = useState('');
-  const [error, setError] = useState('');
+  const [feedback, setFeedback] = useState(null);
   const [loading, setLoading] = useState(false);
 
   const { signIn, signUp } = window.__suvedaAuth;
+  const { describeSignUpOutcome } = window.__lifeos.registration;
   const registering = accountMode === 'signup';
 
   const handleSubmit = useCallback(async (event) => {
     event.preventDefault();
-    setError('');
+    setFeedback(null);
     setLoading(true);
 
     try {
       if (registering) {
-        const { data, error: signUpError } = await signUp(email.trim(), password, name.trim(), {}, {
+        const result = await signUp(email.trim(), password, name.trim(), {}, {
           home_town: homeTown,
           emirate,
           arrived_on: arrivedOn,
           status,
           employer_name: employerName,
         });
-        if (signUpError) setError(signUpError.message);
-        else if (!data?.session) setError('Account created. Check your email to confirm it, then sign in.');
+        setFeedback(describeSignUpOutcome(result, email.trim()));
       } else {
         const { error: signInError } = await signIn(email.trim(), password);
-        if (signInError) setError(signInError.message);
+        if (signInError) setFeedback({ tone: 'error', message: signInError.message });
       }
     } catch (err) {
-      setError(err?.message || 'Something went wrong');
+      setFeedback({ tone: 'error', message: err?.message || 'Something went wrong' });
     } finally {
       setLoading(false);
     }
-  }, [arrivedOn, email, emirate, employerName, homeTown, name, password, registering, signIn, signUp, status]);
+  }, [arrivedOn, describeSignUpOutcome, email, emirate, employerName, homeTown, name, password, registering, signIn, signUp, status]);
 
   return (
     <div className="auth-screen" style={{
@@ -69,8 +69,8 @@ function AuthScreen() {
         border: '1px solid var(--line)', maxWidth: registering ? 560 : 400, width: '100%', margin: '0 auto',
       }}>
         <div className="onboarding-auth-tabs" role="tablist" aria-label="Account access">
-          <button type="button" role="tab" aria-selected={!registering} className={!registering ? 'is-active' : ''} onClick={() => { setAccountMode('signin'); setError(''); }}>Sign in</button>
-          <button type="button" role="tab" aria-selected={registering} className={registering ? 'is-active' : ''} onClick={() => { setAccountMode('signup'); setError(''); }}>Register</button>
+          <button type="button" role="tab" aria-selected={!registering} className={!registering ? 'is-active' : ''} onClick={() => { setAccountMode('signin'); setFeedback(null); }}>Sign in</button>
+          <button type="button" role="tab" aria-selected={registering} className={registering ? 'is-active' : ''} onClick={() => { setAccountMode('signup'); setFeedback(null); }}>Register</button>
         </div>
 
         <form onSubmit={handleSubmit}>
@@ -86,7 +86,7 @@ function AuthScreen() {
             <label className="auth-profile-field"><span>Employer <small>optional</small></span><input value={employerName} onChange={event => setEmployerName(event.target.value)} placeholder="Used only for your benefits" /></label>
           </div>}
 
-          {error && <div role="status" aria-live="polite" style={{ background: '#fef2f2', color: '#b91c1c', padding: '10px 14px', borderRadius: 12, fontSize: 13, fontWeight: 500, margin: '16px 0' }}>{error}</div>}
+          {feedback && <div role="status" aria-live="polite" className={`auth-feedback is-${feedback.tone}`}>{feedback.message}</div>}
 
           <button type="submit" disabled={loading} style={{
             width: '100%', padding: '14px', marginTop: 18, borderRadius: 14, border: 'none',

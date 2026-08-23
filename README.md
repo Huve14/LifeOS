@@ -7,7 +7,7 @@ A warm, private everyday companion for life in Abu Dhabi.
 - **8 modules** to track every aspect of the move: Packing, Documents, Timeline, Budget, Shopping, Housing, Memory Lane, and People & Contacts
 - **AI companion** (Huve) — intelligent chat powered by NVIDIA Nemotron, aware of your countdown and tasks
 - **Daily check-in** — Huve greets you by name with your remaining days and soonest task
-- **Onboarding** with embedded auth — spinning globe intro, name/password signup, date picker
+- **Onboarding** with embedded auth — spinning globe intro, name/password signup, date picker. Registration is open to anyone; what actually gates it lives in the Supabase dashboard ([`docs/ACCOUNTS.md`](docs/ACCOUNTS.md))
 - **Supabase persistence** — state, chat, and shopping list sync across devices
 - **Shared shopping list** — standalone page for family to view/claim items, real-time via Supabase
 - **Auto-updating PWA** — an installed Home Screen app picks up each new release on its own, deferring the reload while a recording, upload or half-typed note is in flight ([`docs/PWA_UPDATES.md`](docs/PWA_UPDATES.md))

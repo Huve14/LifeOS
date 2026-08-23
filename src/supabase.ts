@@ -1,6 +1,7 @@
 import { createClient, type SupabaseClient, type User } from '@supabase/supabase-js';
 import type { GameType } from './lifeos/games';
 import { prepareAIProfile, type AIProfile } from './lifeos/aiProfile';
+import { signUpRedirectUrl } from './lifeos/registration';
 
 export type { AIProfile } from './lifeos/aiProfile';
 
@@ -268,6 +269,13 @@ export async function signUp(
     password,
     options: {
       data: prepareRegistrationMetadata(name, aiProfile, profile),
+      // Bring the confirmation link back to wherever this person registered
+      // instead of to whatever the project's Site URL is set to. Supabase
+      // ignores a redirect that is not on the allow list, so the worst case is
+      // the default we had before.
+      emailRedirectTo: signUpRedirectUrl(
+        typeof window === 'undefined' ? null : window.location.origin,
+      ),
     },
   });
 }

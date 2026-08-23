@@ -2575,6 +2575,37 @@ img, video, canvas {
   gap: 10px;
 }
 
+/* A registration that worked is not a failure. Three tones, one shape: an
+   error the person can act on, a neutral notice (check your inbox), and the
+   rare straight-through success. */
+.auth-feedback {
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.45;
+  margin: 16px 0 14px;
+  border: 1px solid transparent;
+}
+
+.auth-feedback.is-error {
+  background: #fef2f2;
+  color: #b91c1c;
+  border-color: #fecaca;
+}
+
+.auth-feedback.is-notice {
+  background: color-mix(in srgb, var(--blue) 22%, white);
+  color: var(--blue-ink);
+  border-color: var(--line);
+}
+
+.auth-feedback.is-success {
+  background: color-mix(in srgb, var(--honey) 18%, white);
+  color: var(--honey-ink);
+  border-color: color-mix(in srgb, var(--honey) 40%, white);
+}
+
 .auth-profile-field {
   display: grid;
   gap: 5px;

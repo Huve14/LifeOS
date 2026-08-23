@@ -26,6 +26,7 @@ import * as prices from './prices';
 import * as prompts from './prompts';
 import * as push from './push';
 import * as recording from './recording';
+import * as registration from './registration';
 import * as spaces from './spaces';
 import * as sync from './sync';
 import * as time from './time';
@@ -56,6 +57,7 @@ export const lifeos = {
   prompts,
   push,
   recording,
+  registration,
   spaces,
   sync,
   time,
