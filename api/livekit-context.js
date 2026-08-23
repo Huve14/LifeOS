@@ -1,5 +1,18 @@
 export const LEGACY_ROOM = 'lifeos-two';
 
+/**
+ * Live calling is off unless a deployment opts in.
+ *
+ * The UAE reserves consumer voice and video over IP for licensed operators, so
+ * the token endpoint refuses to mint a LiveKit grant unless ENABLE_CALLS is
+ * explicitly "true". Hiding the buttons is not enough on its own: the endpoint
+ * is public, and the API secret it holds is the only thing that can grant a
+ * seat in a room.
+ */
+export function callingEnabled(env = process.env) {
+  return String(env?.ENABLE_CALLS ?? '').trim().toLowerCase() === 'true';
+}
+
 export function spaceRoomName(spaceId) {
   const id = String(spaceId || '').trim();
   if (!id) throw new Error('A space id is required to create a call room');

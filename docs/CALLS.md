@@ -1,6 +1,62 @@
 # Live group video and audio calls
 
+> **Status: hidden by default.**
+>
+> The UAE reserves consumer voice and video over IP for licensed telecom
+> operators, so Life OS ships with this feature switched off. Nothing below has
+> been deleted — every entry point is gated on one flag, and the rest of this
+> document describes the feature as it behaves once a deployment turns it back
+> on. See [Switching calling on](#switching-calling-on).
+
 Built on [LiveKit](https://livekit.io) rather than raw `RTCPeerConnection`.
+
+## Switching calling on
+
+Two flags, and both must be set. They are independent on purpose: the client
+flag hides the surface, the server flag is what actually withholds a LiveKit
+room grant.
+
+| Flag | Where | Effect when unset |
+|---|---|---|
+| `VITE_ENABLE_CALLS=true` | client build | Every call entry point is hidden and `src/lifeos/call.ts` refuses to connect |
+| `ENABLE_CALLS=true` | server (Vercel) | `POST /api/livekit-token` answers `404` before reading credentials, membership, or an invitation token |
+
+Only the exact string `true` opts in; anything else — including `1` and `yes` —
+leaves calling off. Set neither in a UAE deployment.
+
+### What is hidden while the flags are unset
+
+- the `call` route, its lazy bundle, and the developer `?preview-call` fixture;
+- **Video call** and **Audio call** on the Home "Us, right now" card, which
+  offers a video note instead;
+- the **Calls** entry in the bottom navigation and the Quick Dock picker — the
+  slot carries the video journal instead, so unwatched video notes keep a home;
+- the **Call** button in the paired couple space;
+- the browser invitation route `/join/<token>`, which answers with a plain
+  "Calling is unavailable" notice instead of loading the call screen;
+- call wording in the onboarding tour, the Home section list, and the life-mode
+  presets.
+
+A saved `call` shortcut or a push notification pointing at the call screen is
+dropped rather than followed, so state stored by an earlier build cannot
+resurrect the feature.
+
+### What is not affected
+
+Recording and sending **video notes** (`video-journal.jsx`) is a store-and-
+forward feature, not realtime VoIP, and stays available. So do the shared
+couple space, games, community, and everything else.
+
+What a couple loses with calling hidden is the unplanned gesture, not the
+ability to talk. [CLOSENESS.md](CLOSENESS.md) covers what fills that gap:
+one-tap thoughts, shared countdowns, their local time, and the check-in
+rhythm.
+
+The LiveKit client is still emitted as a lazy chunk that nothing requests: it
+is reachable only through the gated route, and it is excluded from the service
+worker precache list, so a phone never downloads it. Dropping the chunk from
+the build entirely would mean making `src/lifeos/index.ts` import `./call`
+conditionally, which static ESM cannot express.
 
 ## Network design
 
@@ -76,17 +132,22 @@ From the project settings, take the WebSocket URL and an API key and secret.
 Client, at build time:
 
 ```
+VITE_ENABLE_CALLS=true
 VITE_LIVEKIT_URL=wss://your-project.livekit.cloud
 ```
 
 Server, on Vercel, never exposed to the browser:
 
 ```
+ENABLE_CALLS=true
 LIVEKIT_API_KEY=API...
 LIVEKIT_API_SECRET=...
 SUPABASE_URL=https://snpgmoedtkstbcpbtpcc.supabase.co
 SUPABASE_ANON_KEY=...
 ```
+
+Without `ENABLE_CALLS` the endpoint below never runs, whatever the other
+variables say.
 
 The API secret is what mints a seat in the room, so it stays server side.
 `api/livekit-token.js` is the only thing that can issue one, and it verifies
@@ -174,6 +235,14 @@ suggested, it does not nag again until the connection recovers and degrades
 afresh. That logic is pure and tested in `src/lifeos/call.test.ts`.
 
 ## Troubleshooting
+
+**Nothing in the app offers a call.** That is the shipped default. Calling is
+hidden for UAE compliance until `VITE_ENABLE_CALLS=true` is set for the client
+build. See [Switching calling on](#switching-calling-on).
+
+**Token request returns 404.** `ENABLE_CALLS` is not `true` on the server. The
+client build and the server flag are set independently, so a client with calling
+switched on still gets nothing until the server agrees.
 
 **"Calling is not set up".** `VITE_LIVEKIT_URL` is missing or is not `wss:` on
 443. The message names which.

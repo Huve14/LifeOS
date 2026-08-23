@@ -11,6 +11,7 @@
 // rather than on every app launch.
 
 import { getAuthClient, hasConfig } from '../supabase';
+import { CALLS_DISABLED_NOTICE, CALLS_ENABLED } from './features';
 import { installPeerConnectionProbe, inspectTransport, removePeerConnectionProbe } from './ice';
 import type { TransportReport } from './ice';
 
@@ -51,8 +52,12 @@ export function serverUrl(): string {
   return (import.meta.env.VITE_LIVEKIT_URL ?? '').trim();
 }
 
+/**
+ * A build with calling hidden reports "not available" whatever
+ * VITE_LIVEKIT_URL says, so the call screen never offers to connect.
+ */
 export function isConfigured(): boolean {
-  return validateServerUrl(serverUrl()).ok;
+  return CALLS_ENABLED && validateServerUrl(serverUrl()).ok;
 }
 
 /** Turn browser, auth, and network failures into instructions a person can act on. */
@@ -147,6 +152,7 @@ export function isCallInviteToken(value: string): boolean {
 }
 
 async function fetchToken(options: CallJoinOptions = {}): Promise<string> {
+  if (!CALLS_ENABLED) throw new Error(CALLS_DISABLED_NOTICE);
   if (!hasConfig) throw new Error('Calls are not configured');
 
   const { data } = await getAuthClient().auth.getSession();
@@ -322,6 +328,7 @@ export async function startCall(
   options: CallJoinOptions = {},
 ): Promise<ActiveCall> {
   const url = serverUrl();
+  if (!CALLS_ENABLED) throw new Error(CALLS_DISABLED_NOTICE);
   const check = validateServerUrl(url);
   if (!check.ok) throw new Error(check.reason);
   const mode = options.mode ?? 'video';

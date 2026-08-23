@@ -4,12 +4,14 @@
 // modules load.
 
 import * as call from './call';
+import * as closeness from './closeness';
 import * as community from './community';
 import * as couples from './couples';
 import * as aiProfile from './aiProfile';
 import * as automations from './automations';
 import * as budget from './budget';
 import * as daylight from './daylight';
+import * as features from './features';
 import * as ice from './ice';
 import * as journal from './journal';
 import * as home from './home';
@@ -24,6 +26,7 @@ import * as prices from './prices';
 import * as prompts from './prompts';
 import * as push from './push';
 import * as recording from './recording';
+import * as registration from './registration';
 import * as spaces from './spaces';
 import * as sync from './sync';
 import * as time from './time';
@@ -35,9 +38,11 @@ export const lifeos = {
   automations,
   budget,
   call,
+  closeness,
   community,
   couples,
   daylight,
+  features,
   games,
   home,
   ice,
@@ -52,6 +57,7 @@ export const lifeos = {
   prompts,
   push,
   recording,
+  registration,
   spaces,
   sync,
   time,

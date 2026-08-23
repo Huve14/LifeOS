@@ -241,6 +241,103 @@ begin
 end;
 $$;
 
+-- Closeness security contract: a couple's thoughts and dates are theirs, the
+-- rate limit is enforced by the database rather than the client, and a thought
+-- queues a push whose body is composed server-side from the gesture alone.
+reset role;
+insert into public.lifeos_couples (id, name, created_by)
+overriding system value
+values (9001, 'Our space', 'cccccccc-cccc-4ccc-8ccc-cccccccccccc');
+insert into public.lifeos_couple_members (couple_id, user_id) values
+  (9001, 'cccccccc-cccc-4ccc-8ccc-cccccccccccc'),
+  (9001, 'dddddddd-dddd-4ddd-8ddd-dddddddddddd');
+
+set role authenticated;
+select set_config('request.jwt.claim.sub', 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', false);
+
+insert into public.lifeos_couple_thoughts (couple_id, sender_id, gesture)
+values (9001, auth.uid(), 'heart');
+
+insert into public.lifeos_couple_dates (couple_id, created_by, kind, label, happens_on, repeats_annually)
+values (9001, auth.uid(), 'reunion', 'Together in Abu Dhabi', current_date + 12, false);
+
+do $$
+begin
+  -- The throttle has to hold against a client that simply does not wait.
+  begin
+    insert into public.lifeos_couple_thoughts (couple_id, sender_id, gesture)
+    values (9001, auth.uid(), 'hug');
+    raise exception 'A second thought inside the cooldown was accepted';
+  exception
+    when sqlstate '53400' then null;
+  end;
+end;
+$$;
+
+-- The notification queue is deny-all to clients by design, so these are
+-- checked from outside the authenticated role.
+reset role;
+do $$
+begin
+  if not exists (
+    select 1 from public.lifeos_notifications
+    where recipient_id = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd'
+      and body like '%is thinking of you.%'
+  ) then
+    raise exception 'Sending a thought did not queue a push for the partner';
+  end if;
+
+  if exists (
+    select 1 from public.lifeos_notifications
+    where recipient_id = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc'
+      and data ->> 'gesture' is not null
+  ) then
+    raise exception 'A sender was notified of their own thought';
+  end if;
+end;
+$$;
+
+set role authenticated;
+
+select set_config('request.jwt.claim.sub', 'dddddddd-dddd-4ddd-8ddd-dddddddddddd', false);
+do $$
+begin
+  if not exists (select 1 from public.lifeos_couple_thoughts where couple_id = 9001) then
+    raise exception 'A partner cannot read a thought sent to them';
+  end if;
+  if not exists (select 1 from public.lifeos_couple_dates where couple_id = 9001) then
+    raise exception 'A partner cannot read a shared date';
+  end if;
+
+  -- Either of them may correct a shared date; only the recipient marks seen.
+  update public.lifeos_couple_dates set label = 'Together in Abu Dhabi (confirmed)'
+  where couple_id = 9001;
+  if not exists (
+    select 1 from public.lifeos_couple_dates
+    where couple_id = 9001 and label = 'Together in Abu Dhabi (confirmed)'
+  ) then
+    raise exception 'A partner cannot correct a shared date';
+  end if;
+
+  update public.lifeos_couple_thoughts set seen_at = now() where couple_id = 9001;
+  if exists (select 1 from public.lifeos_couple_thoughts where couple_id = 9001 and seen_at is null) then
+    raise exception 'A recipient cannot mark a received thought seen';
+  end if;
+end;
+$$;
+
+select set_config('request.jwt.claim.sub', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', false);
+do $$
+begin
+  if exists (select 1 from public.lifeos_couple_thoughts) then
+    raise exception 'An outsider can read another couple''s thoughts';
+  end if;
+  if exists (select 1 from public.lifeos_couple_dates) then
+    raise exception 'An outsider can read another couple''s dates';
+  end if;
+end;
+$$;
+
 reset role;
 SQL
 

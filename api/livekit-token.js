@@ -8,7 +8,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { AccessToken } from 'livekit-server-sdk';
 import { randomUUID } from 'node:crypto';
-import { resolveCallContext } from './livekit-context.js';
+import { callingEnabled, resolveCallContext } from './livekit-context.js';
 
 const LIVEKIT_API_KEY = process.env.LIVEKIT_API_KEY;
 const LIVEKIT_API_SECRET = process.env.LIVEKIT_API_SECRET;
@@ -65,6 +65,13 @@ async function issueToken({ identity, name, room, ttl = '10m' }) {
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return sendJson(res, 405, { error: 'Method not allowed' });
+  }
+
+  // Refuse before touching credentials, membership, or an invitation token.
+  // Calling is hidden for UAE compliance; this endpoint is the only thing that
+  // can sign a room grant, so it fails closed unless a deployment opts in.
+  if (!callingEnabled()) {
+    return sendJson(res, 404, { error: 'Calling is not available.' });
   }
 
   if (!LIVEKIT_API_KEY || !LIVEKIT_API_SECRET) {

@@ -1,3 +1,5 @@
+import { CALLS_ENABLED } from './features';
+
 export const HOME_SECTION_IDS = [
   'overview',
   'priorities',
@@ -23,6 +25,16 @@ export const QUICK_NAV_IDS = [
   'habits',
   'people',
 ] as const;
+
+/**
+ * Shortcuts this build does not ship. Calling is hidden for UAE compliance, so
+ * a dock slot saved on an earlier build must not resurrect it.
+ */
+export const HIDDEN_QUICK_NAV_IDS: readonly QuickNavId[] = CALLS_ENABLED ? [] : ['call'];
+
+export function isQuickNavAvailable(id: QuickNavId): boolean {
+  return !HIDDEN_QUICK_NAV_IDS.includes(id);
+}
 
 export type HomeSectionId = (typeof HOME_SECTION_IDS)[number];
 export type QuickNavId = (typeof QUICK_NAV_IDS)[number];
@@ -87,7 +99,9 @@ export function preparePreferences(value: unknown): LifeOSPreferences {
   const ordered = usesLegacyDefault ? [...HOME_SECTION_IDS] : savedOrder;
   const homeOrder = [...ordered, ...HOME_SECTION_IDS.filter(id => !ordered.includes(id))];
   const hiddenHomeSections = uniqueAllowed<HomeSectionId>(input.hiddenHomeSections, HOME_SECTION_IDS);
-  const storedNav = uniqueAllowed<QuickNavId>(input.quickNav, QUICK_NAV_IDS).slice(0, 3);
+  const storedNav = uniqueAllowed<QuickNavId>(input.quickNav, QUICK_NAV_IDS)
+    .filter(isQuickNavAvailable)
+    .slice(0, 3);
   const isLegacyDefault = storedNav.length === 3
     && (
       (storedNav[0] === 'map' && storedNav[1] === 'docs' && storedNav[2] === 'budget')
@@ -99,7 +113,7 @@ export function preparePreferences(value: unknown): LifeOSPreferences {
     ...selectedNav,
     ...DEFAULT_PREFERENCES.quickNav.filter(id => !selectedNav.includes(id)),
     ...QUICK_NAV_IDS.filter(id => !selectedNav.includes(id)),
-  ].slice(0, 3) as QuickNavId[];
+  ].filter(isQuickNavAvailable).slice(0, 3) as QuickNavId[];
 
   return {
     palette: oneOf(input.palette, ['honey', 'oasis', 'sunset', 'lavender'], DEFAULT_PREFERENCES.palette),
@@ -125,7 +139,8 @@ export const LIFE_MODE_PRESETS: Record<string, Partial<LifeOSPreferences>> = {
     motion: 'gentle',
     hiddenHomeSections: ['overview', 'snapshots', 'games', 'settling', 'tools'],
     homeOrder: ['overview', 'priorities', 'wellbeing', 'connection', 'snapshots', 'games', 'settling', 'tools'],
-    quickNav: ['notes', 'call', 'habits'],
+    // 'call' drops out when calling is hidden; 'people' keeps three slots.
+    quickNav: ['notes', 'call', 'habits', 'people'],
     activePreset: 'calm',
   },
   explorer: {
@@ -143,7 +158,8 @@ export const LIFE_MODE_PRESETS: Record<string, Partial<LifeOSPreferences>> = {
     motion: 'gentle',
     hiddenHomeSections: ['overview', 'settling'],
     homeOrder: ['connection', 'games', 'wellbeing', 'overview', 'priorities', 'snapshots', 'tools', 'settling'],
-    quickNav: ['call', 'games', 'notes'],
+    // 'call' drops out when calling is hidden; 'people' keeps three slots.
+    quickNav: ['call', 'games', 'notes', 'people'],
     activePreset: 'connected',
   },
   everything: {
@@ -176,6 +192,7 @@ export function moveHomeSection(
 
 export function setQuickNavSlot(current: unknown, slot: number, itemId: QuickNavId): QuickNavId[] {
   const quickNav = [...preparePreferences(current).quickNav];
+  if (!isQuickNavAvailable(itemId)) return quickNav;
   const target = Math.max(0, Math.min(2, slot));
   const duplicate = quickNav.indexOf(itemId);
   if (duplicate >= 0 && duplicate !== target) {

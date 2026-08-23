@@ -6,6 +6,7 @@ export type CallContext =
   | { member: true; room: string; displayName: string }
   | { member: false; error?: unknown };
 
+export function callingEnabled(env?: Record<string, string | undefined>): boolean;
 export function spaceRoomName(spaceId: unknown): string;
 export function isMissingSpacesRpc(error: unknown): boolean;
 export function resolveCallContext(

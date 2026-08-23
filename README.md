@@ -7,9 +7,10 @@ A warm, private everyday companion for life in Abu Dhabi.
 - **8 modules** to track every aspect of the move: Packing, Documents, Timeline, Budget, Shopping, Housing, Memory Lane, and People & Contacts
 - **AI companion** (Huve) — intelligent chat powered by NVIDIA Nemotron, aware of your countdown and tasks
 - **Daily check-in** — Huve greets you by name with your remaining days and soonest task
-- **Onboarding** with embedded auth — spinning globe intro, name/password signup, date picker
+- **Onboarding** with embedded auth — spinning globe intro, name/password signup, date picker. Registration is open to anyone; what actually gates it lives in the Supabase dashboard ([`docs/ACCOUNTS.md`](docs/ACCOUNTS.md))
 - **Supabase persistence** — state, chat, and shopping list sync across devices
 - **Shared shopping list** — standalone page for family to view/claim items, real-time via Supabase
+- **Auto-updating PWA** — an installed Home Screen app picks up each new release on its own, deferring the reload while a recording, upload or half-typed note is in flight ([`docs/PWA_UPDATES.md`](docs/PWA_UPDATES.md))
 - **Dark mode** and theme accent picker (terracotta / teal / gold)
 - **Budget planner** — monthly (AED 8,800 income) + one-time move costs, with ZAR home-currency comparison
 - **First 48 Hours guide** — arrival essentials: SIM, groceries, mosque, first meal, transport
@@ -17,6 +18,18 @@ A warm, private everyday companion for life in Abu Dhabi.
 - **"Why I'm doing this"** — editable anchor note pinned to the dashboard
 - **Confetti celebrations** when you complete a module
 - **South African rand (ZAR)** on the shopping list
+- **A shared space for two** — a two-minute pulse, a reveal-together question, shared notes and an adventure jar
+- **Closeness without a call** — one-tap thoughts that push to their phone, shared countdowns to the next time you are together, their local time, and a fortnight of your check-in rhythm ([`docs/CLOSENESS.md`](docs/CLOSENESS.md))
+
+## Live calling is hidden
+
+The UAE reserves consumer voice and video over IP for licensed telecom
+operators, so the LiveKit calling feature ships switched off: no call route, no
+call buttons, no navigation entry, and `/api/livekit-token` refuses to mint a
+room grant. The code is intact behind one flag — see
+[`docs/CALLS.md`](docs/CALLS.md) to turn it on where consumer calling is
+permitted. Recorded **video notes** are store-and-forward, not realtime VoIP,
+and remain available.
 
 ## Stack
 
@@ -51,6 +64,8 @@ API: window.__suvedaApiUrl → Cloudflare Worker → NVIDIA API
 | `VITE_SUPABASE_ANON_KEY` | Supabase anon/public key |
 | `VITE_API_URL` | AI proxy endpoint (Cloudflare Worker) |
 | `NVIDIA_API_KEY` | NVIDIA API key (Worker secret) |
+| `VITE_ENABLE_CALLS` | Set to `true` to un-hide live audio/video calling (off by default) |
+| `ENABLE_CALLS` | Server-side twin; without it `/api/livekit-token` returns 404 |
 
 ## Local dev
 

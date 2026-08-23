@@ -3,6 +3,7 @@
 // rather than an error path.
 
 import { nativeOnline } from './native';
+import { hasUnfinishedTyping } from '../pwa';
 
 /**
  * navigator.onLine reports true on a wifi network with no route out, which is
@@ -113,7 +114,11 @@ export async function withRetry<T>(fn: () => Promise<T>, options: RetryOptions =
 export function setBusy(busy: boolean): void {
   if (typeof window === 'undefined') return;
   window.__lifeosBusy = busy;
-  if (!busy && window.__lifeosPendingReload) {
+  // A pending update takes the page as soon as the work finishes — unless the
+  // person has meanwhile started typing something. The service worker handler
+  // watches for that field to clear and reloads then, so the update is only
+  // ever postponed, never dropped.
+  if (!busy && window.__lifeosPendingReload && !hasUnfinishedTyping()) {
     window.__lifeosPendingReload = false;
     window.location.reload();
   }

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   LEGACY_ROOM,
+  callingEnabled,
   isMissingSpacesRpc,
   resolveCallContext,
   spaceRoomName,
@@ -13,6 +14,25 @@ function queryResult(result: unknown) {
     maybeSingle: vi.fn().mockResolvedValue(result),
   };
 }
+
+describe('LiveKit calling availability', () => {
+  it('stays off unless a deployment sets ENABLE_CALLS to true', () => {
+    expect(callingEnabled({})).toBe(false);
+    expect(callingEnabled({ ENABLE_CALLS: '' })).toBe(false);
+    expect(callingEnabled({ ENABLE_CALLS: 'false' })).toBe(false);
+    expect(callingEnabled({ ENABLE_CALLS: '1' })).toBe(false);
+    expect(callingEnabled({ ENABLE_CALLS: 'yes' })).toBe(false);
+  });
+
+  it('opts in on an explicit true regardless of casing or padding', () => {
+    expect(callingEnabled({ ENABLE_CALLS: 'true' })).toBe(true);
+    expect(callingEnabled({ ENABLE_CALLS: ' TRUE ' })).toBe(true);
+  });
+
+  it('stays off when no environment is available', () => {
+    expect(callingEnabled(null as never)).toBe(false);
+  });
+});
 
 describe('LiveKit call context', () => {
   it('derives a stable isolated room from the authenticated space', () => {
