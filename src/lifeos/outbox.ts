@@ -254,7 +254,12 @@ const lastProgress = new Map<string, number>();
  */
 export async function updateProgress(id: string, fraction: number): Promise<void> {
   const previous = lastProgress.get(id) ?? -1;
-  if (fraction < 1 && fraction - previous < 0.05) return;
+  // A retry starts the same entry over from zero. Treated as throttling, every
+  // step of the second attempt sits below the first attempt's high-water mark,
+  // so the bar stayed frozen until the upload finished. Going backwards means
+  // a new attempt, not a small step.
+  const restarted = fraction < previous;
+  if (!restarted && fraction < 1 && fraction - previous < 0.05) return;
   lastProgress.set(id, fraction);
   await updateEntry(id, { progress: fraction });
 }

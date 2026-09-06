@@ -150,7 +150,7 @@ function VoiceRecorder({ value, onChange }) {
     timerRef.current = null;
     streamRef.current?.getTracks().forEach(t => t.stop());
     streamRef.current = null;
-    api?.net.setBusy(false);
+    api?.net.setBusy(false, 'voice-note');
   }, [api]);
 
   useEffect(() => () => {
@@ -201,7 +201,7 @@ function VoiceRecorder({ value, onChange }) {
 
       recorderRef.current = recorder;
       recorder.start(1000);
-      api.net.setBusy(true);
+      api.net.setBusy(true, 'voice-note');
       void api.native.tap('medium');
 
       elapsedRef.current = 0;

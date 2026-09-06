@@ -274,7 +274,16 @@ function LazyLegacyScreen({ bundle, componentName, screenProps = {} }) {
       <div className="feature-loader" role="alert">
         <strong>Could not open this feature</strong>
         <span>{error}</span>
-        <button type="button" onClick={() => { setError(''); setStatus('loading'); void loadLegacyBundle(bundle).then(() => setStatus('ready')); }}>Try again</button>
+        <button type="button" onClick={() => {
+          setError('');
+          setStatus('loading');
+          // A retry that fails again has to land back on the error card. Without
+          // the catch it left the screen on "Opening…" for good.
+          void loadLegacyBundle(bundle).then(() => setStatus('ready'), nextError => {
+            setError(nextError?.message || 'This feature could not be opened.');
+            setStatus('error');
+          });
+        }}>Try again</button>
       </div>
     );
   }
@@ -414,10 +423,15 @@ function App() {
   const performanceMode = previewLite || preferences.motion === 'reduced' ? 'lite' : devicePerformanceMode;
   const [celebrate, setCelebrate] = useState(false);
   const [syncFeedback, setSyncFeedback] = useState({ status: 'idle', message: 'Sync now', detail: '' });
-  const lastPctRef = useRef(0);
+  // Null until the first settled state establishes a baseline. Starting at 0
+  // meant restoring an account that already had a finished module counted as a
+  // completion, so the confetti fired on every launch.
+  const lastPctRef = useRef(null);
   const syncResetRef = useRef(null);
+  const celebrateRef = useRef(null);
 
   useEffect(() => () => clearTimeout(syncResetRef.current), []);
+  useEffect(() => () => clearTimeout(celebrateRef.current), []);
 
   useEffect(() => {
     if (typeof window.matchMedia !== 'function') return undefined;
@@ -521,14 +535,22 @@ function App() {
 
   // Listen for any module 100% to trigger celebration
   useEffect(() => {
+    // Wait for the account's own state to land. Anything before that is the
+    // seed, and comparing the two would celebrate work finished days ago.
+    if (!storageReady) {
+      lastPctRef.current = null;
+      return;
+    }
     const mp = moduleProgress(state);
     const completed = Object.entries(mp).filter(([, v]) => v.total > 0 && v.done === v.total && !v.isMoney).length;
-    if (completed > lastPctRef.current && completed > 0) {
-      setCelebrate(true);
-      setTimeout(() => setCelebrate(false), 3500);
-    }
+    const previous = lastPctRef.current;
     lastPctRef.current = completed;
-  }, [state]);
+    if (previous === null || completed <= previous) return;
+
+    clearTimeout(celebrateRef.current);
+    setCelebrate(true);
+    celebrateRef.current = setTimeout(() => setCelebrate(false), 3500);
+  }, [state, storageReady]);
 
   // A tapped notification names the screen it was about.
   useEffect(() => {

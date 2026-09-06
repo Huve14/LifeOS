@@ -11,6 +11,7 @@ import {
   subscribeOutbox,
   supportsOutbox,
   updateEntry,
+  updateProgress,
   type OutboxEntry,
 } from './outbox';
 
@@ -46,6 +47,33 @@ async function clear() {
 }
 
 beforeEach(clear);
+
+describe('upload progress', () => {
+  it('throttles small steps so a megabyte entry is not rewritten per byte', async () => {
+    await putEntry(entry('p'));
+    await updateProgress('p', 0.2);
+    await updateProgress('p', 0.21);
+    expect((await getEntry('p'))?.progress).toBe(0.2);
+
+    await updateProgress('p', 0.3);
+    expect((await getEntry('p'))?.progress).toBe(0.3);
+  });
+
+  // A failed upload goes back on the queue at zero. Every step of the retry
+  // sits below the first attempt's high-water mark, so throttling alone left
+  // the bar frozen for the whole second attempt.
+  it('follows a retry that starts over from zero', async () => {
+    await putEntry(entry('q'));
+    await updateProgress('q', 0.9);
+
+    await updateEntry('q', { status: 'queued', progress: 0 });
+    await updateProgress('q', 0.1);
+    expect((await getEntry('q'))?.progress).toBe(0.1);
+
+    await updateProgress('q', 0.2);
+    expect((await getEntry('q'))?.progress).toBe(0.2);
+  });
+});
 
 describe('outbox', () => {
   it('reports IndexedDB availability', () => {

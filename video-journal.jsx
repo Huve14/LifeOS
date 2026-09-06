@@ -191,7 +191,7 @@ function RecorderSheet({ open, onClose }) {
     }
     recorderRef.current = null;
     stopTracks();
-    api?.net.setBusy(false);
+    api?.net.setBusy(false, 'video-note');
   }, [api, stopTracks]);
 
   // Open the camera when the sheet opens, when the camera is flipped, and when
@@ -263,7 +263,7 @@ function RecorderSheet({ open, onClose }) {
     const blob = new Blob(chunksRef.current, { type: api.recording.baseMime(mimeType) });
     chunksRef.current = [];
     stopTracks();
-    api.net.setBusy(false);
+    api.net.setBusy(false, 'video-note');
 
     setResult({
       blob,
@@ -305,7 +305,7 @@ function RecorderSheet({ open, onClose }) {
 
     recorderRef.current = recorder;
     recorder.start(1000);
-    api.net.setBusy(true);
+    api.net.setBusy(true, 'video-note');
     void api.native.tap('medium');
 
     elapsedRef.current = 0;

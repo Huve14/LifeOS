@@ -16,7 +16,11 @@ import { isNative, platform } from './native';
 
 export type PushStatus = 'unsupported' | 'denied' | 'granted';
 
-let registered = false;
+// The listeners below are never removed, so they are attached exactly once.
+// This used to share a flag with registration itself, and a registration error
+// reset it — after which the next launch attached a second copy of every
+// listener and delivered each tapped notification twice.
+let listenersAttached = false;
 
 async function saveToken(token: string): Promise<void> {
   const userId = currentUserId();
@@ -51,16 +55,16 @@ export async function registerPush(
     }
     if (permission.receive !== 'granted') return 'denied';
 
-    if (!registered) {
-      registered = true;
+    if (!listenersAttached) {
+      listenersAttached = true;
 
       await PushNotifications.addListener('registration', (token: Token) => {
         void saveToken(token.value);
       });
 
       await PushNotifications.addListener('registrationError', () => {
-        // Nothing actionable in the UI. The app works without push.
-        registered = false;
+        // Nothing actionable in the UI. The app works without push, and
+        // register() below runs again on the next launch.
       });
 
       // Tapping a notification should land on the thing it was about.

@@ -495,7 +495,7 @@ function CallScreen({
     pipVideoRef.current = null;
     await activeCall?.disconnect();
     await leaveFullscreen();
-    api?.net.setBusy(false);
+    api?.net.setBusy(false, 'call');
     setParticipants([]);
     setSoundBlocked(false);
     setTransport(null);
@@ -510,7 +510,7 @@ function CallScreen({
   useEffect(() => () => {
     void closePictureInPicture(pipVideoRef.current).catch(() => {});
     void callRef.current?.disconnect();
-    api?.net.setBusy(false);
+    api?.net.setBusy(false, 'call');
   }, [api]);
 
   useEffect(() => {
@@ -659,14 +659,14 @@ function CallScreen({
     setSuggestNote(false);
     degradationRef.current = api.call.newDegradationState();
     // Keeps a service worker update from reloading the page mid-call.
-    api.net.setBusy(true);
+    api.net.setBusy(true, 'call');
 
     try {
       callRef.current = await api.call.startCall({
         onState: (next, why) => {
           setState(next);
           if (why) setDetail(why);
-          if (next === 'ended' || next === 'failed') api.net.setBusy(false);
+          if (next === 'ended' || next === 'failed') api.net.setBusy(false, 'call');
         },
         onQuality: next => {
           setQuality(next);
@@ -688,7 +688,7 @@ function CallScreen({
       void api.native.tap('medium');
     } catch (err) {
       callRef.current = null;
-      api.net.setBusy(false);
+      api.net.setBusy(false, 'call');
       setState('failed');
       setDetail(api.call.friendlyCallError(err));
     }

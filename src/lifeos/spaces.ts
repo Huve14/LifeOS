@@ -9,7 +9,7 @@
 
 import { getAuthClient, hasConfig } from '../supabase';
 import { setZones } from './time';
-import { setPromptZone } from './prompts';
+import { resetPromptZone, setPromptZone } from './prompts';
 
 export type Profile = {
   user_id: string;
@@ -40,6 +40,11 @@ export type SpaceState = {
 const EMPTY: SpaceState = { space: null, me: null, members: [], paired: false };
 
 let cache: SpaceState | null = null;
+// Signing out and back in as somebody else does not reload the page, so the
+// cache has to remember whose space it holds. Without this the second account
+// reads the first one's space: its name, its members, their display names and
+// their time zones, which also drive the dual clocks and the prompt anchor.
+let cacheUserId: string | null = null;
 
 export function currentUserId(): string | null {
   return window.__suvedaUser?.id ?? null;
@@ -55,8 +60,10 @@ function deviceZone(): string {
 }
 
 export async function loadSpace(force = false): Promise<SpaceState> {
-  if (cache && !force) return cache;
-  if (!hasConfig || !currentUserId()) return EMPTY;
+  const userId = currentUserId();
+  if (cache && !force && cacheUserId === userId) return cache;
+  if (cacheUserId !== userId) clearSpaceCache();
+  if (!hasConfig || !userId) return EMPTY;
 
   const client = getAuthClient();
 
@@ -66,6 +73,10 @@ export async function loadSpace(force = false): Promise<SpaceState> {
   ]);
 
   if (!members || members.length === 0) return EMPTY;
+
+  // The rows below are the ones this user is allowed to see, so from here the
+  // cache belongs to them.
+  cacheUserId = userId;
 
   const spaceId = members[0].space_id as string;
   const { data: spaceRow } = await client
@@ -78,7 +89,7 @@ export async function loadSpace(force = false): Promise<SpaceState> {
     (spaceRow as Space) ?? { id: spaceId, name: '' },
     (profiles ?? []) as Profile[],
     members.map((member) => member.user_id as string),
-    currentUserId(),
+    userId,
   );
   applyZones(cache);
   return cache;
@@ -125,6 +136,13 @@ function applyZones(state: SpaceState): void {
 
 export function clearSpaceCache(): void {
   cache = null;
+  cacheUserId = null;
+  // These are derived from the space's members, so they go with it. Cleared
+  // rather than left behind: the fallbacks are the reader's own device zone
+  // and the default prompt anchor, which are right for a signed-out app and
+  // for the next account until its own space loads.
+  setZones([]);
+  resetPromptZone();
 }
 
 /**

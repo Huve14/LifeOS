@@ -107,21 +107,44 @@ export async function withRetry<T>(fn: () => Promise<T>, options: RetryOptions =
 }
 
 /**
+ * Who is currently holding the app busy. A plain boolean was wrong here: an
+ * outbox drain, a recording and a call all run independently, so whichever
+ * finished first cleared the flag for the others and let a pending service
+ * worker update reload the page over work that was still in flight. Each
+ * caller names itself instead, and the app is busy while anyone still holds it.
+ */
+const busyHolders = new Set<string>();
+
+/**
  * Set while a recording, upload or call is in flight. The service worker
  * update handler reads this and defers its reload, so an update cannot destroy
  * a clip that has not reached the server yet.
+ *
+ * `key` names the piece of work. Releasing a key nobody holds is a no-op, so a
+ * teardown path that runs twice — or one that runs without a matching start —
+ * cannot drop somebody else's hold.
  */
-export function setBusy(busy: boolean): void {
+export function setBusy(busy: boolean, key = 'default'): void {
   if (typeof window === 'undefined') return;
-  window.__lifeosBusy = busy;
+  if (busy) busyHolders.add(key);
+  else busyHolders.delete(key);
+
+  const stillBusy = busyHolders.size > 0;
+  window.__lifeosBusy = stillBusy;
   // A pending update takes the page as soon as the work finishes — unless the
   // person has meanwhile started typing something. The service worker handler
   // watches for that field to clear and reloads then, so the update is only
   // ever postponed, never dropped.
-  if (!busy && window.__lifeosPendingReload && !hasUnfinishedTyping()) {
+  if (!stillBusy && window.__lifeosPendingReload && !hasUnfinishedTyping()) {
     window.__lifeosPendingReload = false;
     window.location.reload();
   }
+}
+
+/** Release every hold. For sign-out and tests, not for normal teardown. */
+export function clearBusy(): void {
+  busyHolders.clear();
+  if (typeof window !== 'undefined') window.__lifeosBusy = false;
 }
 
 export function isBusy(): boolean {

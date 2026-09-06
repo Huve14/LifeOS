@@ -57,7 +57,7 @@ let activeFlush: Promise<void> | null = null;
  * worker reload until unsent work is safe.
  */
 async function drainOutbox(): Promise<void> {
-  setBusy(true);
+  setBusy(true, 'outbox');
 
   try {
     const entries = await listEntries();
@@ -83,7 +83,7 @@ async function drainOutbox(): Promise<void> {
       }
     }
   } finally {
-    setBusy(false);
+    setBusy(false, 'outbox');
   }
 }
 

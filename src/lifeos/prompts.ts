@@ -36,6 +36,11 @@ export function setPromptZone(zone: string): void {
   if (zone) promptZone = zone;
 }
 
+/** Back to the default anchor, for when there is no space to take one from. */
+export function resetPromptZone(): void {
+  promptZone = ABU_DHABI;
+}
+
 export function getPromptZone(): string {
   return promptZone;
 }

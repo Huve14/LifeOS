@@ -673,9 +673,17 @@ export function subscribeGameRoom(
 ): () => void {
   let active = true;
   let refreshPending = false;
+  // A change that arrives mid-refresh used to be dropped, which left a board
+  // showing the move before last. Coalesce instead: remember that something
+  // came in and run one more pass when the current one lands.
+  let refreshAgain = false;
 
   const refresh = async () => {
-    if (!active || refreshPending) return;
+    if (!active) return;
+    if (refreshPending) {
+      refreshAgain = true;
+      return;
+    }
     refreshPending = true;
     try {
       const bundle = await loadGameRoom(roomId);
@@ -684,6 +692,10 @@ export function subscribeGameRoom(
       if (active) onError?.(error instanceof Error ? error : new Error('The room could not refresh.'));
     } finally {
       refreshPending = false;
+      if (refreshAgain) {
+        refreshAgain = false;
+        void refresh();
+      }
     }
   };
 
@@ -812,6 +824,7 @@ export function subscribeShoppingItems(
     };
   }
 
+  let active = true;
   const channel = getPublicClient()
     .channel('shopping-list-changes')
     .on(
@@ -819,12 +832,15 @@ export function subscribeShoppingItems(
       { event: '*', schema: 'public', table: 'suveda_shopping_items' },
       async () => {
         const items = await loadShoppingItems();
-        onChange(items);
+        // The read is in flight across the unsubscribe, so check again before
+        // handing rows to a listener that has already gone away.
+        if (active) onChange(items);
       },
     )
     .subscribe();
 
   return () => {
+    active = false;
     getPublicClient().removeChannel(channel);
   };
 }

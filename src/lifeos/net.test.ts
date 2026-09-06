@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { AbortError, backoffDelay, isBusy, setBusy, withRetry } from './net';
+import { AbortError, backoffDelay, clearBusy, isBusy, setBusy, withRetry } from './net';
 
 describe('backoffDelay', () => {
   it('grows with the attempt number', () => {
@@ -81,7 +81,7 @@ describe('withRetry', () => {
 
 describe('setBusy', () => {
   beforeEach(() => {
-    window.__lifeosBusy = false;
+    clearBusy();
     window.__lifeosPendingReload = false;
   });
 
@@ -101,6 +101,38 @@ describe('setBusy', () => {
   it('clears the flag when the work finishes', () => {
     setBusy(true);
     setBusy(false);
+    expect(isBusy()).toBe(false);
+  });
+
+  // An outbox drain, a recording and a call run independently. Whichever
+  // finished first used to clear the flag for all of them, which let a pending
+  // service worker update reload the page over work still in flight.
+  it('stays busy while another piece of work still holds it', () => {
+    setBusy(true, 'outbox');
+    setBusy(true, 'video-note');
+
+    setBusy(false, 'outbox');
+    expect(isBusy()).toBe(true);
+
+    setBusy(false, 'video-note');
+    expect(isBusy()).toBe(false);
+  });
+
+  it('ignores a release from work that was never started', () => {
+    setBusy(true, 'call');
+    // A teardown path that runs without a matching start, or runs twice.
+    setBusy(false, 'video-note');
+    setBusy(false, 'video-note');
+    expect(isBusy()).toBe(true);
+
+    setBusy(false, 'call');
+    expect(isBusy()).toBe(false);
+  });
+
+  it('treats repeated holds under one key as a single hold', () => {
+    setBusy(true, 'outbox');
+    setBusy(true, 'outbox');
+    setBusy(false, 'outbox');
     expect(isBusy()).toBe(false);
   });
 });
