@@ -16,7 +16,10 @@ function ModulePage({ title, subtitle, emoji, icon, onBack, children, action }) 
     <main className="module-page fade-in">
       <header className="module-page-header">
         <button
-          onClick={onBack}
+          onClick={() => {
+            void window.__lifeos?.native.tap('light');
+            onBack?.();
+          }}
           className="module-page-back"
           type="button"
           aria-label="Back to home"

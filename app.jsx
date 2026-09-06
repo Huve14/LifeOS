@@ -1803,6 +1803,7 @@ function BottomNav({ current, onNavigate, preferences }) {
                 onPointerDown={() => preloadLegacyView(item.id)}
                 onFocus={() => preloadLegacyView(item.id)}
                 onClick={() => {
+                  void window.__lifeos?.native.tap('light');
                   playNavItem(item.id);
                   onNavigate(item.id);
                 }}
@@ -1823,6 +1824,7 @@ function BottomNav({ current, onNavigate, preferences }) {
           <button
             type="button"
             onClick={() => {
+              void window.__lifeos?.native.tap('light');
               playNavItem('more');
               setMoreOpen(open => !open);
             }}
@@ -1857,6 +1859,7 @@ function BottomNav({ current, onNavigate, preferences }) {
                   onMouseEnter={() => preloadLegacyView(item.id)}
                   onFocus={() => preloadLegacyView(item.id)}
                   onClick={() => {
+                    void window.__lifeos?.native.tap('light');
                     playNavItem(item.id);
                     onNavigate(item.id);
                     setMoreOpen(false);
