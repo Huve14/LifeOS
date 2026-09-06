@@ -339,6 +339,32 @@ end;
 $$;
 
 reset role;
+
+-- Production once had the arrival automation without its notifications table.
+-- A just-landed registration must still commit its mandatory Auth/profile rows
+-- when that optional dependency is absent.
+drop table public.lifeos_notifications;
+
+insert into auth.users (id, email, raw_user_meta_data)
+values (
+  'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+  'resilient-signup@example.com',
+  '{"name":"Resilient Signup","status":"just_landed"}'::jsonb
+);
+
+do $$
+begin
+  if not exists (
+    select 1 from public.lifeos_profiles
+    where user_id = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee'
+  ) or not exists (
+    select 1 from public.lifeos_user_state
+    where user_id = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee'
+  ) then
+    raise exception 'Optional arrival failure rolled back mandatory signup rows';
+  end if;
+end;
+$$;
 SQL
 
 printf 'Migration chain verified successfully.\n'

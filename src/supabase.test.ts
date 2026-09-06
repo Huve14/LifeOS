@@ -7,6 +7,7 @@ import {
   loadShoppingItems,
   onAuthChange,
   prepareRegistrationMetadata,
+  prepareSignupProvisioning,
   signIn,
   signOut,
   signUp,
@@ -135,5 +136,24 @@ describe('prepareRegistrationMetadata', () => {
       employer_name: 'My employer',
       visible_in_directory: false,
     });
+  });
+});
+
+describe('prepareSignupProvisioning', () => {
+  it('defers status so optional arrival automation cannot roll back Auth signup', () => {
+    const provisioning = prepareSignupProvisioning('Priya', {}, {
+      home_town: 'Durban',
+      emirate: 'Abu Dhabi',
+      status: 'just_landed',
+    });
+
+    expect(provisioning.authMetadata).toMatchObject({
+      display_name: 'Priya',
+      home_town: 'Durban',
+      emirate: 'Abu Dhabi',
+      registration_status: 'just_landed',
+    });
+    expect(provisioning.authMetadata).not.toHaveProperty('status');
+    expect(provisioning.deferredProfile).toEqual({ status: 'just_landed' });
   });
 });

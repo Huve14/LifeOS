@@ -193,6 +193,7 @@ export async function initAuth(): Promise<User | null> {
   const { data: { session } } = await client.auth.getSession();
   const user = session?.user ?? null;
   notifyAuthListeners(user);
+  if (user) void applyDeferredRegistrationProfile(client, user);
 
   client.auth.onAuthStateChange((_event, session) => {
     notifyAuthListeners(session?.user ?? null);
@@ -246,6 +247,62 @@ export function prepareRegistrationMetadata(
   };
 }
 
+export function prepareSignupProvisioning(
+  name: string,
+  aiProfile: unknown = {},
+  profile: RegistrationProfile = {},
+): {
+  authMetadata: Record<string, unknown>;
+  deferredProfile: Pick<RegistrationProfile, 'status'>;
+} {
+  const metadata = prepareRegistrationMetadata(name, aiProfile, profile);
+  const { status, ...authMetadata } = metadata;
+
+  return {
+    // Setting status during auth.users insertion fires the optional arrival
+    // automation inside the signup transaction. An older production trigger
+    // can fail there and roll back the otherwise valid Auth account. Preserve
+    // the choice under an inert key, then apply it after Auth succeeds.
+    authMetadata: {
+      ...authMetadata,
+      registration_status: status,
+    },
+    deferredProfile: {
+      status: status as RegistrationProfile['status'],
+    },
+  };
+}
+
+async function applyDeferredRegistrationProfile(
+  client: SupabaseClient,
+  user: User,
+  deferredProfile?: Pick<RegistrationProfile, 'status'>,
+): Promise<void> {
+  const status = deferredProfile?.status
+    ?? user.user_metadata?.registration_status;
+  if (!['landing_soon', 'just_landed', 'settled'].includes(String(status))) return;
+
+  // This update may still hit an outdated optional automation trigger. The
+  // Auth account already exists at this point, so keep registration/sign-in
+  // successful and let the idempotent database migration repair provisioning.
+  try {
+    const { error } = await client
+      .from('lifeos_profiles')
+      .update({ status })
+      .eq('user_id', user.id);
+    if (error) return;
+
+    // Clear the retry marker only after the profile update and its optional
+    // automation have committed successfully.
+    const { data } = await client.auth.updateUser({
+      data: { registration_status: null },
+    });
+    if (data.user) window.__suvedaUser = data.user;
+  } catch {
+    // Personalisation is retryable; authentication is not.
+  }
+}
+
 export async function signUp(
   email: string,
   password: string,
@@ -264,11 +321,12 @@ export async function signUp(
     return { data: null, error: new Error('Please enter your name.') };
   }
   const client = getAuthClient();
-  return client.auth.signUp({
+  const provisioning = prepareSignupProvisioning(name, aiProfile, profile);
+  const result = await client.auth.signUp({
     email,
     password,
     options: {
-      data: prepareRegistrationMetadata(name, aiProfile, profile),
+      data: provisioning.authMetadata,
       // Bring the confirmation link back to wherever this person registered
       // instead of to whatever the project's Site URL is set to. Supabase
       // ignores a redirect that is not on the allow list, so the worst case is
@@ -278,6 +336,16 @@ export async function signUp(
       ),
     },
   });
+
+  if (!result.error && result.data.user && result.data.session) {
+    void applyDeferredRegistrationProfile(
+      client,
+      result.data.user,
+      provisioning.deferredProfile,
+    );
+  }
+
+  return result;
 }
 
 export async function signIn(email: string, password: string) {
@@ -289,7 +357,11 @@ export async function signIn(email: string, password: string) {
     return { data: null, error: new Error('Please enter your password.') };
   }
   const client = getAuthClient();
-  return client.auth.signInWithPassword({ email, password });
+  const result = await client.auth.signInWithPassword({ email, password });
+  if (!result.error && result.data.user && result.data.session) {
+    void applyDeferredRegistrationProfile(client, result.data.user);
+  }
+  return result;
 }
 
 export async function signOut() {
