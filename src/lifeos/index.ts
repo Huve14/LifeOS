@@ -25,6 +25,7 @@ import * as performance from './performance';
 import * as prices from './prices';
 import * as prompts from './prompts';
 import * as push from './push';
+import * as pwa from '../pwa';
 import * as recording from './recording';
 import * as registration from './registration';
 import * as spaces from './spaces';
@@ -56,6 +57,7 @@ export const lifeos = {
   prices,
   prompts,
   push,
+  pwa,
   recording,
   registration,
   spaces,

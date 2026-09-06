@@ -9,6 +9,22 @@ type BeforeInstallPromptEvent = Event & {
 
 export type PwaInstallPlatform = 'ios' | 'android' | 'desktop';
 export type PwaInstallOutcome = 'accepted' | 'dismissed' | 'unavailable';
+export type PwaUpdatePhase =
+  | 'idle'
+  | 'checking'
+  | 'current'
+  | 'downloading'
+  | 'ready'
+  | 'deferred'
+  | 'offline'
+  | 'unsupported'
+  | 'error';
+
+export type PwaUpdateStatus = {
+  phase: PwaUpdatePhase;
+  automatic: true;
+  lastCheckedAt: number | null;
+};
 
 export type PwaInstallGuide = {
   platform: PwaInstallPlatform;
@@ -21,6 +37,50 @@ let reloadStarted = false;
 let deferralWatched = false;
 let installPromptInitialized = false;
 let deferredInstallPrompt: BeforeInstallPromptEvent | null = null;
+let updateRegistration: ServiceWorkerRegistration | null = null;
+let lastUpdateAttemptAt = 0;
+let updateStatus: PwaUpdateStatus = {
+  phase: 'idle',
+  automatic: true,
+  lastCheckedAt: null,
+};
+const updateListeners = new Set<(status: PwaUpdateStatus) => void>();
+
+function setPwaUpdateStatus(patch: Partial<PwaUpdateStatus>): PwaUpdateStatus {
+  updateStatus = { ...updateStatus, ...patch, automatic: true };
+  const snapshot = getPwaUpdateStatus();
+  updateListeners.forEach(listener => listener(snapshot));
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('lifeos:pwa-update-status', { detail: snapshot }));
+  }
+  return snapshot;
+}
+
+export function getPwaUpdateStatus(): PwaUpdateStatus {
+  return { ...updateStatus };
+}
+
+export function subscribePwaUpdateStatus(
+  listener: (status: PwaUpdateStatus) => void,
+): () => void {
+  updateListeners.add(listener);
+  listener(getPwaUpdateStatus());
+  return () => updateListeners.delete(listener);
+}
+
+export function pwaUpdateMessage(status: PwaUpdateStatus): string {
+  switch (status.phase) {
+    case 'checking': return 'Checking for a newer release…';
+    case 'current': return 'You have the latest release.';
+    case 'downloading': return 'A new release is downloading in the background…';
+    case 'ready': return 'A new release is ready and opening automatically…';
+    case 'deferred': return 'Update ready. It will open automatically as soon as your current work is safe.';
+    case 'offline': return 'You are offline. Life OS will check again automatically when you reconnect.';
+    case 'unsupported': return 'Automatic web updates are not available in this browser.';
+    case 'error': return 'Could not check right now. Life OS will retry automatically.';
+    default: return 'Life OS checks whenever you open or return to the app.';
+  }
+}
 
 export function detectPwaInstallPlatform(
   userAgent = navigator.userAgent,
@@ -143,6 +203,7 @@ function watchForSafeMoment(): void {
     if (!window.__lifeosPendingReload) return;
     if (!isSafeToReload()) return;
     window.__lifeosPendingReload = false;
+    setPwaUpdateStatus({ phase: 'ready' });
     window.location.reload();
   };
 
@@ -163,42 +224,86 @@ function refreshWhenSafe(): void {
   // the pending refresh as soon as their reason for waiting clears.
   if (!isSafeToReload()) {
     window.__lifeosPendingReload = true;
+    setPwaUpdateStatus({ phase: 'deferred' });
     watchForSafeMoment();
     return;
   }
 
+  setPwaUpdateStatus({ phase: 'ready' });
   window.location.reload();
 }
 
 function activateWaitingWorker(registration: ServiceWorkerRegistration): void {
-  registration.waiting?.postMessage({ type: 'SKIP_WAITING' });
+  if (!registration.waiting) return;
+  setPwaUpdateStatus({ phase: 'ready' });
+  registration.waiting.postMessage({ type: 'SKIP_WAITING' });
 }
 
 function watchInstallation(registration: ServiceWorkerRegistration): void {
   registration.addEventListener('updatefound', () => {
     const worker = registration.installing;
     if (!worker) return;
+    if (navigator.serviceWorker.controller) {
+      setPwaUpdateStatus({ phase: 'downloading' });
+    }
 
     worker.addEventListener('statechange', () => {
       if (worker.state === 'installed' && navigator.serviceWorker.controller) {
+        setPwaUpdateStatus({ phase: 'ready' });
         activateWaitingWorker(registration);
       }
     });
   });
 }
 
-function installUpdateChecks(registration: ServiceWorkerRegistration): void {
-  let lastCheckedAt = 0;
+async function runUpdateCheck(
+  registration: ServiceWorkerRegistration,
+  force = false,
+  announce = false,
+): Promise<PwaUpdateStatus> {
+  if (!navigator.onLine) {
+    return setPwaUpdateStatus({ phase: 'offline' });
+  }
+  const now = Date.now();
+  if (!force && now - lastUpdateAttemptAt < MIN_CHECK_GAP_MS) return getPwaUpdateStatus();
+  lastUpdateAttemptAt = now;
+  if (announce) setPwaUpdateStatus({ phase: 'checking' });
 
+  try {
+    await registration.update();
+    const checkedAt = Date.now();
+    if (registration.waiting) {
+      setPwaUpdateStatus({ phase: 'ready', lastCheckedAt: checkedAt });
+      activateWaitingWorker(registration);
+    } else if (registration.installing) {
+      setPwaUpdateStatus({ phase: 'downloading', lastCheckedAt: checkedAt });
+    } else {
+      setPwaUpdateStatus({ phase: 'current', lastCheckedAt: checkedAt });
+    }
+  } catch {
+    // Offline transitions and restrictive mobile networks can interrupt a
+    // check. The next focus/online/interval event will try again.
+    setPwaUpdateStatus({ phase: navigator.onLine ? 'error' : 'offline' });
+  }
+
+  return getPwaUpdateStatus();
+}
+
+export async function checkForPwaUpdate(): Promise<PwaUpdateStatus> {
+  if (import.meta.env.DEV || typeof navigator === 'undefined' || !('serviceWorker' in navigator)) {
+    return setPwaUpdateStatus({ phase: 'unsupported' });
+  }
+
+  const registration = updateRegistration
+    ?? await navigator.serviceWorker.getRegistration('/');
+  if (!registration) return setPwaUpdateStatus({ phase: 'error' });
+  updateRegistration = registration;
+  return runUpdateCheck(registration, true, true);
+}
+
+function installUpdateChecks(registration: ServiceWorkerRegistration): void {
   const check = (force = false) => {
-    if (!navigator.onLine) return;
-    const now = Date.now();
-    if (!force && now - lastCheckedAt < MIN_CHECK_GAP_MS) return;
-    lastCheckedAt = now;
-    void registration.update().catch(() => {
-      // Offline transitions and restrictive mobile networks can interrupt a
-      // check. The next focus/online/interval event will try again.
-    });
+    void runUpdateCheck(registration, force);
   };
 
   check(true);
@@ -216,7 +321,11 @@ function installUpdateChecks(registration: ServiceWorkerRegistration): void {
  * Development is excluded so local HMR never competes with a service worker.
  */
 export function initPwaUpdates(): void {
-  if (initialized || import.meta.env.DEV || !('serviceWorker' in navigator)) return;
+  if (initialized) return;
+  if (import.meta.env.DEV || !('serviceWorker' in navigator)) {
+    setPwaUpdateStatus({ phase: 'unsupported' });
+    return;
+  }
   initialized = true;
 
   // A first install may claim this page too. Only reload when the page already
@@ -234,12 +343,14 @@ export function initPwaUpdates(): void {
     void navigator.serviceWorker
       .register(SERVICE_WORKER_URL, { scope: '/', updateViaCache: 'none' })
       .then(registration => {
+        updateRegistration = registration;
         watchInstallation(registration);
         activateWaitingWorker(registration);
         installUpdateChecks(registration);
       })
       .catch(() => {
         // The web app remains usable if a browser blocks PWA registration.
+        setPwaUpdateStatus({ phase: 'error' });
       });
   };
 

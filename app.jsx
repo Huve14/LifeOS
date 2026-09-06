@@ -1028,6 +1028,47 @@ function SettingsSegmented({ value, onChange, options, label }) {
   );
 }
 
+function PwaUpdateSettings() {
+  const updater = window.__lifeos.pwa;
+  const [status, setStatus] = useState(() => updater.getPwaUpdateStatus());
+
+  useEffect(() => updater.subscribePwaUpdateStatus(setStatus), [updater]);
+
+  const checking = status.phase === 'checking' || status.phase === 'downloading';
+  const unsupported = status.phase === 'unsupported';
+  const automaticLabel = unsupported ? 'Platform managed' : 'Automatic';
+  const lastChecked = status.lastCheckedAt
+    ? `Last checked ${new Date(status.lastCheckedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+    : 'Checks automatically when you open or return to Life OS';
+
+  return (
+    <Card padding="20px" className="settings-studio-card settings-update-card" style={{ marginBottom: 14 }}>
+      <div className="settings-card-heading">
+        <div><span>App updates</span><h3>Always on the newest Life OS</h3></div>
+        <small>No deleting or reinstalling needed</small>
+      </div>
+      <div className={`settings-update-state is-${status.phase}`} aria-live="polite">
+        <span className="settings-update-icon" aria-hidden="true">↻</span>
+        <span className="settings-update-copy">
+          <strong>{unsupported ? 'Updates are managed by your platform' : 'Automatic updates are on'}</strong>
+          <small>{updater.pwaUpdateMessage(status)}</small>
+        </span>
+        <span className="settings-update-badge"><i /> {automaticLabel}</span>
+      </div>
+      <div className="settings-update-footer">
+        <small>{lastChecked}</small>
+        <button
+          type="button"
+          onClick={() => { void updater.checkForPwaUpdate(); }}
+          disabled={checking || unsupported}
+        >
+          {checking ? 'Checking…' : 'Check now'}
+        </button>
+      </div>
+    </Card>
+  );
+}
+
 function AutomationSettings() {
   const api = window.__lifeos.automations;
   const [preferences, setPreferences] = useState(null);
@@ -1532,6 +1573,8 @@ function SettingsScreen({ profile, email, preferences, onPreferencesChange, onPr
           </div>
         </form>
       </Card>
+
+      <PwaUpdateSettings />
 
       <AutomationSettings />
 

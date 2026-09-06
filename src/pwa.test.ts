@@ -1,5 +1,14 @@
-import { afterEach, describe, expect, it } from 'vitest';
-import { detectPwaInstallPlatform, getPwaInstallGuide, hasUnfinishedTyping, isSafeToReload } from './pwa';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import {
+  checkForPwaUpdate,
+  detectPwaInstallPlatform,
+  getPwaInstallGuide,
+  getPwaUpdateStatus,
+  hasUnfinishedTyping,
+  isSafeToReload,
+  pwaUpdateMessage,
+  subscribePwaUpdateStatus,
+} from './pwa';
 
 describe('PWA install guidance', () => {
   it('recognises iPhone, iPadOS, Android and desktop browsers', () => {
@@ -86,5 +95,29 @@ describe('deferring an update so it cannot destroy work', () => {
     window.__lifeosBusy = true;
     expect(hasUnfinishedTyping(null)).toBe(false);
     expect(isSafeToReload()).toBe(false);
+  });
+});
+
+describe('PWA update settings', () => {
+  it('keeps automatic updates permanently enabled and exposes their status', () => {
+    const listener = vi.fn();
+    const unsubscribe = subscribePwaUpdateStatus(listener);
+
+    expect(getPwaUpdateStatus().automatic).toBe(true);
+    expect(listener).toHaveBeenCalledWith(expect.objectContaining({ automatic: true }));
+    unsubscribe();
+  });
+
+  it('explains when an update is waiting for a safe moment', () => {
+    expect(pwaUpdateMessage({
+      phase: 'deferred',
+      automatic: true,
+      lastCheckedAt: Date.now(),
+    })).toContain('automatically');
+  });
+
+  it('reports unsupported in development instead of pretending to update', async () => {
+    const status = await checkForPwaUpdate();
+    expect(status).toMatchObject({ phase: 'unsupported', automatic: true });
   });
 });

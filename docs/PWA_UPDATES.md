@@ -23,6 +23,12 @@ that happens, and the two things that stop it.
 tab-switching does not hammer the network. In practice the check that matters is
 the one when someone brings the app back to the foreground.
 
+Settings → App updates exposes the same updater rather than a second update
+path. It confirms that automatic updates are always on, shows the most recent
+successful check and lets someone request an immediate check. The setting is a
+status and control, not an off switch: an installed PWA should never require
+deleting and adding it again just to receive a release.
+
 ## Failure one: a cached service worker
 
 This is the failure that leaves a PWA stuck on an old release indefinitely, and
